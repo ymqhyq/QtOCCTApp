@@ -1,0 +1,74 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(TestOCCTQt VERSION 1.0.0)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Set Qt6 root directory
+set(CMAKE_PREFIX_PATH "D:/Qt/6.10.1/msvc2022_64")
+
+# Find required packages
+find_package(Qt6 COMPONENTS Core Widgets Gui OpenGL REQUIRED)
+
+# Set OpenCASCADE include and library directories
+set(OpenCASCADE_INCLUDE_DIR "D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc")
+set(OpenCASCADE_LIBRARY_DIR "D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib")
+
+# Enable automatic MOC, UIC and RCC processing for Qt
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+# Create executable
+add_executable(${PROJECT_NAME}
+    test_occt_qt.cpp
+)
+
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${OpenCASCADE_INCLUDE_DIR}
+)
+
+# Find Qt OpenGLWidgets module
+find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
+
+# Link libraries
+target_link_libraries(${PROJECT_NAME}
+    Qt6::Core
+    Qt6::Widgets
+    Qt6::Gui
+    Qt6::OpenGL
+    Qt6::OpenGLWidgets
+    opengl32
+    TKernel
+    TKMath
+    TKPrim
+    TKShHealing
+    TKGeomBase
+    TKGeomAlgo
+    TKBO
+    TKTopAlgo
+    TKBRep
+    TKXSBase
+)
+
+# Set the library directory for linker
+link_directories(${OpenCASCADE_LIBRARY_DIR})
+
+# Add linker flags to ensure the library path is included
+if(WIN32)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:\"${OpenCASCADE_LIBRARY_DIR}\"")
+endif()
+
+# Verify the library exists
+if(NOT EXISTS "${OpenCASCADE_LIBRARY_DIR}/TKGeomBase.lib")
+    message(FATAL_ERROR "OCCT library TKGeomBase.lib not found at: ${OpenCASCADE_LIBRARY_DIR}/TKGeomBase.lib")
+endif()
+
+# For Windows
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        WIN32_EXECUTABLE TRUE
+    )
+endif()

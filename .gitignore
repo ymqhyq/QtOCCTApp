@@ -1,0 +1,30 @@
+# Build directories
+build/
+build_debug/
+build_exec/
+build_moc_fix/
+build_new/
+build_temp/
+build_test/
+test_build/
+out/
+
+# IDE files
+.vs/
+.vscode/
+.clangd/
+
+# Logs and temporary files
+*.log
+build_log_debug.txt
+run_debug.log
+debug_run_*.bat
+launch_exec_debug.bat
+run_app.bat
+
+# Large data files (optional - check if you want to keep .shx files)
+debug_shx.txt
+
+# OS files
+Thumbs.db
+Desktop.ini
