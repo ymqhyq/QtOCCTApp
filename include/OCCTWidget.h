@@ -45,6 +45,9 @@ private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
                              const gp_Pnt &position, double angle = 0.0,
                              const QString &fontName = QString());
+  TopoDS_Shape makeTextShape2(const QString &text, double height,
+                              const gp_Pnt &position, double angle = 0.0,
+                              const QString &fontName = QString());
 
 signals:
   void lineSelected();

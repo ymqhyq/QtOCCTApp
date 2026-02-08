@@ -3,6 +3,7 @@
 #include <BRepBndLib.hxx>
 #include <BRepBuilderAPI_GTransform.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeVertex.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRep_Builder.hxx>
@@ -170,6 +171,22 @@ static void drawGlyphRecursive(const shx::ShxFont *font,
         } catch (...) {
         }
         currentPen = endP;
+      } else {
+        // Zero-length line -> Point explicitly drawn as a small cross
+        // Vertex alone might be invisible or filtered
+        double dotSize = 2.0 * scale; // Heuristic size
+        gp_Pnt p1(currentPen.X() - dotSize, currentPen.Y(), currentPen.Z());
+        gp_Pnt p2(currentPen.X() + dotSize, currentPen.Y(), currentPen.Z());
+        gp_Pnt p3(currentPen.X(), currentPen.Y() - dotSize, currentPen.Z());
+        gp_Pnt p4(currentPen.X(), currentPen.Y() + dotSize, currentPen.Z());
+
+        try {
+          TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+          TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p3, p4);
+          builder.Add(compound, e1);
+          builder.Add(compound, e2);
+        } catch (...) {
+        }
       }
     } else if (cmd.type == shx::CommandType::ArcTo) {
       gp_Pnt ctrlP;
@@ -193,6 +210,21 @@ static void drawGlyphRecursive(const shx::ShxFont *font,
           try {
             TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(currentPen, endP);
             builder.Add(compound, edge);
+          } catch (...) {
+          }
+        } else {
+          // Degenerate arc -> Point (small cross)
+          double dotSize = 2.0 * scale;
+          gp_Pnt p1(currentPen.X() - dotSize, currentPen.Y(), currentPen.Z());
+          gp_Pnt p2(currentPen.X() + dotSize, currentPen.Y(), currentPen.Z());
+          gp_Pnt p3(currentPen.X(), currentPen.Y() - dotSize, currentPen.Z());
+          gp_Pnt p4(currentPen.X(), currentPen.Y() + dotSize, currentPen.Z());
+
+          try {
+            TopoDS_Edge e1 = BRepBuilderAPI_MakeEdge(p1, p2);
+            TopoDS_Edge e2 = BRepBuilderAPI_MakeEdge(p3, p4);
+            builder.Add(compound, e1);
+            builder.Add(compound, e2);
           } catch (...) {
           }
         }
@@ -390,12 +422,12 @@ ShxTextGenerator::generateText(const std::string &text, const gp_Pnt &position,
     scaleT.SetVectorialPart(scaleMat);
 
     BRepBuilderAPI_GTransform gXform(currentShape, scaleT,
-                                     Standard_True); // Copy=True
+                                     true); // Copy=True
     currentShape = gXform.Shape();
 
     // Also transform boxes if present
     for (auto &box : boxes) {
-      BRepBuilderAPI_GTransform gb(box, scaleT, Standard_True);
+      BRepBuilderAPI_GTransform gb(box, scaleT, true);
       box = gb.Shape();
     }
   }

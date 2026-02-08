@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run QtOCCTApp (Windows)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/Debug/QtOCCTApp.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PATH": "D:\\GitHub_Ymqhyq\\OCCT\\build-vs2022-x64\\win64\\vc14\\bin;D:\\Qt\\6.10.1\\msvc2022_64\\bin;C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Redist\\MSVC\\14.44.35112\\x64\\Microsoft.VC143.CRT;D:\\GitHub_Ymqhyq\\OCCT\\3rdparty-vc14-64\\tbb-2021.13.0-x64\\bin;D:\\GitHub_Ymqhyq\\OCCT\\3rdparty-vc14-64\\freetype-2.13.3-x64\\bin;D:\\GitHub_Ymqhyq\\OCCT\\3rdparty-vc14-64\\freeimage-3.18.0-x64\\bin;${env:PATH}"
+            },
+            "console": "externalTerminal",
+            "preLaunchTask": "CMake Build"
+        }
+    ]
+}

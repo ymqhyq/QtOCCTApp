@@ -39,8 +39,8 @@ void OCCTWidget::initOCCT() {
         new Aspect_DisplayConnection();
     m_graphicDriver = new OpenGl_GraphicDriver(aDisplayConnection);
     // 重要：设置图形驱动器的选项
-    // m_graphicDriver->ChangeOptions().buffersNoSwap = Standard_True;
-    // m_graphicDriver->ChangeOptions().glslWarnings = Standard_False;
+    // m_graphicDriver->ChangeOptions().buffersNoSwap = true;
+    // m_graphicDriver->ChangeOptions().glslWarnings = false;
     // Create Viewer
     m_viewer = new V3d_Viewer(m_graphicDriver);
     m_viewer->SetDefaultLights();
@@ -228,7 +228,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
 
       // Remove dynamic line
       if (!m_dynamicLine.IsNull()) {
-        m_context->Remove(m_dynamicLine, Standard_True);
+        m_context->Remove(m_dynamicLine, true);
         m_dynamicLine.Nullify();
       }
     }
@@ -238,9 +238,9 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     qreal pixelRatio = devicePixelRatio();
     m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                       static_cast<int>(event->pos().y() * pixelRatio), m_view,
-                      Standard_True);
+                      true);
 
-    m_context->Select(Standard_True);
+    m_context->Select(true);
   }
   update();
 }
@@ -297,10 +297,14 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
   if ((event->buttons() & Qt::LeftButton) && !m_drawLineMode) {
     // Pan the view
     if (!m_view.IsNull()) {
-      m_view->Pan(event->pos().x() - m_xPos, m_yPos - event->pos().y());
+      qreal pixelRatio = devicePixelRatio();
+      m_view->Pan(static_cast<Standard_Integer>((event->pos().x() - m_xPos) *
+                                                pixelRatio),
+                  static_cast<Standard_Integer>((m_yPos - event->pos().y()) *
+                                                pixelRatio));
       m_xPos = event->pos().x();
       m_yPos = event->pos().y();
-      m_view->Redraw();
+      update();
       return; // Consume event if panning
     }
   }
@@ -314,7 +318,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
     if (Get3DPoint(event->pos().x(), event->pos().y(), currentPoint)) {
       // Redraw dynamic line
       if (!m_dynamicLine.IsNull()) {
-        m_context->Remove(m_dynamicLine, Standard_False);
+        m_context->Remove(m_dynamicLine, false);
         m_dynamicLine.Nullify();
       }
 
@@ -322,8 +326,8 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
         TopoDS_Edge edge = BRepBuilderAPI_MakeEdge(m_firstPoint, currentPoint);
         m_dynamicLine = new AIS_Shape(edge);
         m_context->SetColor(m_dynamicLine, Quantity_Color(Quantity_NOC_YELLOW),
-                            Standard_False);
-        m_context->Display(m_dynamicLine, Standard_True);
+                            false);
+        m_context->Display(m_dynamicLine, true);
       } catch (...) {
         // Ignore errors during dynamic drawing
       }
@@ -333,7 +337,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
     qreal pixelRatio = devicePixelRatio();
     m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                       static_cast<int>(event->pos().y() * pixelRatio), m_view,
-                      Standard_True);
+                      true);
   }
 }
 
@@ -346,11 +350,10 @@ void OCCTWidget::addLine(const gp_Pnt &start, const gp_Pnt &end) {
     Handle(AIS_Shape) lineShape = new AIS_Shape(edge);
 
     // Set the color to green
-    m_context->SetColor(lineShape, Quantity_Color(Quantity_NOC_GREEN),
-                        Standard_True);
+    m_context->SetColor(lineShape, Quantity_Color(Quantity_NOC_GREEN), true);
 
     // Display the shape
-    m_context->Display(lineShape, Standard_True);
+    m_context->Display(lineShape, true);
 
     // Store the line for reference
     m_lines.push_back(lineShape);
@@ -363,8 +366,8 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
                           const Quantity_Color &color) {
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-    m_context->SetColor(aisShape, color, Standard_True);
-    m_context->Display(aisShape, Standard_True);
+    m_context->SetColor(aisShape, color, true);
+    m_context->Display(aisShape, true);
     m_lines.push_back(aisShape); // Track it
     updateView();
   }
@@ -411,10 +414,10 @@ void OCCTWidget::generateRandomLines(int count) {
     Quantity_Color col((rand() % 100) / 100.0, (rand() % 100) / 100.0,
                        (rand() % 100) / 100.0, Quantity_TOC_RGB);
 
-    m_context->SetColor(lineShape, col, Standard_False);
+    m_context->SetColor(lineShape, col, false);
 
     // Display without update
-    m_context->Display(lineShape, Standard_False);
+    m_context->Display(lineShape, false);
 
     m_lines.push_back(lineShape);
   }
@@ -435,7 +438,51 @@ void OCCTWidget::generateRandomLines(int count) {
 #include <TopAbs_ShapeEnum.hxx>
 #include <TopoDS_Compound.hxx>
 #include <gp_Trsf.hxx>
-// Helper to get string advance width approximation
+TopoDS_Shape OCCTWidget::makeTextShape(const QString &text, double height,
+                                       const gp_Pnt &position, double angle,
+                                       const QString &fontName) {
+  // Use SimFang as default for mixed Chinese/English if fontName is empty
+  QString actualFont = fontName.isEmpty() ? "SimFang" : fontName;
+
+  StdPrs_BRepFont font;
+  if (!font.Init(actualFont.toUtf8().constData(), Font_FA_Regular, height)) {
+    // Fallback if SimFang not found
+    if (!font.Init("FangSong", Font_FA_Regular, height)) {
+      if (!font.Init(Font_NOF_SANS_SERIF, Font_FA_Regular, height)) {
+        return TopoDS_Shape();
+      }
+    }
+  }
+
+  TopoDS_Shape textShape;
+  StdPrs_BRepTextBuilder builder;
+  NCollection_String occtStr(text.toUtf8().constData());
+
+  try {
+    textShape = builder.Perform(font, occtStr);
+  } catch (...) {
+    return TopoDS_Shape();
+  }
+
+  if (textShape.IsNull())
+    return TopoDS_Shape();
+
+  // Apply transformations
+  gp_Trsf aFinalTrsf;
+
+  // 1. Rotation
+  gp_Trsf aRot;
+  aRot.SetRotation(gp::OZ(), angle * M_PI / 180.0);
+
+  // 2. Translation
+  gp_Trsf aTrans;
+  aTrans.SetTranslation(gp_Vec(gp::Origin(), position));
+
+  aFinalTrsf = aTrans * aRot;
+
+  BRepBuilderAPI_Transform aFinalTransform(textShape, aFinalTrsf);
+  return aFinalTransform.Shape();
+}
 double GetCharAdvance(const TopoDS_Shape &charShape, double height) {
   if (charShape.IsNull())
     return height * 0.5; // Default spacing for spaces
@@ -446,9 +493,9 @@ double GetCharAdvance(const TopoDS_Shape &charShape, double height) {
   return (xMax - xMin) + height * 0.1; // Width + 10% spacing
 }
 
-TopoDS_Shape OCCTWidget::makeTextShape(const QString &text, double height,
-                                       const gp_Pnt &position, double angle,
-                                       const QString &fontName) {
+TopoDS_Shape OCCTWidget::makeTextShape2(const QString &text, double height,
+                                        const gp_Pnt &position, double angle,
+                                        const QString &fontName) {
   // Font managers
   StdPrs_BRepFont fontAscii;
   StdPrs_BRepFont fontChinese;
@@ -578,14 +625,13 @@ void OCCTWidget::add3DText(const QString &text, double height,
     Handle(AIS_Shape) aisShape = new AIS_Shape(textShape);
 
     // Set color
-    m_context->SetColor(aisShape, Quantity_Color(Quantity_NOC_YELLOW),
-                        Standard_False);
+    m_context->SetColor(aisShape, Quantity_Color(Quantity_NOC_YELLOW), false);
 
     // Set display mode: 0 = Wireframe (Hollow), 1 = Shaded (Solid)
-    m_context->SetDisplayMode(aisShape, isSolid ? 1 : 0, Standard_False);
+    m_context->SetDisplayMode(aisShape, isSolid ? 1 : 0, false);
 
     // Display
-    m_context->Display(aisShape, Standard_True);
+    m_context->Display(aisShape, true);
     m_lines.push_back(aisShape);
 
     // Update view
@@ -605,7 +651,7 @@ void OCCTWidget::setTextsSolid(bool isSolid) {
   for (const auto &aisShape : m_lines) {
     if (!aisShape.IsNull()) {
       // Check if already displayed to avoid errors? SetDisplayMode is safe.
-      m_context->SetDisplayMode(aisShape, mode, Standard_False);
+      m_context->SetDisplayMode(aisShape, mode, false);
     }
   }
 
