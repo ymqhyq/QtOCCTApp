@@ -9,7 +9,6 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QStatusBar>
-#include <QToolBar>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -39,6 +38,7 @@ MainWindow::MainWindow(QWidget *parent)
   m_coordLabel->setMinimumWidth(280);
   sBar->addPermanentWidget(m_coordLabel);
 
+  // 连接鼠标位置信号
   // 连接鼠标位置信号
   connect(m_occtWidget, &OCCTWidget::mousePositionChanged, this,
           &MainWindow::onMousePositionChanged);
@@ -118,26 +118,26 @@ void MainWindow::onDrawLineClicked() {
 void MainWindow::onAddShxText() {
   if (!m_shxGenerator) {
     m_shxGenerator = std::make_unique<ShxTextGenerator>();
-    // Hardcoded paths for demo
-    bool loaded = m_shxGenerator->loadFont("D:/QwenCodeWS/txt.shx");
-    bool loadedBig = m_shxGenerator->loadBigFont("D:/QwenCodeWS/hztxt.SHX");
+    // Use the confirmed fonts TTT.shx (shapes) and hztxt.SHX (BigFont)
+    bool ok = m_shxGenerator->loadFont("d:/QtOCCTApp/TTT.shx");
+    bool okBig = m_shxGenerator->loadBigFont("d:/QtOCCTApp/hztxt.SHX");
 
-    if (!loaded || !loadedBig) {
+    if (!ok || !okBig) {
       QMessageBox::warning(this, "Font Load Error",
-                           "Could not load D:/QwenCodeWS/txt.shx or "
-                           "hztxt.SHX.\nPlease ensure files exist.");
+                           "Could not load TTT.shx or hztxt.SHX.");
+      return;
     }
   }
 
-  // User Requested Test: "京沪D1K235+500.369", H=200, W=0.8, A=0
-  std::string text = "京：:。.";
+  std::string text = "京沪D1K323+569.30";
   gp_Pnt pos(0, 0, 0);
+  double textHeight = 200.0;
+  double angle = 0.0;
+  double widthFactor = 1.0;
 
-  // Generate Text
-  auto result = m_shxGenerator->generateText(text, pos, 200.0, 0.0, 1.0);
+  auto result =
+      m_shxGenerator->generateText(text, pos, textHeight, angle, widthFactor);
   m_occtWidget->addShape(result.first, Quantity_Color(Quantity_NOC_YELLOW));
-
-  // Zoom handled by addShape
 }
 
 void MainWindow::onMousePositionChanged(double x, double y, double z) {

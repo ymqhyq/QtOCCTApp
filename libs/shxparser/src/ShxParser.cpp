@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <stack>
 #include <string>
@@ -206,14 +207,18 @@ private:
 
   void parseGlyphData(const uint8_t *data, size_t dataSize, Glyph &glyph);
 
-  void executeCommands(const Glyph &glyph, IPathRenderer &renderer,
-                       double scale, double &x, double &y) const;
+  void compileAll();
+  void compileGlyph(const std::vector<uint8_t> &sourceData,
+                    std::vector<DrawCommand> &targetCommands,
+                    std::stack<Point2D> &posStack, bool &penDown, double scale,
+                    double x, double y, int depth);
 };
 
 bool ShxFont::Impl::load(const std::string &filename) {
   std::ifstream file(filename, std::ios::binary | std::ios::ate);
   if (!file.is_open()) {
     lastError = "Cannot open file: " + filename;
+    std::cout << "ShxParser: " << lastError << std::endl;
     return false;
   }
 
@@ -257,6 +262,10 @@ bool ShxFont::Impl::loadFromMemory(const uint8_t *data, size_t size) {
     return false;
   }
 
+  if (result) {
+    compileAll();
+  }
+
   valid = result;
   return result;
 }
@@ -271,7 +280,7 @@ bool ShxFont::Impl::parseHeader(const uint8_t *data, size_t size, size_t &pos) {
   }
 
   if (headerEnd == 0) {
-    lastError = "Invalid SHX file header";
+    lastError = "Invalid SHX file header - no 0x1A found in first 128 bytes";
     return false;
   }
 
@@ -290,73 +299,97 @@ bool ShxFont::Impl::parseHeader(const uint8_t *data, size_t size, size_t &pos) {
     fontType = ShxFontType::Shapes;
   }
 
+  // After the header text (terminated by \r or \n), the Python shxparser
+  // does: read_string(f) which stops at \r, then f.read(2) which skips
+  // the \n and 0x1A bytes. Our headerEnd points to 0x1A.
+  // We need to position right after 0x1A, but the header text ends with
+  // \r\n before the 0x1A. The data starts immediately after 0x1A.
+  // Skip exactly 1 byte after 0x1A (padding null) to align properly.
   pos = headerEnd + 1;
 
-  while (pos < size && data[pos] == 0x00) {
-    pos++;
-  }
+  // For shapes 1.0: data starts IMMEDIATELY after 0x1A + any minimal padding
+  // Don't skip 0x00 bytes - they may be part of the first u16 (start=0)
 
   return true;
 }
 
+static inline uint16_t swap16(uint16_t val) { return (val << 8) | (val >> 8); }
+
 bool ShxFont::Impl::parseShapes(const uint8_t *data, size_t size, size_t pos) {
-  if (pos + 4 > size) {
+  if (pos + 6 > size) {
     lastError = "Unexpected end of file in shapes header";
     return false;
   }
 
-  uint16_t firstShapeNumber = readUInt16LE(data, pos);
-  uint16_t lastShapeNumber = readUInt16LE(data, pos);
+  // Shapes 1.0 format (from tatarize/shxparser):
+  // u16 start - starting shape number (usually 0)
+  // u16 end   - ending shape number
+  // u16 count - number of index table entries
+  // Index table: count * (u16 shapeNum, u16 length)
+  // Data section: sequential glyph data, read in index order
 
-  (void)firstShapeNumber;
+  uint16_t startVal = readUInt16LE(data, pos);
+  uint16_t endVal = readUInt16LE(data, pos);
+  uint16_t count = readUInt16LE(data, pos);
+  (void)startVal;
+  (void)endVal;
 
-  uint16_t shapeNum = 0;
+  if (count == 0)
+    return false;
 
-  while (pos < size) {
-    if (pos + 2 > size)
+  // Phase 1: Read the index table
+  struct ShapeEntry {
+    uint16_t shapeNum;
+    uint16_t length;
+  };
+
+  std::vector<ShapeEntry> indexTable;
+  indexTable.reserve(count);
+
+  for (uint16_t i = 0; i < count; ++i) {
+    if (pos + 4 > size)
       break;
+    ShapeEntry entry;
+    entry.shapeNum = readUInt16LE(data, pos);
+    entry.length = readUInt16LE(data, pos);
+    indexTable.push_back(entry);
+  }
 
-    shapeNum = readUInt16LE(data, pos);
-    if (shapeNum == 0) {
-      if (pos + 2 > size)
-        break;
-      uint16_t defBytes = readUInt16LE(data, pos);
+  // Phase 2: Read glyph data sequentially
+  for (const auto &entry : indexTable) {
+    if (entry.shapeNum == 0) {
+      // Shape 0: font metrics (stream-read, NOT length-based)
+      // Format: name (null-terminated string), above (u8), below (u8), modes
+      // (u8)
 
-      if (pos + defBytes > size)
-        break;
-
-      if (defBytes > 0) {
-        baseHeight = data[pos];
-        if (defBytes > 1) {
-          descender = static_cast<int8_t>(data[pos + 1]);
-        }
+      // Skip name string until null terminator
+      while (pos < size && data[pos] != 0) {
+        pos++;
       }
+      pos++; // Skip null terminator
 
-      pos += defBytes;
-      continue;
-    }
-
-    if (pos + 2 > size)
-      break;
-    uint16_t defBytes = readUInt16LE(data, pos);
-
-    if (defBytes == 0 || pos + defBytes > size) {
-      if (shapeNum > lastShapeNumber)
+      if (pos < size) {
+        baseHeight = data[pos++];
+      }
+      if (pos < size) {
+        descender = static_cast<int8_t>(data[pos++]);
+      }
+      if (pos < size) {
+        pos++; // modes byte (skip)
+      }
+    } else {
+      if (pos + entry.length > size)
         break;
-      continue;
+
+      Glyph glyph;
+      glyph.code = entry.shapeNum;
+
+      parseGlyphData(data + pos, entry.length, glyph);
+
+      glyphs[entry.shapeNum] = std::move(glyph);
+
+      pos += entry.length;
     }
-
-    Glyph glyph;
-    glyph.code = shapeNum;
-
-    parseGlyphData(data + pos, defBytes, glyph);
-
-    glyphs[shapeNum] = std::move(glyph);
-
-    pos += defBytes;
-
-    if (shapeNum >= lastShapeNumber)
-      break;
   }
 
   return !glyphs.empty();
@@ -438,7 +471,17 @@ bool ShxFont::Impl::parseBigFont(const uint8_t *data, size_t size, size_t pos) {
       Glyph glyph;
       glyph.code = ref.index;
 
-      parseGlyphData(data + ref.offset, ref.length, glyph);
+      // BigFont glyph data starts with width info:
+      // - Double-byte chars (index >= 256): 2 bytes (width + padding)
+      // - Single-byte chars: 1 byte (width)
+      // Skip these bytes so they aren't misinterpreted as drawing commands.
+      size_t skipBytes = (ref.index >= 256) ? 2 : 1;
+      if (ref.length > skipBytes) {
+        // First byte is the character width (horizontal advance)
+        glyph.width = data[ref.offset];
+        parseGlyphData(data + ref.offset + skipBytes, ref.length - skipBytes,
+                       glyph);
+      }
 
       glyphs[ref.index] = std::move(glyph);
     }
@@ -497,21 +540,57 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
   if (dataSize == 0)
     return;
 
-  double x = 0.0, y = 0.0;
-  // Initialize parsing state
+  // Store raw data for deferred compilation
+  glyph.rawData.assign(data, data + dataSize);
+}
+
+void ShxFont::Impl::compileAll() {
+  for (auto &pair : glyphs) {
+    Glyph &glyph = pair.second;
+    if (glyph.rawData.empty())
+      continue;
+
+    // Initialize parsing state for this glyph
+    std::stack<Point2D> posStack;
+    bool penDown = true;
+    double scale = 1.0;
+    double x = 0.0, y = 0.0;
+
+    // Start compilation from scratch
+    glyph.commands.clear();
+    compileGlyph(glyph.rawData, glyph.commands, posStack, penDown, scale, x, y,
+                 0);
+
+    // Calculate width/height after compilation
+    if (!glyph.commands.empty()) {
+      double minX = 0, maxX = 0, minY = 0, maxY = 0;
+      for (const auto &cmd : glyph.commands) {
+        minX = std::min(minX, cmd.endPoint.x);
+        maxX = std::max(maxX, cmd.endPoint.x);
+        minY = std::min(minY, cmd.endPoint.y);
+        maxY = std::max(maxY, cmd.endPoint.y);
+      }
+      glyph.width = maxX - minX;
+      glyph.height = maxY - minY;
+    }
+  }
+}
+
+void ShxFont::Impl::compileGlyph(const std::vector<uint8_t> &sourceData,
+                                 std::vector<DrawCommand> &targetCommands,
+                                 std::stack<Point2D> &posStack, bool &penDown,
+                                 double scale, double x, double y, int depth) {
+  if (depth > 20)
+    return; // Recursion guard
+
+  if (sourceData.empty())
+    return;
+
   size_t pos = 0;
-
-  // Default to Pen Down (matches Python/AutoCAD behavior).
-  // This ensures shapes starting with Vectors (e.g. '.') are drawn.
-  bool penDown = true;
-
-  double scale = 1.0;
-
-  // Use Point2D as originally defined
-  std::stack<Point2D> posStack;
+  size_t dataSize = sourceData.size();
 
   while (pos < dataSize) {
-    uint8_t byte = data[pos++];
+    uint8_t byte = sourceData[pos++];
 
     uint8_t length = (byte >> 4) & 0x0F;
     uint8_t direction = byte & 0x0F;
@@ -533,7 +612,7 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_DIVIDE_VECTOR:
         if (pos < dataSize) {
-          uint8_t divisor = data[pos++];
+          uint8_t divisor = sourceData[pos++];
           if (divisor > 0)
             scale /= divisor;
         }
@@ -541,7 +620,7 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_MULTIPLY_VECTOR:
         if (pos < dataSize) {
-          uint8_t multiplier = data[pos++];
+          uint8_t multiplier = sourceData[pos++];
           scale *= multiplier;
         }
         break;
@@ -556,31 +635,51 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
           posStack.pop();
           x = pt.x;
           y = pt.y;
-          glyph.commands.push_back(DrawCommand::moveTo(x, y));
+          targetCommands.push_back(DrawCommand::moveTo(x, y));
         }
         break;
 
-      case CMD_DRAW_SUBSHAPE:
-        if (pos + 2 <= dataSize) {
-          uint16_t subShapeId = readUInt16LE(data, pos);
-          glyph.commands.push_back(DrawCommand::subShape(subShapeId, x, y));
-          // Do NOT force pen lift. SubShapes restore state.
-          // If the font relies on pen staying down, we must respect it.
+      case CMD_DRAW_SUBSHAPE: {
+        // Shape ID byte count depends on font type:
+        // - Shapes and BigFont: 1 byte (shape numbers 0-255)
+        // - UniFont: 2 bytes (shape numbers 0-65535)
+        uint16_t subShapeId = 0;
+        if (fontType == ShxFontType::UniFont) {
+          if (pos + 2 <= dataSize) {
+            subShapeId = static_cast<uint16_t>(sourceData[pos]) |
+                         (static_cast<uint16_t>(sourceData[pos + 1]) << 8);
+            pos += 2;
+          } else {
+            break;
+          }
+        } else {
+          if (pos < dataSize) {
+            subShapeId = sourceData[pos++];
+          } else {
+            break;
+          }
         }
-        break;
+
+        auto it = glyphs.find(subShapeId);
+        if (it != glyphs.end()) {
+          compileGlyph(it->second.rawData, targetCommands, posStack, penDown,
+                       scale, x, y, depth + 1);
+          targetCommands.push_back(DrawCommand::moveTo(x, y));
+        }
+      } break;
 
       case CMD_XY_DISPLACEMENT: {
         if (pos + 2 <= dataSize) {
-          int8_t dx = static_cast<int8_t>(data[pos++]);
-          int8_t dy = static_cast<int8_t>(data[pos++]);
+          int8_t dx = static_cast<int8_t>(sourceData[pos++]);
+          int8_t dy = static_cast<int8_t>(sourceData[pos++]);
 
           double newX = x + dx * scale;
           double newY = y + dy * scale;
 
           if (penDown) {
-            glyph.commands.push_back(DrawCommand::lineTo(newX, newY));
+            targetCommands.push_back(DrawCommand::lineTo(newX, newY));
           } else {
-            glyph.commands.push_back(DrawCommand::moveTo(newX, newY));
+            targetCommands.push_back(DrawCommand::moveTo(newX, newY));
           }
 
           x = newX;
@@ -591,8 +690,8 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_POLY_XY_DISPLACEMENT: {
         while (pos + 2 <= dataSize) {
-          int8_t dx = static_cast<int8_t>(data[pos++]);
-          int8_t dy = static_cast<int8_t>(data[pos++]);
+          int8_t dx = static_cast<int8_t>(sourceData[pos++]);
+          int8_t dy = static_cast<int8_t>(sourceData[pos++]);
 
           if (dx == 0 && dy == 0)
             break;
@@ -601,9 +700,9 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
           double newY = y + dy * scale;
 
           if (penDown) {
-            glyph.commands.push_back(DrawCommand::lineTo(newX, newY));
+            targetCommands.push_back(DrawCommand::lineTo(newX, newY));
           } else {
-            glyph.commands.push_back(DrawCommand::moveTo(newX, newY));
+            targetCommands.push_back(DrawCommand::moveTo(newX, newY));
           }
 
           x = newX;
@@ -614,8 +713,8 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_OCTANT_ARC: {
         if (pos + 2 <= dataSize) {
-          uint8_t radius = data[pos++];
-          int8_t octantSpec = static_cast<int8_t>(data[pos++]);
+          uint8_t radius = sourceData[pos++];
+          int8_t octantSpec = static_cast<int8_t>(sourceData[pos++]);
 
           int startOct = (octantSpec >> 4) & 0x07;
           int spanOct = octantSpec & 0x07;
@@ -650,10 +749,10 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
             double ctrlY = cy + r * sin(midTheta);
 
             if (penDown) {
-              glyph.commands.push_back(
+              targetCommands.push_back(
                   DrawCommand::arcTo(segEndX, segEndY, ctrlX, ctrlY));
             } else {
-              glyph.commands.push_back(DrawCommand::moveTo(segEndX, segEndY));
+              targetCommands.push_back(DrawCommand::moveTo(segEndX, segEndY));
             }
 
             currentTheta = nextTheta;
@@ -666,11 +765,11 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_FRACTIONAL_ARC: {
         if (pos + 5 <= dataSize) {
-          uint8_t startOffset = data[pos++];
-          uint8_t endOffset = data[pos++];
-          uint8_t highRadius = data[pos++];
-          uint8_t radius = data[pos++];
-          int8_t octantSpec = static_cast<int8_t>(data[pos++]);
+          uint8_t startOffset = sourceData[pos++];
+          uint8_t endOffset = sourceData[pos++];
+          uint8_t highRadius = sourceData[pos++];
+          uint8_t radius = sourceData[pos++];
+          int8_t octantSpec = static_cast<int8_t>(sourceData[pos++]);
 
           int startOct = (octantSpec >> 4) & 0x07;
           int spanOct = octantSpec & 0x07;
@@ -730,10 +829,10 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
             double ctrlY = cy + r * sin(midTheta);
 
             if (penDown) {
-              glyph.commands.push_back(
+              targetCommands.push_back(
                   DrawCommand::arcTo(segEndX, segEndY, ctrlX, ctrlY));
             } else {
-              glyph.commands.push_back(DrawCommand::moveTo(segEndX, segEndY));
+              targetCommands.push_back(DrawCommand::moveTo(segEndX, segEndY));
             }
 
             currentTheta = nextTheta;
@@ -746,18 +845,18 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_BULGE_ARC: {
         if (pos + 3 <= dataSize) {
-          int8_t dx = static_cast<int8_t>(data[pos++]);
-          int8_t dy = static_cast<int8_t>(data[pos++]);
-          int8_t bulgeInt = static_cast<int8_t>(data[pos++]);
+          int8_t dx = static_cast<int8_t>(sourceData[pos++]);
+          int8_t dy = static_cast<int8_t>(sourceData[pos++]);
+          int8_t bulgeInt = static_cast<int8_t>(sourceData[pos++]);
 
           double endX = x + dx * scale;
           double endY = y + dy * scale;
 
           if (bulgeInt == 0) {
             if (penDown) {
-              glyph.commands.push_back(DrawCommand::lineTo(endX, endY));
+              targetCommands.push_back(DrawCommand::lineTo(endX, endY));
             } else {
-              glyph.commands.push_back(DrawCommand::moveTo(endX, endY));
+              targetCommands.push_back(DrawCommand::moveTo(endX, endY));
             }
           } else {
             // Robust Bulge -> Center/Radius Conversion
@@ -767,9 +866,9 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
             if (rawLen < 1e-9) {
               // Degenerate chord, treat as point/line
               if (penDown)
-                glyph.commands.push_back(DrawCommand::lineTo(endX, endY));
+                targetCommands.push_back(DrawCommand::lineTo(endX, endY));
               else
-                glyph.commands.push_back(DrawCommand::moveTo(endX, endY));
+                targetCommands.push_back(DrawCommand::moveTo(endX, endY));
             } else {
               double halfChord = (rawLen * scale) / 2.0;
               // Distance from chord midpoint to center
@@ -830,10 +929,10 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
                 double ctrlY = cy + radius * sin(midTheta);
 
                 if (penDown) {
-                  glyph.commands.push_back(
+                  targetCommands.push_back(
                       DrawCommand::arcTo(segEndX, segEndY, ctrlX, ctrlY));
                 } else {
-                  glyph.commands.push_back(
+                  targetCommands.push_back(
                       DrawCommand::moveTo(segEndX, segEndY));
                 }
 
@@ -852,15 +951,15 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
       case CMD_POLY_BULGE_ARC: {
         while (pos + 2 <= dataSize) {
-          int8_t dx = static_cast<int8_t>(data[pos++]);
-          int8_t dy = static_cast<int8_t>(data[pos++]);
+          int8_t dx = static_cast<int8_t>(sourceData[pos++]);
+          int8_t dy = static_cast<int8_t>(sourceData[pos++]);
 
           if (dx == 0 && dy == 0)
             break;
 
           int8_t bulgeInt = 0;
           if (pos < dataSize) {
-            bulgeInt = static_cast<int8_t>(data[pos++]);
+            bulgeInt = static_cast<int8_t>(sourceData[pos++]);
           }
 
           double endX = x + dx * scale;
@@ -868,9 +967,9 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
           if (bulgeInt == 0) {
             if (penDown) {
-              glyph.commands.push_back(DrawCommand::lineTo(endX, endY));
+              targetCommands.push_back(DrawCommand::lineTo(endX, endY));
             } else {
-              glyph.commands.push_back(DrawCommand::moveTo(endX, endY));
+              targetCommands.push_back(DrawCommand::moveTo(endX, endY));
             }
           } else {
             // Robust Bulge -> Center/Radius Conversion
@@ -879,9 +978,9 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
 
             if (rawLen < 1e-9) {
               if (penDown)
-                glyph.commands.push_back(DrawCommand::lineTo(endX, endY));
+                targetCommands.push_back(DrawCommand::lineTo(endX, endY));
               else
-                glyph.commands.push_back(DrawCommand::moveTo(endX, endY));
+                targetCommands.push_back(DrawCommand::moveTo(endX, endY));
             } else {
               double halfChord = (rawLen * scale) / 2.0;
               // Distance from chord midpoint to center
@@ -934,10 +1033,10 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
                 double ctrlY = cy + radius * sin(midTheta);
 
                 if (penDown) {
-                  glyph.commands.push_back(
+                  targetCommands.push_back(
                       DrawCommand::arcTo(segEndX, segEndY, ctrlX, ctrlY));
                 } else {
-                  glyph.commands.push_back(
+                  targetCommands.push_back(
                       DrawCommand::moveTo(segEndX, segEndY));
                 }
 
@@ -962,33 +1061,24 @@ void ShxFont::Impl::parseGlyphData(const uint8_t *data, size_t dataSize,
         break;
       }
     } else {
-      double dx = DIR_VECTORS[direction][0] * length * scale;
-      double dy = DIR_VECTORS[direction][1] * length * scale;
+      // Standard length + direction
+      int dir = direction;
+      double len = length * scale;
+      double dx = DIR_VECTORS[dir][0] * len;
+      double dy = DIR_VECTORS[dir][1] * len;
 
-      double newX = x + dx;
-      double newY = y + dy;
+      double endX = x + dx;
+      double endY = y + dy;
 
       if (penDown) {
-        glyph.commands.push_back(DrawCommand::lineTo(newX, newY));
+        targetCommands.push_back(DrawCommand::lineTo(endX, endY));
       } else {
-        glyph.commands.push_back(DrawCommand::moveTo(newX, newY));
+        targetCommands.push_back(DrawCommand::moveTo(endX, endY));
       }
 
-      x = newX;
-      y = newY;
+      x = endX;
+      y = endY;
     }
-  }
-
-  if (!glyph.commands.empty()) {
-    double minX = 0, maxX = 0, minY = 0, maxY = 0;
-    for (const auto &cmd : glyph.commands) {
-      minX = std::min(minX, cmd.endPoint.x);
-      maxX = std::max(maxX, cmd.endPoint.x);
-      minY = std::min(minY, cmd.endPoint.y);
-      maxY = std::max(maxY, cmd.endPoint.y);
-    }
-    glyph.width = maxX - minX;
-    glyph.height = maxY - minY;
   }
 }
 
@@ -1027,13 +1117,9 @@ void ShxFont::Impl::renderGlyph(IPathRenderer &renderer, const Glyph *glyph,
       renderer.arcTo(px, py, cx, cy);
       break;
     }
-    case CommandType::SubShape: {
-      const Glyph *subGlyph = getGlyph(cmd.subShapeId);
-      if (subGlyph) {
-        renderGlyph(renderer, subGlyph, scale, px, py);
-      }
+    // SubShapes are now inlined, so no need to handle CommandType::SubShape
+    default:
       break;
-    }
     }
   }
 }
