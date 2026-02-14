@@ -69,6 +69,8 @@ add_executable(${PROJECT_NAME}
     src/Line.cpp
     include/ShxTextGenerator.h
     src/ShxTextGenerator.cpp
+    include/PythonSyntaxHighlighter.h
+    src/PythonSyntaxHighlighter.cpp
 )
 
 # Include directories

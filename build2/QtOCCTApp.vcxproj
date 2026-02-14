@@ -423,6 +423,8 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="D:\QtOCCTApp\src\Line.cpp" />
     <ClInclude Include="D:\QtOCCTApp\include\ShxTextGenerator.h" />
     <ClCompile Include="D:\QtOCCTApp\src\ShxTextGenerator.cpp" />
+    <ClInclude Include="D:\QtOCCTApp\include\PythonSyntaxHighlighter.h" />
+    <ClCompile Include="D:\QtOCCTApp\src\PythonSyntaxHighlighter.cpp" />
     <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\mocs_compilation_Release.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>

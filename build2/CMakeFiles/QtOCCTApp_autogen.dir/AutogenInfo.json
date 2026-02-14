@@ -382,6 +382,12 @@
 			null
 		],
 		[
+			"D:/QtOCCTApp/include/PythonSyntaxHighlighter.h",
+			"MU",
+			"6YEA5652QU/moc_PythonSyntaxHighlighter.cpp",
+			null
+		],
+		[
 			"D:/QtOCCTApp/include/ShxTextGenerator.h",
 			"MU",
 			"6YEA5652QU/moc_ShxTextGenerator.cpp",
@@ -564,6 +570,7 @@
 		[ "D:/QtOCCTApp/src/Line.cpp", "MU", null ],
 		[ "D:/QtOCCTApp/src/MainWindow.cpp", "MU", null ],
 		[ "D:/QtOCCTApp/src/OCCTWidget.cpp", "MU", null ],
+		[ "D:/QtOCCTApp/src/PythonSyntaxHighlighter.cpp", "MU", null ],
 		[ "D:/QtOCCTApp/src/ShxTextGenerator.cpp", "MU", null ],
 		[ "D:/QtOCCTApp/src/main.cpp", "MU", null ]
 	],

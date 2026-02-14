@@ -15,6 +15,7 @@ class ShxTextGenerator;
 class QProcess;
 class QLabel;
 class QTextEdit;
+class PythonSyntaxHighlighter;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -46,6 +47,7 @@ private:
   std::unique_ptr<ShxTextGenerator> m_shxGenerator;
   QLabel *m_coordLabel;
   QProcess *m_cqProcess;
+  PythonSyntaxHighlighter *m_highlighter;
 };
 
 #endif // MAINWINDOW_H

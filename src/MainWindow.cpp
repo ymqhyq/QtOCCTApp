@@ -1,6 +1,7 @@
 #include "../include/MainWindow.h"
 #include "../include/OCCTWidget.h"
 
+#include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
 #include <QApplication>
 #include <QCheckBox>
@@ -20,7 +21,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_functionalPanel(nullptr), m_drawLineButton(nullptr),
-      m_solidTextCheckbox(nullptr), m_coordLabel(nullptr) {
+      m_solidTextCheckbox(nullptr), m_coordLabel(nullptr),
+      m_highlighter(nullptr) {
   setWindowTitle("Qt OCCT Application");
   setMinimumSize(800, 600);
 
@@ -174,6 +176,14 @@ void MainWindow::setupCadQueryUi() {
       "result = cq.Workplane('XY').box(100, 100, 100).edges().chamfer(10)\n"
       "# result variable is automatically exported\n");
   layout->addWidget(m_cqScriptEditor);
+
+  // Apply Syntax Highlighter
+  m_highlighter = new PythonSyntaxHighlighter(m_cqScriptEditor->document());
+
+  // Optional: Set a monospace font for better code look
+  QFont font("Consolas", 10);
+  font.setStyleHint(QFont::Monospace);
+  m_cqScriptEditor->setFont(font);
 
   QHBoxLayout *btnLayout = new QHBoxLayout();
 

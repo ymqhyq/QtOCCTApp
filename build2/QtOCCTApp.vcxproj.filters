@@ -22,6 +22,9 @@
     <ClCompile Include="D:\QtOCCTApp\src\ShxTextGenerator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\src\PythonSyntaxHighlighter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\mocs_compilation_Release.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -43,6 +46,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D:\QtOCCTApp\include\ShxTextGenerator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\QtOCCTApp\include\PythonSyntaxHighlighter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
