@@ -1,0 +1,14 @@
+D:/QtOCCTApp/build/CMakeFiles/QtOCCTApp.dir
+D:/QtOCCTApp/build/CMakeFiles/INSTALL.dir
+D:/QtOCCTApp/build/CMakeFiles/ALL_BUILD.dir
+D:/QtOCCTApp/build/CMakeFiles/ZERO_CHECK.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/shxparser.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/shx_example.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/bigfont_test.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/chinese_test.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/mixed_test.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/dual_font_test.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/ascii_diag.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/shx_test.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/INSTALL.dir
+D:/QtOCCTApp/build/libs/shxparser/CMakeFiles/ALL_BUILD.dir

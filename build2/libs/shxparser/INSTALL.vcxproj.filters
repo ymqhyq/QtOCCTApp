@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\4b67bd0726fbb4f5cb1bc63a23c472ad\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{8FD5D73E-D591-3FF8-9082-80F9537B0CBF}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

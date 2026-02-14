@@ -1,0 +1,10 @@
+^D:\QTOCCTAPP\BUILD\CMAKEFILES\CD4BBE9F98C62571307F6603FC832302\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/QtOCCTApp/build/QtOCCTApp.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

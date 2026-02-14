@@ -40,6 +40,8 @@ public:
                  bool isSolid = false, double angle = 0.0);
   void setTextsSolid(bool isSolid);
   void fitAll(); // 缩放到全部视图范围
+  void loadBrepFile(const QString &filename);
+  void clearAll();
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
@@ -64,6 +66,8 @@ protected:
 private:
   Standard_Integer m_xPos;
   Standard_Integer m_yPos;
+  Standard_Integer m_startX;
+  Standard_Integer m_startY;
 
   QPaintEngine *paintEngine() const override { return nullptr; }
 

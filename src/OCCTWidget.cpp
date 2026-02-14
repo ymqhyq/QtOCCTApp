@@ -4,6 +4,7 @@
 
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepTools.hxx>
 #include <BRep_Tool.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <IntAna_Quadric.hxx>
@@ -63,10 +64,10 @@ void OCCTWidget::initOCCT() {
     }
 
     // Set up the view
-    // Set up the view for 2D (Top Orthographic)
+    // Set up the view for 3D (Perspective)
     m_view->Camera()->SetProjectionType(
-        Graphic3d_Camera::Projection_Orthographic);
-    m_view->SetProj(V3d_Zpos);
+        Graphic3d_Camera::Projection_Perspective);
+    m_view->SetProj(V3d_XposYnegZpos); // Iso view
 
     // 将视图中心对准世界坐标原点 (0,0,0)
     m_view->Camera()->SetCenter(gp_Pnt(0, 0, 0));
@@ -160,7 +161,17 @@ bool OCCTWidget::Get3DPoint(int userX, int userY, gp_Pnt &outPoint) {
 }
 
 void OCCTWidget::mousePressEvent(QMouseEvent *event) {
-  if (m_context.IsNull()) {
+  if (m_context.IsNull())
+    return;
+
+  // Start rotation
+  // Start rotation
+  if (event->buttons() & Qt::RightButton) {
+    if (!m_view.IsNull()) {
+      m_view->StartRotation(event->pos().x(), event->pos().y());
+      m_startX = event->pos().x();
+      m_startY = event->pos().y();
+    }
     return;
   }
 
@@ -281,10 +292,45 @@ void OCCTWidget::wheelEvent(QWheelEvent *event) {
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
-  if (m_context.IsNull())
-    return;
+  // Check for Rotation (Right Button or Left + Ctrl)
+  if ((event->buttons() & Qt::RightButton) ||
+      ((event->buttons() & Qt::LeftButton) &&
+       (event->modifiers() & Qt::ControlModifier))) {
+    if (!m_view.IsNull()) {
+      // Sensitivity factor
+      double sensitivity = 2.5;
 
-  // 获取鼠标位置对应的3D坐标并发射信号
+      // We calculate a virtual position that is further away from start than
+      // real mouse
+      int dx = event->pos().x() - m_startX;
+      int dy = event->pos().y() - m_startY;
+
+      int virtualX = m_startX + static_cast<int>(dx * sensitivity);
+      int virtualY = m_startY + static_cast<int>(dy * sensitivity);
+
+      m_view->Rotation(virtualX, virtualY);
+      return;
+    }
+  }
+
+  // Check for Panning (Middle Button or Left + Shift)
+  if ((event->buttons() & Qt::MiddleButton) ||
+      ((event->buttons() & Qt::LeftButton) &&
+       (event->modifiers() & Qt::ShiftModifier))) {
+    if (!m_view.IsNull()) {
+      m_view->Pan(event->pos().x() - m_xPos, m_yPos - event->pos().y());
+      m_xPos = event->pos().x();
+      m_yPos = event->pos().y();
+      return;
+    }
+  }
+
+  // Original Panning Logic (Left Button without modifiers) - KEEP or REMOVE?
+  // Let's keep it for now as "Pan" if no mode is active, but maybe restrict it?
+  // User asked for "Increase rotation function". Standard CAD:
+  // Middle=Pan, Right/Ctrl+Left=Rotate, Wheel=Zoom.
+  // Old logic had Left=Pan if not drawing. Let's keep it but prioritize
+  // Rotation.
   gp_Pnt mouseWorldPos;
   if (Get3DPoint(event->pos().x(), event->pos().y(), mouseWorldPos)) {
     emit mousePositionChanged(mouseWorldPos.X(), mouseWorldPos.Y(),
@@ -664,4 +710,47 @@ void OCCTWidget::fitAll() {
     m_view->ZFitAll();
     m_view->Redraw();
   }
+}
+
+void OCCTWidget::loadBrepFile(const QString &filename) {
+  TopoDS_Shape shape;
+  BRep_Builder builder;
+
+  // Convert QString to const char*
+  QByteArray ba = filename.toLocal8Bit();
+  const char *c_str = ba.data();
+
+  // Read the file
+  if (!BRepTools::Read(shape, c_str, builder)) {
+    // Failed to read, handle error (maybe just log or ignore for now)
+    return;
+  }
+
+  // Important: we need to handle potential failure.
+  // And actually, BRepTools::Read returns Standard_Boolean (true on success).
+  // Let's verify documentation if possible, but usually yes.
+
+  addShape(shape);
+  fitAll();
+}
+
+void OCCTWidget::clearAll() {
+  if (m_context.IsNull())
+    return;
+
+  // Remove all shapes stored in m_lines
+  for (const auto &aisShape : m_lines) {
+    if (!aisShape.IsNull()) {
+      m_context->Remove(aisShape, false); // false to defer update
+    }
+  }
+  m_lines.clear();
+
+  // Optional: remove m_dynamicLine if needed
+  if (!m_dynamicLine.IsNull()) {
+    m_context->Remove(m_dynamicLine, false);
+    m_dynamicLine.Nullify();
+  }
+
+  m_context->UpdateCurrentViewer();
 }

@@ -1,0 +1,564 @@
+First: 180, Last: 142
+
+Shape 0 (font info): len=25
+  raw: 0a000d0020000b0021001a0022001900230023002400240025
+
+Shape 36 (0x0024, chr='$'):
+  raw (38 bytes): 24002700180028001a0029001a002a0027002b001a002c0018002d0015002e0018002f001600
+    [  0] VEC L=2 D=4 (0.0,2.0) -> (0.0,2.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=2 D=7 (-2.0,1.0) -> (-2.0,3.0) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=1 D=8 (-1.0,0.0) -> (-3.0,3.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=2 D=8 (-2.0,0.0) -> (-5.0,3.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=1 D=10 (-1.0,-1.0) -> (-6.0,2.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=2 D=9 (-2.0,-1.0) -> (-8.0,1.0) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=1 D=10 (-1.0,-1.0) -> (-9.0,0.0) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=2 D=10 (-2.0,-2.0) -> (-11.0,-2.0) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=2 D=7 (-2.0,1.0) -> (-13.0,-1.0) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=2 D=11 (-1.0,-2.0) -> (-14.0,-3.0) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=1 D=10 (-1.0,-1.0) -> (-15.0,-4.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=2 D=12 (0.0,-2.0) -> (-15.0,-6.0) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=1 D=8 (-1.0,0.0) -> (-16.0,-6.0) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=2 D=13 (1.0,-2.0) -> (-15.0,-8.0) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=1 D=5 (-0.5,1.0) -> (-15.5,-7.0) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=2 D=14 (2.0,-2.0) -> (-13.5,-9.0) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=1 D=8 (-1.0,0.0) -> (-14.5,-9.0) [LINE]
+    [ 33] END_OF_SHAPE
+    [ 34] VEC L=2 D=15 (2.0,-1.0) -> (-12.5,-10.0) [LINE]
+    [ 35] END_OF_SHAPE
+    [ 36] VEC L=1 D=6 (-1.0,1.0) -> (-13.5,-9.0) [LINE]
+    [ 37] END_OF_SHAPE
+    Final: (-13.5,-9.0) pen=DOWN
+
+Shape 48 (0x0030, chr='0'):
+  raw (34 bytes): 3100190032001c00330021003400180035001b003600200037001700380023003900
+    [  0] VEC L=3 D=1 (3.0,1.5) -> (3.0,1.5) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=1 D=9 (-1.0,-0.5) -> (2.0,1.0) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=3 D=2 (3.0,3.0) -> (5.0,4.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=1 D=12 (0.0,-1.0) -> (5.0,3.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=3 D=3 (1.5,3.0) -> (6.5,6.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=2 D=1 (2.0,1.0) -> (8.5,7.0) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=3 D=4 (0.0,3.0) -> (8.5,10.0) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=1 D=8 (-1.0,0.0) -> (7.5,10.0) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=3 D=5 (-1.5,3.0) -> (6.0,13.0) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=1 D=11 (-0.5,-1.0) -> (5.5,12.0) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=3 D=6 (-3.0,3.0) -> (2.5,15.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=2 D=0 (2.0,0.0) -> (4.5,15.0) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=3 D=7 (-3.0,1.5) -> (1.5,16.5) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=1 D=7 (-1.0,0.5) -> (0.5,17.0) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=3 D=8 (-3.0,0.0) -> (-2.5,17.0) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=2 D=3 (1.0,2.0) -> (-1.5,19.0) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=3 D=9 (-3.0,-1.5) -> (-4.5,17.5) [LINE]
+    [ 33] END_OF_SHAPE
+    Final: (-4.5,17.5) pen=DOWN
+
+Shape 29 (0x001D, chr='?'):
+  raw (58 bytes): 1e003b0020003c001a003d0018003e0019003f0021004000210041001e004200230043001b0044001c0045001c0046001a0047001b0048001d00
+    [  0] VEC L=1 D=14 (1.0,-1.0) -> (1.0,-1.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=3 D=11 (-1.5,-3.0) -> (-0.5,-4.0) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=2 D=0 (2.0,0.0) -> (1.5,-4.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=3 D=12 (0.0,-3.0) -> (1.5,-7.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=1 D=10 (-1.0,-1.0) -> (0.5,-8.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=3 D=13 (1.5,-3.0) -> (2.0,-11.0) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=1 D=8 (-1.0,0.0) -> (1.0,-11.0) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=3 D=14 (3.0,-3.0) -> (4.0,-14.0) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=1 D=9 (-1.0,-0.5) -> (3.0,-14.5) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=3 D=15 (3.0,-1.5) -> (6.0,-16.0) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=2 D=1 (2.0,1.0) -> (8.0,-15.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=4 D=0 (4.0,0.0) -> (12.0,-15.0) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=2 D=1 (2.0,1.0) -> (14.0,-14.0) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=4 D=1 (4.0,2.0) -> (18.0,-12.0) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=1 D=14 (1.0,-1.0) -> (19.0,-13.0) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=4 D=2 (4.0,4.0) -> (23.0,-9.0) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=2 D=3 (1.0,2.0) -> (24.0,-7.0) [LINE]
+    [ 33] END_OF_SHAPE
+    [ 34] VEC L=4 D=3 (2.0,4.0) -> (26.0,-3.0) [LINE]
+    [ 35] END_OF_SHAPE
+    [ 36] VEC L=1 D=11 (-0.5,-1.0) -> (25.5,-4.0) [LINE]
+    [ 37] END_OF_SHAPE
+    [ 38] VEC L=4 D=4 (0.0,4.0) -> (25.5,0.0) [LINE]
+    [ 39] END_OF_SHAPE
+    [ 40] VEC L=1 D=12 (0.0,-1.0) -> (25.5,-1.0) [LINE]
+    [ 41] END_OF_SHAPE
+    [ 42] VEC L=4 D=5 (-2.0,4.0) -> (23.5,3.0) [LINE]
+    [ 43] END_OF_SHAPE
+    [ 44] VEC L=1 D=12 (0.0,-1.0) -> (23.5,2.0) [LINE]
+    [ 45] END_OF_SHAPE
+    [ 46] VEC L=4 D=6 (-4.0,4.0) -> (19.5,6.0) [LINE]
+    [ 47] END_OF_SHAPE
+    [ 48] VEC L=1 D=10 (-1.0,-1.0) -> (18.5,5.0) [LINE]
+    [ 49] END_OF_SHAPE
+    [ 50] VEC L=4 D=7 (-4.0,2.0) -> (14.5,7.0) [LINE]
+    [ 51] END_OF_SHAPE
+    [ 52] VEC L=1 D=11 (-0.5,-1.0) -> (14.0,6.0) [LINE]
+    [ 53] END_OF_SHAPE
+    [ 54] VEC L=4 D=8 (-4.0,0.0) -> (10.0,6.0) [LINE]
+    [ 55] END_OF_SHAPE
+    [ 56] VEC L=1 D=13 (0.5,-1.0) -> (10.5,5.0) [LINE]
+    [ 57] END_OF_SHAPE
+    Final: (10.5,5.0) pen=DOWN
+
+Shape 73 (0x0049, chr='I'):
+  raw (29 bytes): 4a001c004b0021004c0016004d0016004e0018004f0017005000190051
+    [  0] VEC L=4 D=10 (-4.0,-4.0) -> (-4.0,-4.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=1 D=12 (0.0,-1.0) -> (-4.0,-5.0) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=4 D=11 (-2.0,-4.0) -> (-6.0,-9.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=2 D=1 (2.0,1.0) -> (-4.0,-8.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=4 D=12 (0.0,-4.0) -> (-4.0,-12.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=1 D=6 (-1.0,1.0) -> (-5.0,-11.0) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=4 D=13 (2.0,-4.0) -> (-3.0,-15.0) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=1 D=6 (-1.0,1.0) -> (-4.0,-14.0) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=4 D=14 (4.0,-4.0) -> (0.0,-18.0) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=1 D=8 (-1.0,0.0) -> (-1.0,-18.0) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=4 D=15 (4.0,-2.0) -> (3.0,-20.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=1 D=7 (-1.0,0.5) -> (2.0,-19.5) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=5 D=0 (5.0,0.0) -> (7.0,-19.5) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=1 D=9 (-1.0,-0.5) -> (6.0,-20.0) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=5 D=1 (5.0,2.5) -> (11.0,-17.5) [LINE]
+    Final: (11.0,-17.5) pen=DOWN
+
+Shape 37 (0x0025, chr='%'):
+  raw (82 bytes): 1f0053001c0054001900550019005600190057001f0058001c0059001d005a0018005b0017005c0019005d0016005e0019005f0012006000160061001c0062001e006300190064001f0065001d0066001b00
+    [  0] VEC L=1 D=15 (1.0,-0.5) -> (1.0,-0.5) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=5 D=3 (2.5,5.0) -> (3.5,4.5) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=1 D=12 (0.0,-1.0) -> (3.5,3.5) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=5 D=4 (0.0,5.0) -> (3.5,8.5) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=1 D=9 (-1.0,-0.5) -> (2.5,8.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=5 D=5 (-2.5,5.0) -> (0.0,13.0) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=1 D=9 (-1.0,-0.5) -> (-1.0,12.5) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=5 D=6 (-5.0,5.0) -> (-6.0,17.5) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=1 D=9 (-1.0,-0.5) -> (-7.0,17.0) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=5 D=7 (-5.0,2.5) -> (-12.0,19.5) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=1 D=15 (1.0,-0.5) -> (-11.0,19.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=5 D=8 (-5.0,0.0) -> (-16.0,19.0) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=1 D=12 (0.0,-1.0) -> (-16.0,18.0) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=5 D=9 (-5.0,-2.5) -> (-21.0,15.5) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=1 D=13 (0.5,-1.0) -> (-20.5,14.5) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=5 D=10 (-5.0,-5.0) -> (-25.5,9.5) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=1 D=8 (-1.0,0.0) -> (-26.5,9.5) [LINE]
+    [ 33] END_OF_SHAPE
+    [ 34] VEC L=5 D=11 (-2.5,-5.0) -> (-29.0,4.5) [LINE]
+    [ 35] END_OF_SHAPE
+    [ 36] VEC L=1 D=7 (-1.0,0.5) -> (-30.0,5.0) [LINE]
+    [ 37] END_OF_SHAPE
+    [ 38] VEC L=5 D=12 (0.0,-5.0) -> (-30.0,0.0) [LINE]
+    [ 39] END_OF_SHAPE
+    [ 40] VEC L=1 D=9 (-1.0,-0.5) -> (-31.0,-0.5) [LINE]
+    [ 41] END_OF_SHAPE
+    [ 42] VEC L=5 D=13 (2.5,-5.0) -> (-28.5,-5.5) [LINE]
+    [ 43] END_OF_SHAPE
+    [ 44] VEC L=1 D=6 (-1.0,1.0) -> (-29.5,-4.5) [LINE]
+    [ 45] END_OF_SHAPE
+    [ 46] VEC L=5 D=14 (5.0,-5.0) -> (-24.5,-9.5) [LINE]
+    [ 47] END_OF_SHAPE
+    [ 48] VEC L=1 D=9 (-1.0,-0.5) -> (-25.5,-10.0) [LINE]
+    [ 49] END_OF_SHAPE
+    [ 50] VEC L=5 D=15 (5.0,-2.5) -> (-20.5,-12.5) [LINE]
+    [ 51] END_OF_SHAPE
+    [ 52] VEC L=1 D=2 (1.0,1.0) -> (-19.5,-11.5) [LINE]
+    [ 53] END_OF_SHAPE
+    [ 54] VEC L=6 D=0 (6.0,0.0) -> (-13.5,-11.5) [LINE]
+    [ 55] END_OF_SHAPE
+    [ 56] VEC L=1 D=6 (-1.0,1.0) -> (-14.5,-10.5) [LINE]
+    [ 57] END_OF_SHAPE
+    [ 58] VEC L=6 D=1 (6.0,3.0) -> (-8.5,-7.5) [LINE]
+    [ 59] END_OF_SHAPE
+    [ 60] VEC L=1 D=12 (0.0,-1.0) -> (-8.5,-8.5) [LINE]
+    [ 61] END_OF_SHAPE
+    [ 62] VEC L=6 D=2 (6.0,6.0) -> (-2.5,-2.5) [LINE]
+    [ 63] END_OF_SHAPE
+    [ 64] VEC L=1 D=14 (1.0,-1.0) -> (-1.5,-3.5) [LINE]
+    [ 65] END_OF_SHAPE
+    [ 66] VEC L=6 D=3 (3.0,6.0) -> (1.5,2.5) [LINE]
+    [ 67] END_OF_SHAPE
+    [ 68] VEC L=1 D=9 (-1.0,-0.5) -> (0.5,2.0) [LINE]
+    [ 69] END_OF_SHAPE
+    [ 70] VEC L=6 D=4 (0.0,6.0) -> (0.5,8.0) [LINE]
+    [ 71] END_OF_SHAPE
+    [ 72] VEC L=1 D=15 (1.0,-0.5) -> (1.5,7.5) [LINE]
+    [ 73] END_OF_SHAPE
+    [ 74] VEC L=6 D=5 (-3.0,6.0) -> (-1.5,13.5) [LINE]
+    [ 75] END_OF_SHAPE
+    [ 76] VEC L=1 D=13 (0.5,-1.0) -> (-1.0,12.5) [LINE]
+    [ 77] END_OF_SHAPE
+    [ 78] VEC L=6 D=6 (-6.0,6.0) -> (-7.0,18.5) [LINE]
+    [ 79] END_OF_SHAPE
+    [ 80] VEC L=1 D=11 (-0.5,-1.0) -> (-7.5,17.5) [LINE]
+    [ 81] END_OF_SHAPE
+    Final: (-7.5,17.5) pen=DOWN
+
+Shape 103 (0x0067, chr='g'):
+  raw (30 bytes): 68001a0069001b006a001f006b001c006c0015006d0022006e001b006f00
+    [  0] VEC L=6 D=8 (-6.0,0.0) -> (-6.0,0.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=1 D=10 (-1.0,-1.0) -> (-7.0,-1.0) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=6 D=9 (-6.0,-3.0) -> (-13.0,-4.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=1 D=11 (-0.5,-1.0) -> (-13.5,-5.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=6 D=10 (-6.0,-6.0) -> (-19.5,-11.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=1 D=15 (1.0,-0.5) -> (-18.5,-11.5) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=6 D=11 (-3.0,-6.0) -> (-21.5,-17.5) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=1 D=12 (0.0,-1.0) -> (-21.5,-18.5) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=6 D=12 (0.0,-6.0) -> (-21.5,-24.5) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=1 D=5 (-0.5,1.0) -> (-22.0,-23.5) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=6 D=13 (3.0,-6.0) -> (-19.0,-29.5) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=2 D=2 (2.0,2.0) -> (-17.0,-27.5) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=6 D=14 (6.0,-6.0) -> (-11.0,-33.5) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=1 D=11 (-0.5,-1.0) -> (-11.5,-34.5) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=6 D=15 (6.0,-3.0) -> (-5.5,-37.5) [LINE]
+    [ 29] END_OF_SHAPE
+    Final: (-5.5,-37.5) pen=DOWN
+
+Shape 26 (0x001A, chr='?'):
+  raw (112 bytes): 1e0071001e0072001c0073001c0074001a0075001b007600190077001f0078001b0079001e007a0017007b001a007c0014007d0019007e0016007f00170080001e008100220082001d008300220084001c0085000e00860018008c0017008d0022008e0022008f001c0090001f009100
+    [  0] VEC L=1 D=14 (1.0,-1.0) -> (1.0,-1.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=7 D=1 (7.0,3.5) -> (8.0,2.5) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=1 D=14 (1.0,-1.0) -> (9.0,1.5) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=7 D=2 (7.0,7.0) -> (16.0,8.5) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=1 D=12 (0.0,-1.0) -> (16.0,7.5) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=7 D=3 (3.5,7.0) -> (19.5,14.5) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=1 D=12 (0.0,-1.0) -> (19.5,13.5) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=7 D=4 (0.0,7.0) -> (19.5,20.5) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=1 D=10 (-1.0,-1.0) -> (18.5,19.5) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=7 D=5 (-3.5,7.0) -> (15.0,26.5) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=1 D=11 (-0.5,-1.0) -> (14.5,25.5) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=7 D=6 (-7.0,7.0) -> (7.5,32.5) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=1 D=9 (-1.0,-0.5) -> (6.5,32.0) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=7 D=7 (-7.0,3.5) -> (-0.5,35.5) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=1 D=15 (1.0,-0.5) -> (0.5,35.0) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=7 D=8 (-7.0,0.0) -> (-6.5,35.0) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=1 D=11 (-0.5,-1.0) -> (-7.0,34.0) [LINE]
+    [ 33] END_OF_SHAPE
+    [ 34] VEC L=7 D=9 (-7.0,-3.5) -> (-14.0,30.5) [LINE]
+    [ 35] END_OF_SHAPE
+    [ 36] VEC L=1 D=14 (1.0,-1.0) -> (-13.0,29.5) [LINE]
+    [ 37] END_OF_SHAPE
+    [ 38] VEC L=7 D=10 (-7.0,-7.0) -> (-20.0,22.5) [LINE]
+    [ 39] END_OF_SHAPE
+    [ 40] VEC L=1 D=7 (-1.0,0.5) -> (-21.0,23.0) [LINE]
+    [ 41] END_OF_SHAPE
+    [ 42] VEC L=7 D=11 (-3.5,-7.0) -> (-24.5,16.0) [LINE]
+    [ 43] END_OF_SHAPE
+    [ 44] VEC L=1 D=10 (-1.0,-1.0) -> (-25.5,15.0) [LINE]
+    [ 45] END_OF_SHAPE
+    [ 46] VEC L=7 D=12 (0.0,-7.0) -> (-25.5,8.0) [LINE]
+    [ 47] END_OF_SHAPE
+    [ 48] VEC L=1 D=4 (0.0,1.0) -> (-25.5,9.0) [LINE]
+    [ 49] END_OF_SHAPE
+    [ 50] VEC L=7 D=13 (3.5,-7.0) -> (-22.0,2.0) [LINE]
+    [ 51] END_OF_SHAPE
+    [ 52] VEC L=1 D=9 (-1.0,-0.5) -> (-23.0,1.5) [LINE]
+    [ 53] END_OF_SHAPE
+    [ 54] VEC L=7 D=14 (7.0,-7.0) -> (-16.0,-5.5) [LINE]
+    [ 55] END_OF_SHAPE
+    [ 56] VEC L=1 D=6 (-1.0,1.0) -> (-17.0,-4.5) [LINE]
+    [ 57] END_OF_SHAPE
+    [ 58] VEC L=7 D=15 (7.0,-3.5) -> (-10.0,-8.0) [LINE]
+    [ 59] END_OF_SHAPE
+    [ 60] VEC L=1 D=7 (-1.0,0.5) -> (-11.0,-7.5) [LINE]
+    [ 61] END_OF_SHAPE
+    [ 62] VEC L=8 D=0 (8.0,0.0) -> (-3.0,-7.5) [LINE]
+    [ 63] END_OF_SHAPE
+    [ 64] VEC L=1 D=14 (1.0,-1.0) -> (-2.0,-8.5) [LINE]
+    [ 65] END_OF_SHAPE
+    [ 66] VEC L=8 D=1 (8.0,4.0) -> (6.0,-4.5) [LINE]
+    [ 67] END_OF_SHAPE
+    [ 68] VEC L=2 D=2 (2.0,2.0) -> (8.0,-2.5) [LINE]
+    [ 69] END_OF_SHAPE
+    [ 70] VEC L=8 D=2 (8.0,8.0) -> (16.0,5.5) [LINE]
+    [ 71] END_OF_SHAPE
+    [ 72] VEC L=1 D=13 (0.5,-1.0) -> (16.5,4.5) [LINE]
+    [ 73] END_OF_SHAPE
+    [ 74] VEC L=8 D=3 (4.0,8.0) -> (20.5,12.5) [LINE]
+    [ 75] END_OF_SHAPE
+    [ 76] VEC L=2 D=2 (2.0,2.0) -> (22.5,14.5) [LINE]
+    [ 77] END_OF_SHAPE
+    [ 78] VEC L=8 D=4 (0.0,8.0) -> (22.5,22.5) [LINE]
+    [ 79] END_OF_SHAPE
+    [ 80] VEC L=1 D=12 (0.0,-1.0) -> (22.5,21.5) [LINE]
+    [ 81] END_OF_SHAPE
+    [ 82] VEC L=8 D=5 (-4.0,8.0) -> (18.5,29.5) [LINE]
+    [ 83] END_OF_SHAPE
+    [ 84] COND_MODE_2 skip=0
+    [ 86] VEC L=8 D=6 (-8.0,8.0) -> (10.5,37.5) [LINE]
+    [ 87] END_OF_SHAPE
+    [ 88] VEC L=1 D=8 (-1.0,0.0) -> (9.5,37.5) [LINE]
+    [ 89] END_OF_SHAPE
+    [ 90] VEC L=8 D=12 (0.0,-8.0) -> (9.5,29.5) [LINE]
+    [ 91] END_OF_SHAPE
+    [ 92] VEC L=1 D=7 (-1.0,0.5) -> (8.5,30.0) [LINE]
+    [ 93] END_OF_SHAPE
+    [ 94] VEC L=8 D=13 (4.0,-8.0) -> (12.5,22.0) [LINE]
+    [ 95] END_OF_SHAPE
+    [ 96] VEC L=2 D=2 (2.0,2.0) -> (14.5,24.0) [LINE]
+    [ 97] END_OF_SHAPE
+    [ 98] VEC L=8 D=14 (8.0,-8.0) -> (22.5,16.0) [LINE]
+    [ 99] END_OF_SHAPE
+    [100] VEC L=2 D=2 (2.0,2.0) -> (24.5,18.0) [LINE]
+    [101] END_OF_SHAPE
+    [102] VEC L=8 D=15 (8.0,-4.0) -> (32.5,14.0) [LINE]
+    [103] END_OF_SHAPE
+    [104] VEC L=1 D=12 (0.0,-1.0) -> (32.5,13.0) [LINE]
+    [105] END_OF_SHAPE
+    [106] VEC L=9 D=0 (9.0,0.0) -> (41.5,13.0) [LINE]
+    [107] END_OF_SHAPE
+    [108] VEC L=1 D=15 (1.0,-0.5) -> (42.5,12.5) [LINE]
+    [109] END_OF_SHAPE
+    [110] VEC L=9 D=1 (9.0,4.5) -> (51.5,17.0) [LINE]
+    [111] END_OF_SHAPE
+    Final: (51.5,17.0) pen=DOWN
+
+Shape 39 (0x0027, chr='''):
+  raw (146 bytes): 18009700190098001c00990021009a0026009b001f009c0026009d002a009e002a009f002500a0001800a1001800a2001c00a3002100a4001700a5001b00a6001d00a7001600a8002300a9001c00aa001900ab001a00ac001e00ad002300ae001900af001d00b0001f00b1001800b2002500b3001e00b4001b004c2d73656c6620466f6e742030392f31302f393100100202
+    [  0] VEC L=1 D=8 (-1.0,0.0) -> (-1.0,0.0) [LINE]
+    [  1] END_OF_SHAPE
+    [  2] VEC L=9 D=7 (-9.0,4.5) -> (-10.0,4.5) [LINE]
+    [  3] END_OF_SHAPE
+    [  4] VEC L=1 D=9 (-1.0,-0.5) -> (-11.0,4.0) [LINE]
+    [  5] END_OF_SHAPE
+    [  6] VEC L=9 D=8 (-9.0,0.0) -> (-20.0,4.0) [LINE]
+    [  7] END_OF_SHAPE
+    [  8] VEC L=1 D=12 (0.0,-1.0) -> (-20.0,3.0) [LINE]
+    [  9] END_OF_SHAPE
+    [ 10] VEC L=9 D=9 (-9.0,-4.5) -> (-29.0,-1.5) [LINE]
+    [ 11] END_OF_SHAPE
+    [ 12] VEC L=2 D=1 (2.0,1.0) -> (-27.0,-0.5) [LINE]
+    [ 13] END_OF_SHAPE
+    [ 14] VEC L=9 D=10 (-9.0,-9.0) -> (-36.0,-9.5) [LINE]
+    [ 15] END_OF_SHAPE
+    [ 16] VEC L=2 D=6 (-2.0,2.0) -> (-38.0,-7.5) [LINE]
+    [ 17] END_OF_SHAPE
+    [ 18] VEC L=9 D=11 (-4.5,-9.0) -> (-42.5,-16.5) [LINE]
+    [ 19] END_OF_SHAPE
+    [ 20] VEC L=1 D=15 (1.0,-0.5) -> (-41.5,-17.0) [LINE]
+    [ 21] END_OF_SHAPE
+    [ 22] VEC L=9 D=12 (0.0,-9.0) -> (-41.5,-26.0) [LINE]
+    [ 23] END_OF_SHAPE
+    [ 24] VEC L=2 D=6 (-2.0,2.0) -> (-43.5,-24.0) [LINE]
+    [ 25] END_OF_SHAPE
+    [ 26] VEC L=9 D=13 (4.5,-9.0) -> (-39.0,-33.0) [LINE]
+    [ 27] END_OF_SHAPE
+    [ 28] VEC L=2 D=10 (-2.0,-2.0) -> (-41.0,-35.0) [LINE]
+    [ 29] END_OF_SHAPE
+    [ 30] VEC L=9 D=14 (9.0,-9.0) -> (-32.0,-44.0) [LINE]
+    [ 31] END_OF_SHAPE
+    [ 32] VEC L=2 D=10 (-2.0,-2.0) -> (-34.0,-46.0) [LINE]
+    [ 33] END_OF_SHAPE
+    [ 34] VEC L=9 D=15 (9.0,-4.5) -> (-25.0,-50.5) [LINE]
+    [ 35] END_OF_SHAPE
+    [ 36] VEC L=2 D=5 (-1.0,2.0) -> (-26.0,-48.5) [LINE]
+    [ 37] END_OF_SHAPE
+    [ 38] VEC L=10 D=0 (10.0,0.0) -> (-16.0,-48.5) [LINE]
+    [ 39] END_OF_SHAPE
+    [ 40] VEC L=1 D=8 (-1.0,0.0) -> (-17.0,-48.5) [LINE]
+    [ 41] END_OF_SHAPE
+    [ 42] VEC L=10 D=1 (10.0,5.0) -> (-7.0,-43.5) [LINE]
+    [ 43] END_OF_SHAPE
+    [ 44] VEC L=1 D=8 (-1.0,0.0) -> (-8.0,-43.5) [LINE]
+    [ 45] END_OF_SHAPE
+    [ 46] VEC L=10 D=2 (10.0,10.0) -> (2.0,-33.5) [LINE]
+    [ 47] END_OF_SHAPE
+    [ 48] VEC L=1 D=12 (0.0,-1.0) -> (2.0,-34.5) [LINE]
+    [ 49] END_OF_SHAPE
+    [ 50] VEC L=10 D=3 (5.0,10.0) -> (7.0,-24.5) [LINE]
+    [ 51] END_OF_SHAPE
+    [ 52] VEC L=2 D=1 (2.0,1.0) -> (9.0,-23.5) [LINE]
+    [ 53] END_OF_SHAPE
+    [ 54] VEC L=10 D=4 (0.0,10.0) -> (9.0,-13.5) [LINE]
+    [ 55] END_OF_SHAPE
+    [ 56] VEC L=1 D=7 (-1.0,0.5) -> (8.0,-13.0) [LINE]
+    [ 57] END_OF_SHAPE
+    [ 58] VEC L=10 D=5 (-5.0,10.0) -> (3.0,-3.0) [LINE]
+    [ 59] END_OF_SHAPE
+    [ 60] VEC L=1 D=11 (-0.5,-1.0) -> (2.5,-4.0) [LINE]
+    [ 61] END_OF_SHAPE
+    [ 62] VEC L=10 D=6 (-10.0,10.0) -> (-7.5,6.0) [LINE]
+    [ 63] END_OF_SHAPE
+    [ 64] VEC L=1 D=13 (0.5,-1.0) -> (-7.0,5.0) [LINE]
+    [ 65] END_OF_SHAPE
+    [ 66] VEC L=10 D=7 (-10.0,5.0) -> (-17.0,10.0) [LINE]
+    [ 67] END_OF_SHAPE
+    [ 68] VEC L=1 D=6 (-1.0,1.0) -> (-18.0,11.0) [LINE]
+    [ 69] END_OF_SHAPE
+    [ 70] VEC L=10 D=8 (-10.0,0.0) -> (-28.0,11.0) [LINE]
+    [ 71] END_OF_SHAPE
+    [ 72] VEC L=2 D=3 (1.0,2.0) -> (-27.0,13.0) [LINE]
+    [ 73] END_OF_SHAPE
+    [ 74] VEC L=10 D=9 (-10.0,-5.0) -> (-37.0,8.0) [LINE]
+    [ 75] END_OF_SHAPE
+    [ 76] VEC L=1 D=12 (0.0,-1.0) -> (-37.0,7.0) [LINE]
+    [ 77] END_OF_SHAPE
+    [ 78] VEC L=10 D=10 (-10.0,-10.0) -> (-47.0,-3.0) [LINE]
+    [ 79] END_OF_SHAPE
+    [ 80] VEC L=1 D=9 (-1.0,-0.5) -> (-48.0,-3.5) [LINE]
+    [ 81] END_OF_SHAPE
+    [ 82] VEC L=10 D=11 (-5.0,-10.0) -> (-53.0,-13.5) [LINE]
+    [ 83] END_OF_SHAPE
+    [ 84] VEC L=1 D=10 (-1.0,-1.0) -> (-54.0,-14.5) [LINE]
+    [ 85] END_OF_SHAPE
+    [ 86] VEC L=10 D=12 (0.0,-10.0) -> (-54.0,-24.5) [LINE]
+    [ 87] END_OF_SHAPE
+    [ 88] VEC L=1 D=14 (1.0,-1.0) -> (-53.0,-25.5) [LINE]
+    [ 89] END_OF_SHAPE
+    [ 90] VEC L=10 D=13 (5.0,-10.0) -> (-48.0,-35.5) [LINE]
+    [ 91] END_OF_SHAPE
+    [ 92] VEC L=2 D=3 (1.0,2.0) -> (-47.0,-33.5) [LINE]
+    [ 93] END_OF_SHAPE
+    [ 94] VEC L=10 D=14 (10.0,-10.0) -> (-37.0,-43.5) [LINE]
+    [ 95] END_OF_SHAPE
+    [ 96] VEC L=1 D=9 (-1.0,-0.5) -> (-38.0,-44.0) [LINE]
+    [ 97] END_OF_SHAPE
+    [ 98] VEC L=10 D=15 (10.0,-5.0) -> (-28.0,-49.0) [LINE]
+    [ 99] END_OF_SHAPE
+    [100] VEC L=1 D=13 (0.5,-1.0) -> (-27.5,-50.0) [LINE]
+    [101] END_OF_SHAPE
+    [102] VEC L=11 D=0 (11.0,0.0) -> (-16.5,-50.0) [LINE]
+    [103] END_OF_SHAPE
+    [104] VEC L=1 D=15 (1.0,-0.5) -> (-15.5,-50.5) [LINE]
+    [105] END_OF_SHAPE
+    [106] VEC L=11 D=1 (11.0,5.5) -> (-4.5,-45.0) [LINE]
+    [107] END_OF_SHAPE
+    [108] VEC L=1 D=8 (-1.0,0.0) -> (-5.5,-45.0) [LINE]
+    [109] END_OF_SHAPE
+    [110] VEC L=11 D=2 (11.0,11.0) -> (5.5,-34.0) [LINE]
+    [111] END_OF_SHAPE
+    [112] VEC L=2 D=5 (-1.0,2.0) -> (4.5,-32.0) [LINE]
+    [113] END_OF_SHAPE
+    [114] VEC L=11 D=3 (5.5,11.0) -> (10.0,-21.0) [LINE]
+    [115] END_OF_SHAPE
+    [116] VEC L=1 D=14 (1.0,-1.0) -> (11.0,-22.0) [LINE]
+    [117] END_OF_SHAPE
+    [118] VEC L=11 D=4 (0.0,11.0) -> (11.0,-11.0) [LINE]
+    [119] END_OF_SHAPE
+    [120] VEC L=1 D=11 (-0.5,-1.0) -> (10.5,-12.0) [LINE]
+    [121] END_OF_SHAPE
+    [122] VEC L=4 D=12 (0.0,-4.0) -> (10.5,-16.0) [LINE]
+    [123] VEC L=2 D=13 (1.0,-2.0) -> (11.5,-18.0) [LINE]
+    [124] VEC L=7 D=3 (3.5,7.0) -> (15.0,-11.0) [LINE]
+    [125] VEC L=6 D=5 (-3.0,6.0) -> (12.0,-5.0) [LINE]
+    [126] VEC L=6 D=12 (0.0,-6.0) -> (12.0,-11.0) [LINE]
+    [127] VEC L=6 D=6 (-6.0,6.0) -> (6.0,-5.0) [LINE]
+    [128] VEC L=2 D=0 (2.0,0.0) -> (8.0,-5.0) [LINE]
+    [129] VEC L=4 D=6 (-4.0,4.0) -> (4.0,-1.0) [LINE]
+    [130] VEC L=6 D=15 (6.0,-3.0) -> (10.0,-4.0) [LINE]
+    [131] VEC L=6 D=14 (6.0,-6.0) -> (16.0,-10.0) [LINE]
+    [132] VEC L=7 D=4 (0.0,7.0) -> (16.0,-3.0) [LINE]
+    [133] VEC L=2 D=0 (2.0,0.0) -> (18.0,-3.0) [LINE]
+    [134] VEC L=3 D=0 (3.0,0.0) -> (21.0,-3.0) [LINE]
+    [135] VEC L=3 D=9 (-3.0,-1.5) -> (18.0,-4.5) [LINE]
+    [136] VEC L=2 D=15 (2.0,-1.0) -> (20.0,-5.5) [LINE]
+    [137] VEC L=3 D=1 (3.0,1.5) -> (23.0,-4.0) [LINE]
+    [138] VEC L=3 D=0 (3.0,0.0) -> (26.0,-4.0) [LINE]
+    [139] VEC L=2 D=15 (2.0,-1.0) -> (28.0,-5.0) [LINE]
+    [140] VEC L=3 D=9 (-3.0,-1.5) -> (25.0,-6.5) [LINE]
+    [141] VEC L=3 D=1 (3.0,1.5) -> (28.0,-5.0) [LINE]
+    [142] END_OF_SHAPE
+    [143] VEC L=1 D=0 (1.0,0.0) -> (29.0,-5.0) [LINE]
+    [144] PEN_UP
+    [145] PEN_UP
+    Final: (29.0,-5.0) pen=UP
