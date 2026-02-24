@@ -8,6 +8,10 @@
 #include <BRep_Tool.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <IntAna_Quadric.hxx>
+#include <Prs3d_DimensionAspect.hxx>
+#include <Prs3d_LineAspect.hxx>
+#include <Prs3d_TextAspect.hxx>
+#include <PrsDim_LengthDimension.hxx>
 #include <QApplication>
 #include <QMouseEvent>
 #include <QPainter>
@@ -779,6 +783,65 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   fitAll();
 }
 
+void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
+                                      double spacing,
+                                      Graphic3d_NameOfMaterial material) {
+  if (m_context.IsNull())
+    return;
+
+  // 读取原始 BREP
+  TopoDS_Shape baseShape;
+  BRep_Builder builder;
+  QByteArray ba = filename.toLocal8Bit();
+  if (!BRepTools::Read(baseShape, ba.data(), builder))
+    return;
+
+  // 颜色映射 (与 loadBrepFile 保持一致)
+  Quantity_Color color;
+  switch (material) {
+  case Graphic3d_NOM_GOLD:
+    color = Quantity_NOC_GOLD1;
+    break;
+  case Graphic3d_NOM_BRASS:
+    color = Quantity_NOC_DARKKHAKI;
+    break;
+  case Graphic3d_NOM_BRONZE:
+    color = Quantity_NOC_CHOCOLATE1;
+    break;
+  case Graphic3d_NOM_CHROME:
+  case Graphic3d_NOM_STEEL:
+  case Graphic3d_NOM_ALUMINIUM:
+    color = Quantity_NOC_GRAY30;
+    break;
+  case Graphic3d_NOM_PLASTIC:
+    color = Quantity_NOC_YELLOW;
+    break;
+  case Graphic3d_NOM_GLASS:
+    color = Quantity_NOC_LIGHTBLUE;
+    break;
+  default:
+    color = Quantity_NOC_GRAY75;
+    break;
+  }
+
+  // 创建 count 个独立 AIS_Shape，沿 Y 方向间距 spacing
+  for (int i = 0; i < count; ++i) {
+    gp_Trsf trsf;
+    trsf.SetTranslation(gp_Vec(0, i * spacing, 0));
+    TopoDS_Shape moved = baseShape.Moved(TopLoc_Location(trsf));
+
+    Handle(AIS_Shape) ais = new AIS_Shape(moved);
+    m_context->SetDisplayMode(ais, 1, Standard_False);
+    m_context->SetColor(ais, color, Standard_False);
+    m_context->SetMaterial(ais, material, Standard_False);
+    m_context->Display(ais, Standard_False);
+    m_lines.push_back(ais);
+  }
+
+  m_context->UpdateCurrentViewer();
+  fitAll();
+}
+
 void OCCTWidget::clearAll() {
   if (m_context.IsNull())
     return;
@@ -791,10 +854,80 @@ void OCCTWidget::clearAll() {
   }
   m_lines.clear();
 
+  for (const auto &dim : m_dimensions) {
+    if (!dim.IsNull()) {
+      m_context->Remove(dim, false);
+    }
+  }
+  m_dimensions.clear();
+
   // Optional: remove m_dynamicLine if needed
   if (!m_dynamicLine.IsNull()) {
     m_context->Remove(m_dynamicLine, false);
     m_dynamicLine.Nullify();
+  }
+
+  m_context->UpdateCurrentViewer();
+}
+
+void OCCTWidget::annotateBridgePierFooting() {
+  if (m_context.IsNull())
+    return;
+
+  // 根据脚本设置: 最下层承台位于 Z=-140 到
+  // -130，长(X)=89.59，宽(Y)=59.05，高(Z)=10
+  double length = 89.59;
+  double width = 59.05;
+  double height = 10.0;
+
+  double minX = -length / 2.0;
+  double maxX = length / 2.0;
+  double minY = -width / 2.0;
+  double maxY = width / 2.0;
+  double minZ = -140.0;
+  double maxZ = -130.0;
+
+  // X方向标注 (长) - 放置在底部前边缘 (-Y 方向偏移)
+  gp_Pnt pL1(minX, minY, minZ);
+  gp_Pnt pL2(maxX, minY, minZ);
+  gp_Pln plnL(gp_Pnt(0, minY, minZ), gp_Dir(0, 0, 1));
+  Handle(PrsDim_LengthDimension) dimL =
+      new PrsDim_LengthDimension(pL1, pL2, plnL);
+  dimL->SetFlyout(-35.0);
+
+  // Y方向标注 (宽) - 放置在底部右边缘 (+X 方向偏移)
+  gp_Pnt pW1(maxX, minY, minZ);
+  gp_Pnt pW2(maxX, maxY, minZ);
+  gp_Pln plnW(gp_Pnt(maxX, 0, minZ), gp_Dir(0, 0, 1));
+  Handle(PrsDim_LengthDimension) dimW =
+      new PrsDim_LengthDimension(pW1, pW2, plnW);
+  dimW->SetFlyout(35.0);
+
+  // Z方向标注 (高) - 放置在前右边缘 (+X 方向偏移)
+  gp_Pnt pH1(maxX, minY, minZ);
+  gp_Pnt pH2(maxX, minY, maxZ);
+  gp_Pln plnH(gp_Pnt(maxX, minY, 0), gp_Dir(0, -1, 0));
+  Handle(PrsDim_LengthDimension) dimH =
+      new PrsDim_LengthDimension(pH1, pH2, plnH);
+  dimH->SetFlyout(35.0);
+
+  // 统一设置样式并显示
+  Handle(PrsDim_LengthDimension) dims[] = {dimL, dimW, dimH};
+  for (int i = 0; i < 3; ++i) {
+    Handle(Prs3d_DimensionAspect) aspect = dims[i]->DimensionAspect();
+    if (!aspect.IsNull()) {
+      // 文字大小
+      aspect->TextAspect()->SetHeight(12.0);
+      aspect->TextAspect()->SetColor(Quantity_NOC_BLACK);
+      // 标注线颜色
+      aspect->LineAspect()->SetColor(Quantity_NOC_BLACK);
+      // 箭头和文字放在外侧
+      aspect->SetArrowOrientation(Prs3d_DAO_External);
+      aspect->SetTextHorizontalPosition(Prs3d_DTHP_Left);
+      aspect->SetTextVerticalPosition(Prs3d_DTVP_Above);
+    }
+    m_context->Display(dims[i], Standard_False);
+    m_dimensions.push_back(dims[i]);
   }
 
   m_context->UpdateCurrentViewer();

@@ -45,7 +45,11 @@ public:
   void loadBrepFile(const QString &filename,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
-  void drawBridgePier(); // 绘制流线型桥墩
+  void drawBridgePier();            // 绘制流线型桥墩
+  void annotateBridgePierFooting(); // 标注桥墩承台尺寸
+  void loadBrepAsFullBridge(
+      const QString &filename, int count, double spacing,
+      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
@@ -86,6 +90,7 @@ private:
   AspectWindow *m_aspectWindow;
 
   std::list<Handle(AIS_Shape)> m_lines;
+  std::list<Handle(AIS_InteractiveObject)> m_dimensions;
   Handle(AIS_Shape) m_selectedLine;
 
   bool m_drawLineMode;

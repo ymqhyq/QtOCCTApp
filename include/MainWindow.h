@@ -31,7 +31,8 @@ public slots:
 private slots:
   void onDrawLineClicked();
   void onAddShxText();
-  void onDrawBridgePier(); // 绘制桥墩
+  void onDrawBridgePier();            // 绘制桥墩
+  void onAnnotateBridgePierFooting(); // 标注标注桥墩承台尺寸
   void onMousePositionChanged(double x, double y, double z);
 
 private:
@@ -51,6 +52,9 @@ private:
   QProcess *m_cqProcess;
   PythonSyntaxHighlighter *m_highlighter;
   Graphic3d_NameOfMaterial m_currentMaterial;
+  bool m_fullBridgeMode = false;
+  int m_bridgePierCount = 100;
+  double m_bridgePierSpacing = 340.0;
 };
 
 #endif // MAINWINDOW_H

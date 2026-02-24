@@ -120,6 +120,79 @@ void MainWindow::createFunctionalPanel() {
           &MainWindow::onDrawBridgePier);
   layout->addWidget(bridgePierBtn);
 
+  // Add Annotate Bridge Pier Footing button
+  QPushButton *annotatePierBtn =
+      new QPushButton("标注承台(尺寸)", panelContent);
+  annotatePierBtn->setStyleSheet(
+      "background-color: #8e44ad; color: white; font-weight: bold;"
+      "padding: 6px; border-radius: 4px;");
+  connect(annotatePierBtn, &QPushButton::clicked, this,
+          &MainWindow::onAnnotateBridgePierFooting);
+  layout->addWidget(annotatePierBtn);
+
+  // Full Bridge button - reuse bridgePier2 script, C++ does 100x placement
+  QPushButton *fullBridgeBtn = new QPushButton("全桥(100墩)", panelContent);
+  fullBridgeBtn->setStyleSheet(
+      "background-color: #c0392b; color: white; font-weight: bold;"
+      "padding: 6px; border-radius: 4px;");
+  connect(fullBridgeBtn, &QPushButton::clicked, [this]() {
+    // 设置全桥模式标志
+    m_fullBridgeMode = true;
+    m_bridgePierCount = 100;
+    m_bridgePierSpacing = 340.0;
+    m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    statusBar()->showMessage("正在生成单个桥墩BREP，完成后将复制100份...");
+    // 直接运行桥墩2脚本 (编辑器中当前内容不变，手动设脚本)
+    // 用最简CQ脚本: 只生成一个桥墩
+    m_cqScriptEditor->setText(
+        "import cadquery as cq\n"
+        "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
+        "    return (wp.moveTo(-xr, -yr)\n"
+        "        .threePointArc((-px, 0), (-xr, yr)).lineTo(-2, yr)\n"
+        "        .threePointArc((-1.29, nmy), (-1, ney))\n"
+        "        .threePointArc((0, iy), (1, ney))\n"
+        "        .threePointArc((1.29, nmy), (2, yr)).lineTo(xr, yr)\n"
+        "        .threePointArc((px, 0), (xr, -yr)).lineTo(2, -yr)\n"
+        "        .threePointArc((1.29, -nmy), (1, -ney))\n"
+        "        .threePointArc((0, -iy), (-1, -ney))\n"
+        "        .threePointArc((-1.29, -nmy), (-2, -yr)).close())\n"
+        "w = cq.Workplane('XY')\n"
+        "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
+        "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, 13.1, 12.1)\n"
+        "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
+        "tuopan = w.loft()\n"
+        "w = cq.Workplane('XY').workplane(offset=27.5)\n"
+        "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
+        "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
+        "dingmao = w.loft()\n"
+        "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
+        "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
+        "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
+        "tuopan = tuopan.cut(cutter)\n"
+        "dingmao = dingmao.cut(cutter)\n"
+        "w = cq.Workplane('XY').workplane(offset=-120)\n"
+        "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
+        "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
+        "dunshen = w.loft()\n"
+        "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, 10)\n"
+        "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, 10)\n"
+        "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
+        "assy = cq.Assembly()\n"
+        "assy.add(tuopan, name='t')\n"
+        "assy.add(dingmao, name='d')\n"
+        "assy.add(dunshen, name='s')\n"
+        "assy.add(ct1, name='c1')\n"
+        "assy.add(ct2, name='c2')\n"
+        "for xi in [-25, 0, 25]:\n"
+        "    for yi in [-15, 15]:\n"
+        "        assy.add(pile, loc=cq.Location((xi, yi, -200)),\n"
+        "            name=f'p_{xi}_{yi}')\n"
+        "result = assy.toCompound()\n"
+        "material = 'plastic'\n");
+    onRunCqScript();
+  });
+  layout->addWidget(fullBridgeBtn);
+
   // Add other potential functionality buttons here
   layout->addStretch(); // Add stretch to push buttons to the top
 
@@ -173,6 +246,11 @@ void MainWindow::onMousePositionChanged(double x, double y, double z) {
 void MainWindow::onDrawBridgePier() {
   m_occtWidget->drawBridgePier();
   statusBar()->showMessage("桥墩模型已生成", 3000);
+}
+
+void MainWindow::onAnnotateBridgePierFooting() {
+  m_occtWidget->annotateBridgePierFooting();
+  statusBar()->showMessage("已添加承台长宽高尺寸标注", 3000);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -668,8 +746,19 @@ void MainWindow::processCqOutput() {
       QString outputPath = QDir::currentPath() + "/temp_output.brep";
       // Load Result
       m_occtWidget->clearAll();
-      m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
-      statusBar()->showMessage("Model built successfully.", 3000);
+      if (m_fullBridgeMode) {
+        m_occtWidget->loadBrepAsFullBridge(outputPath, m_bridgePierCount,
+                                          m_bridgePierSpacing, m_currentMaterial);
+        m_fullBridgeMode = false;
+        statusBar()->showMessage(
+            QString("全桥模型已生成: %1个桥墩, 间距%2")
+                .arg(m_bridgePierCount)
+                .arg(m_bridgePierSpacing),
+            5000);
+      } else {
+        m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
+        statusBar()->showMessage("Model built successfully.", 3000);
+      }
     } else if (line.startsWith("ERROR:") || line.startsWith("EXCEPTION:") ||
                line.startsWith("FATAL:")) {
       QApplication::restoreOverrideCursor();
