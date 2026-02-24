@@ -783,6 +783,39 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   fitAll();
 }
 
+void OCCTWidget::loadBrepFileDeferred(const QString &filename,
+                                      Graphic3d_NameOfMaterial material) {
+  TopoDS_Shape shape;
+  BRep_Builder builder;
+
+  QByteArray ba = filename.toLocal8Bit();
+  if (!BRepTools::Read(shape, ba.data(), builder))
+    return;
+
+  Quantity_Color finalColor;
+  switch (material) {
+  case Graphic3d_NOM_GOLD: finalColor = Quantity_NOC_GOLD1; break;
+  case Graphic3d_NOM_BRASS: finalColor = Quantity_NOC_DARKKHAKI; break;
+  case Graphic3d_NOM_BRONZE: finalColor = Quantity_NOC_CHOCOLATE1; break;
+  case Graphic3d_NOM_CHROME:
+  case Graphic3d_NOM_STEEL:
+  case Graphic3d_NOM_ALUMINIUM: finalColor = Quantity_NOC_GRAY30; break;
+  case Graphic3d_NOM_PLASTIC: finalColor = Quantity_NOC_YELLOW; break;
+  case Graphic3d_NOM_GLASS: finalColor = Quantity_NOC_LIGHTBLUE; break;
+  default: finalColor = Quantity_NOC_GRAY75; break;
+  }
+
+  if (!m_context.IsNull()) {
+    Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+    m_context->SetDisplayMode(aisShape, 1, Standard_False);
+    m_context->SetMaterial(aisShape, material, Standard_False);
+    m_context->SetColor(aisShape, finalColor, Standard_False);
+    m_context->Display(aisShape, Standard_False);
+    m_lines.push_back(aisShape);
+    // 不调用 updateView() 和 fitAll()，由调用方最终统一刷新
+  }
+}
+
 void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
                                       double spacing,
                                       Graphic3d_NameOfMaterial material) {

@@ -1,5 +1,5 @@
 // 这是使用occt构建流线型桥墩模型的代码
-void COccTryView::OnThru() {
+void DrawThru() {
   // AIS_ListOfInteractive aList;
   // myAISContext->DisplayedObjects(aList);
   // AIS_ListIteratorOfListOfInteractive aListIterator;

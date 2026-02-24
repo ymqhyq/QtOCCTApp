@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QElapsedTimer>
 
 #include <memory>
 
@@ -40,6 +41,7 @@ private:
   void setupCadQueryUi();
   void initializeCqProcess();
   void processCqOutput();
+  QString getBridgePier2Script(double yOffset = 0.0);
 
   OCCTWidget *m_occtWidget;
   QDockWidget *m_functionalPanel;
@@ -53,8 +55,11 @@ private:
   PythonSyntaxHighlighter *m_highlighter;
   Graphic3d_NameOfMaterial m_currentMaterial;
   bool m_fullBridgeMode = false;
+  bool m_isBatchProcessing = false;
+  int m_currentPierIndex = 0;
   int m_bridgePierCount = 100;
   double m_bridgePierSpacing = 340.0;
+  QElapsedTimer m_batchTimer;
 };
 
 #endif // MAINWINDOW_H

@@ -1,4 +1,7 @@
 D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_MainWindow.cpp: D:/QtOCCTApp/include/MainWindow.h \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_NameOfMaterial.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKService/Graphic3d/Graphic3d_NameOfMaterial.hxx \
+  D:/Qt/6.10.1/msvc2022_64/include/QtCore/QElapsedTimer \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q17memory.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20functional.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20iterator.h \
@@ -37,6 +40,7 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_MainWindow.cp
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdarwinhelpers.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdatastream.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdebug.h \
+  D:/Qt/6.10.1/msvc2022_64/include/QtCore/qelapsedtimer.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qendian.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qexceptionhandling.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/qflags.h \

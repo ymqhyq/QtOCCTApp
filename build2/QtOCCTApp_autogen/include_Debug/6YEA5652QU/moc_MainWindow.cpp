@@ -43,6 +43,8 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "",
         "onDrawLineClicked",
         "onAddShxText",
+        "onDrawBridgePier",
+        "onAnnotateBridgePierFooting",
         "onMousePositionChanged",
         "x",
         "y",
@@ -56,9 +58,13 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onAddShxText'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onDrawBridgePier'
+        QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onAnnotateBridgePierFooting'
+        QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onMousePositionChanged'
-        QtMocHelpers::SlotData<void(double, double, double)>(5, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Double, 6 }, { QMetaType::Double, 7 }, { QMetaType::Double, 8 },
+        QtMocHelpers::SlotData<void(double, double, double)>(7, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Double, 8 }, { QMetaType::Double, 9 }, { QMetaType::Double, 10 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -86,7 +92,9 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 0: _t->onRunCqScript(); break;
         case 1: _t->onDrawLineClicked(); break;
         case 2: _t->onAddShxText(); break;
-        case 3: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 3: _t->onDrawBridgePier(); break;
+        case 4: _t->onAnnotateBridgePierFooting(); break;
+        case 5: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
         default: ;
         }
     }
@@ -111,14 +119,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 4)
+        if (_id < 6)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 4;
+        _id -= 6;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 4)
+        if (_id < 6)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 4;
+        _id -= 6;
     }
     return _id;
 }

@@ -23,6 +23,9 @@ def setup_environment():
                 pass
             os.environ["PATH"] = conda_lib_bin + os.pathsep + os.environ["PATH"]
 
+_script_global_vars = {}
+_script_local_vars = {}
+
 def process_request(line):
     """
     Process a single request line.
@@ -46,28 +49,33 @@ def process_request(line):
         with open(script_file, 'r', encoding='utf-8') as f:
             script_content = f.read()
 
-        # Prepare execution environment
-        global_vars = {}
-        local_vars = {}
+        # Prepare execution environment (Persistent)
+        global _script_global_vars, _script_local_vars
+        
+        # Clear specific variables to avoid carry-over
+        _script_local_vars.pop('result', None)
+        _script_global_vars.pop('result', None)
+        _script_local_vars.pop('material', None)
+        _script_global_vars.pop('material', None)
         
         # Helper for showing objects (CQ-editor compatibility)
         def show_object(obj, name=None, options=None):
-            local_vars['result'] = obj
+            _script_local_vars['result'] = obj
 
-        global_vars['show_object'] = show_object
+        _script_global_vars['show_object'] = show_object
         
         # Execute script
-        exec(script_content, global_vars, local_vars)
+        exec(script_content, _script_global_vars, _script_local_vars)
         
         # Extract result
-        if 'result' not in local_vars:
+        if 'result' not in _script_local_vars:
             # Check if user defined 'result' in global scope by mistake (or intentional)
-            if 'result' in global_vars:
-                local_vars['result'] = global_vars['result']
+            if 'result' in _script_global_vars:
+                _script_local_vars['result'] = _script_global_vars['result']
             else:
                  return "ERROR: variable 'result' not found in script."
 
-        result_obj = local_vars['result']
+        result_obj = _script_local_vars['result']
         
         # Handle CadQuery objects
         import cadquery as cq
@@ -88,6 +96,14 @@ def process_request(line):
         # Export to BREP
         if shape_to_export:
              BRepTools.Write_s(shape_to_export, output_file)
+             # Check for material override in script (check both local and global)
+             material = _script_local_vars.get('material', _script_global_vars.get('material', None))
+             
+             # DEBUG: Force print to stderr
+             sys.stderr.write(f"DEBUG: Found material: {material}\n")
+             
+             if material:
+                 return f"SUCCESS|{str(material).upper()}"
              return "SUCCESS"
         else:
              return "ERROR: Result shape is null"

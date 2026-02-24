@@ -136,59 +136,17 @@ void MainWindow::createFunctionalPanel() {
       "background-color: #c0392b; color: white; font-weight: bold;"
       "padding: 6px; border-radius: 4px;");
   connect(fullBridgeBtn, &QPushButton::clicked, [this]() {
-    // 设置全桥模式标志
-    m_fullBridgeMode = true;
+    // 批处理模式: 调用100次脚本, 每次生成一个桥墩
+    m_occtWidget->clearAll();
+    m_isBatchProcessing = true;
+    m_currentPierIndex = 0;
     m_bridgePierCount = 100;
     m_bridgePierSpacing = 340.0;
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
-    statusBar()->showMessage("正在生成单个桥墩BREP，完成后将复制100份...");
-    // 直接运行桥墩2脚本 (编辑器中当前内容不变，手动设脚本)
-    // 用最简CQ脚本: 只生成一个桥墩
-    m_cqScriptEditor->setText(
-        "import cadquery as cq\n"
-        "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
-        "    return (wp.moveTo(-xr, -yr)\n"
-        "        .threePointArc((-px, 0), (-xr, yr)).lineTo(-2, yr)\n"
-        "        .threePointArc((-1.29, nmy), (-1, ney))\n"
-        "        .threePointArc((0, iy), (1, ney))\n"
-        "        .threePointArc((1.29, nmy), (2, yr)).lineTo(xr, yr)\n"
-        "        .threePointArc((px, 0), (xr, -yr)).lineTo(2, -yr)\n"
-        "        .threePointArc((1.29, -nmy), (1, -ney))\n"
-        "        .threePointArc((0, -iy), (-1, -ney))\n"
-        "        .threePointArc((-1.29, -nmy), (-2, -yr)).close())\n"
-        "w = cq.Workplane('XY')\n"
-        "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
-        "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, 13.1, 12.1)\n"
-        "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
-        "tuopan = w.loft()\n"
-        "w = cq.Workplane('XY').workplane(offset=27.5)\n"
-        "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
-        "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
-        "dingmao = w.loft()\n"
-        "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
-        "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
-        "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
-        "tuopan = tuopan.cut(cutter)\n"
-        "dingmao = dingmao.cut(cutter)\n"
-        "w = cq.Workplane('XY').workplane(offset=-120)\n"
-        "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
-        "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
-        "dunshen = w.loft()\n"
-        "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, 10)\n"
-        "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, 10)\n"
-        "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
-        "assy = cq.Assembly()\n"
-        "assy.add(tuopan, name='t')\n"
-        "assy.add(dingmao, name='d')\n"
-        "assy.add(dunshen, name='s')\n"
-        "assy.add(ct1, name='c1')\n"
-        "assy.add(ct2, name='c2')\n"
-        "for xi in [-25, 0, 25]:\n"
-        "    for yi in [-15, 15]:\n"
-        "        assy.add(pile, loc=cq.Location((xi, yi, -200)),\n"
-        "            name=f'p_{xi}_{yi}')\n"
-        "result = assy.toCompound()\n"
-        "material = 'plastic'\n");
+    statusBar()->showMessage(
+        QString("批量生成: 第 %1/%2 个桥墩...").arg(1).arg(m_bridgePierCount));
+    m_batchTimer.start(); // 开始计时
+    m_cqScriptEditor->setText(getBridgePier2Script(0.0));
     onRunCqScript();
   });
   layout->addWidget(fullBridgeBtn);
@@ -745,18 +703,34 @@ void MainWindow::processCqOutput() {
 
       QString outputPath = QDir::currentPath() + "/temp_output.brep";
       // Load Result
-      m_occtWidget->clearAll();
-      if (m_fullBridgeMode) {
-        m_occtWidget->loadBrepAsFullBridge(outputPath, m_bridgePierCount,
-                                          m_bridgePierSpacing, m_currentMaterial);
-        m_fullBridgeMode = false;
-        statusBar()->showMessage(
-            QString("全桥模型已生成: %1个桥墩, 间距%2")
-                .arg(m_bridgePierCount)
-                .arg(m_bridgePierSpacing),
-            5000);
-      } else {
+      if (!m_isBatchProcessing) {
+        m_occtWidget->clearAll();
         m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
+      } else {
+        m_occtWidget->loadBrepFileDeferred(outputPath, m_currentMaterial);
+      }
+
+      if (m_isBatchProcessing) {
+        m_currentPierIndex++;
+        if (m_currentPierIndex < m_bridgePierCount) {
+          statusBar()->showMessage(
+              QString("批量生成: 第 %1/%2 个桥墩...")
+                  .arg(m_currentPierIndex + 1)
+                  .arg(m_bridgePierCount));
+          double yOff = m_currentPierIndex * m_bridgePierSpacing;
+          m_cqScriptEditor->setText(getBridgePier2Script(yOff));
+          onRunCqScript();
+        } else {
+          m_isBatchProcessing = false;
+          m_occtWidget->fitAll();
+          qint64 elapsedMs = m_batchTimer.elapsed();
+          QString msg = QString("全桥创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
+                            .arg(m_bridgePierCount)
+                            .arg(elapsedMs);
+          qDebug() << "Batch generation finished. " << msg;
+          statusBar()->showMessage(msg, 10000);
+        }
+      } else {
         statusBar()->showMessage("Model built successfully.", 3000);
       }
     } else if (line.startsWith("ERROR:") || line.startsWith("EXCEPTION:") ||
@@ -768,4 +742,63 @@ void MainWindow::processCqOutput() {
       QMessageBox::critical(this, "Script Error", line);
     }
   }
+}
+
+QString MainWindow::getBridgePier2Script(double yOffset) {
+  return QString(
+      "import cadquery as cq\n"
+      "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
+      "    return (wp.moveTo(-xr, -yr)\n"
+      "        .threePointArc((-px, 0), (-xr, yr))\n"
+      "        .lineTo(-2, yr)\n"
+      "        .threePointArc((-1.29, nmy), (-1, ney))\n"
+      "        .threePointArc((0, iy), (1, ney))\n"
+      "        .threePointArc((1.29, nmy), (2, yr))\n"
+      "        .lineTo(xr, yr)\n"
+      "        .threePointArc((px, 0), (xr, -yr))\n"
+      "        .lineTo(2, -yr)\n"
+      "        .threePointArc((1.29, -nmy), (1, -ney))\n"
+      "        .threePointArc((0, -iy), (-1, -ney))\n"
+      "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
+      "        .close())\n"
+      "\n"
+      "w = cq.Workplane('XY')\n"
+      "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
+      "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, 13.1, 12.1)\n"
+      "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
+      "tuopan = w.loft()\n"
+      "w = cq.Workplane('XY').workplane(offset=27.5)\n"
+      "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
+      "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
+      "dingmao = w.loft()\n"
+      "\n"
+      "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
+      "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
+      "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
+      "tuopan = tuopan.cut(cutter)\n"
+      "dingmao = dingmao.cut(cutter)\n"
+      "\n"
+      "w = cq.Workplane('XY').workplane(offset=-120)\n"
+      "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
+      "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
+      "dunshen = w.loft()\n"
+      "\n"
+      "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, 10)\n"
+      "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, 10)\n"
+      "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
+      "\n"
+      "assy = cq.Assembly()\n"
+      "assy.add(tuopan)\n"
+      "assy.add(dingmao)\n"
+      "assy.add(dunshen)\n"
+      "assy.add(ct1)\n"
+      "assy.add(ct2)\n"
+      "for xi in [-25, 0, 25]:\n"
+      "    for yi in [-15, 15]:\n"
+      "        assy.add(pile, loc=cq.Location((xi, yi, -200)))\n"
+      "\n"
+      "single = assy.toCompound()\n"
+      "result = single.translate((0, %1, 0))\n"
+      "material = 'plastic'\n")
+      .arg(yOffset);
 }

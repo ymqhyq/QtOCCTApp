@@ -1,4 +1,13 @@
 import cadquery as cq
-# Create a simple box
-result = cq.Workplane('XY').box(100, 100, 100).edges().chamfer(10)
-# result variable is automatically exported
+height = 60.0
+width = 80.0
+thickness = 10.0
+diameter = 22.0
+
+result = (
+    cq.Workplane('XY')
+    .box(height, width, thickness)
+    .faces('>Z')
+    .workplane()
+    .hole(diameter)
+)
