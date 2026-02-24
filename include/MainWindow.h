@@ -16,6 +16,7 @@ class QProcess;
 class QLabel;
 class QTextEdit;
 class PythonSyntaxHighlighter;
+#include <Graphic3d_NameOfMaterial.hxx>
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -30,6 +31,7 @@ public slots:
 private slots:
   void onDrawLineClicked();
   void onAddShxText();
+  void onDrawBridgePier(); // 绘制桥墩
   void onMousePositionChanged(double x, double y, double z);
 
 private:
@@ -48,6 +50,7 @@ private:
   QLabel *m_coordLabel;
   QProcess *m_cqProcess;
   PythonSyntaxHighlighter *m_highlighter;
+  Graphic3d_NameOfMaterial m_currentMaterial;
 };
 
 #endif // MAINWINDOW_H

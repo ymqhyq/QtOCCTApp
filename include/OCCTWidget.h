@@ -13,6 +13,7 @@
 #include <AIS_Shape.hxx>
 #include <Geom_CartesianPoint.hxx>
 #include <Geom_Line.hxx>
+#include <Graphic3d_NameOfMaterial.hxx>
 #include <Quantity_Color.hxx>
 
 #include <list>
@@ -32,7 +33,8 @@ public:
   void addLine(const gp_Pnt &start, const gp_Pnt &end);
   void
   addShape(const TopoDS_Shape &shape,
-           const Quantity_Color &color = Quantity_Color(Quantity_NOC_WHITE));
+           const Quantity_Color &color = Quantity_Color(Quantity_NOC_YELLOW),
+           Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void selectLine(const gp_Pnt &point);
   void setDrawLineMode(bool enabled) { m_drawLineMode = enabled; }
   void generateRandomLines(int count);
@@ -40,8 +42,10 @@ public:
                  bool isSolid = false, double angle = 0.0);
   void setTextsSolid(bool isSolid);
   void fitAll(); // 缩放到全部视图范围
-  void loadBrepFile(const QString &filename);
+  void loadBrepFile(const QString &filename,
+                    Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
+  void drawBridgePier(); // 绘制流线型桥墩
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
