@@ -3,11 +3,13 @@
 
 #include <QCheckBox>
 #include <QDockWidget>
+#include <QElapsedTimer>
+#include <QList>
 #include <QMainWindow>
 #include <QPushButton>
+#include <QQueue>
 #include <QVBoxLayout>
 #include <QWidget>
-#include <QElapsedTimer>
 
 #include <memory>
 
@@ -41,6 +43,7 @@ private:
   void setupCadQueryUi();
   void initializeCqProcess();
   void processCqOutput();
+  void dispatchTask(QProcess *proc);
   QString getBridgePier2Script(double yOffset = 0.0);
 
   OCCTWidget *m_occtWidget;
@@ -51,7 +54,9 @@ private:
   QCheckBox *m_solidTextCheckbox;
   std::unique_ptr<ShxTextGenerator> m_shxGenerator;
   QLabel *m_coordLabel;
-  QProcess *m_cqProcess;
+  QList<QProcess *> m_cqProcessList;
+  QQueue<int> m_batchQueue;
+  int m_completedTasks = 0;
   PythonSyntaxHighlighter *m_highlighter;
   Graphic3d_NameOfMaterial m_currentMaterial;
   bool m_fullBridgeMode = false;

@@ -5,6 +5,8 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_NameOfMaterial.hxx
  mdp:D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKService/Graphic3d/Graphic3d_NameOfMaterial.hxx
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QElapsedTimer
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QQueue
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/q17memory.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20functional.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20iterator.h
@@ -80,6 +82,7 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qpair.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qpoint.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qprocessordetection.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qqueue.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qrect.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qrefcount.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qscopedpointer.h

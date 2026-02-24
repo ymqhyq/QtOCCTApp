@@ -56,7 +56,14 @@ MainWindow::MainWindow(QWidget *parent)
   initializeCqProcess();
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow() {
+  for (QProcess *proc : m_cqProcessList) {
+    if (proc->state() == QProcess::Running) {
+      proc->kill();
+      proc->waitForFinished();
+    }
+  }
+}
 
 void MainWindow::createFunctionalPanel() {
   // Create dock widget for functional panel
@@ -136,18 +143,30 @@ void MainWindow::createFunctionalPanel() {
       "background-color: #c0392b; color: white; font-weight: bold;"
       "padding: 6px; border-radius: 4px;");
   connect(fullBridgeBtn, &QPushButton::clicked, [this]() {
-    // 批处理模式: 调用100次脚本, 每次生成一个桥墩
+    // 多进程批处理模式: 并发调用脚本
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
     m_currentPierIndex = 0;
     m_bridgePierCount = 100;
     m_bridgePierSpacing = 340.0;
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    m_completedTasks = 0;
+
+    m_batchQueue.clear();
+    for (int i = 0; i < m_bridgePierCount; ++i) {
+      m_batchQueue.enqueue(i);
+    }
+
     statusBar()->showMessage(
-        QString("批量生成: 第 %1/%2 个桥墩...").arg(1).arg(m_bridgePierCount));
+        QString("批量并发生成中: 共 %1 个桥墩...").arg(m_bridgePierCount));
     m_batchTimer.start(); // 开始计时
-    m_cqScriptEditor->setText(getBridgePier2Script(0.0));
-    onRunCqScript();
+
+    // 向所有空闲的守护进程分发任务
+    for (QProcess *proc : m_cqProcessList) {
+      if (!m_batchQueue.isEmpty()) {
+        dispatchTask(proc);
+      }
+    }
   });
   layout->addWidget(fullBridgeBtn);
 
@@ -588,34 +607,35 @@ void MainWindow::setupCadQueryUi() {
 }
 
 void MainWindow::initializeCqProcess() {
-  m_cqProcess = new QProcess(this);
-
   QString pythonExe = qgetenv("MY_PYTHON_EXE");
   if (pythonExe.isEmpty()) {
     pythonExe = "python";
   }
 
-  m_cqProcess->setProgram(pythonExe);
-  m_cqProcess->setArguments(
-      {QCoreApplication::applicationDirPath() + "/run_cq.py"});
-
-  // Merge stderr to stdout to catch everything in order (or handle separately
-  // if preferred)
-  m_cqProcess->setProcessChannelMode(QProcess::MergedChannels);
-
-  connect(m_cqProcess, &QProcess::readyReadStandardOutput, this,
-          &MainWindow::processCqOutput);
-
-  m_cqProcess->start();
+  // 默认启动 8 个并发的 Python 守护进程
+  int processCount = 8;
+  for (int i = 0; i < processCount; ++i) {
+    QProcess *proc = new QProcess(this);
+    proc->setProgram(pythonExe);
+    proc->setArguments({QCoreApplication::applicationDirPath() + "/run_cq.py"});
+    proc->setProcessChannelMode(QProcess::MergedChannels);
+    connect(proc, &QProcess::readyReadStandardOutput, this,
+            &MainWindow::processCqOutput);
+    proc->start();
+    m_cqProcessList.append(proc);
+  }
 }
 
 void MainWindow::onRunCqScript() {
+  if (m_cqProcessList.isEmpty())
+    return;
+  QProcess *proc = m_cqProcessList.first();
+
   // Execute CadQuery script
   QString code = m_cqScriptEditor->toPlainText();
   if (code.isEmpty())
     return;
 
-  // Save to temporary file or specific file
   QString scriptPath = QDir::currentPath() + "/temp_script.py";
   QString outputPath = QDir::currentPath() + "/temp_output.brep";
 
@@ -628,61 +648,76 @@ void MainWindow::onRunCqScript() {
   scriptFile.write(code.toUtf8());
   scriptFile.close();
 
-  // If process is dead, restart it
-  if (m_cqProcess->state() != QProcess::Running) {
-    m_cqProcess->start();
-    m_cqProcess->waitForStarted();
+  proc->setProperty("outputPath", outputPath);
+
+  if (proc->state() != QProcess::Running) {
+    proc->start();
+    proc->waitForStarted();
   }
 
-  // Send request to daemon
-  // Format: scriptPath|outputPath\n
   QString request = scriptPath + "|" + outputPath + "\n";
-  m_cqProcess->write(request.toUtf8());
+  proc->write(request.toUtf8());
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
-  // We don't wait here synchronously anymore in a blocking way for the whole
-  // process, but we wait for response via signal/slot or simple loop if we want
-  // blocking UI. For simplicity to match previous behavior (blocking UI until
-  // done), we can use a local loop:
+}
 
-  // Actually, let's keep it async UI but with WaitCursor, logic moves to
-  // processCqOutput BUT: To keep existing flow simple without refactoring
-  // everything to async state machine, we can just waitForReadyRead in a loop
-  // until we get result.
+void MainWindow::dispatchTask(QProcess *proc) {
+  if (m_batchQueue.isEmpty())
+    return;
+  int index = m_batchQueue.dequeue();
 
-  // HOWEVER, persistent process is best used asynchronously.
-  // For now, let's rely on processCqOutput to handle the result.
-  // Note: multiple requests overlapping might be an issue if we don't track
-  // state, but for this single-user tool it's likely fine.
+  double yOff = index * m_bridgePierSpacing;
+  QString code = getBridgePier2Script(yOff);
+
+  int procId = m_cqProcessList.indexOf(proc);
+  QString scriptPath =
+      QDir::currentPath() + QString("/temp_script_%1.py").arg(procId);
+  QString outputPath =
+      QDir::currentPath() + QString("/temp_output_%1.brep").arg(procId);
+
+  QFile scriptFile(scriptPath);
+  if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Text))
+    return;
+  scriptFile.write(code.toUtf8());
+  scriptFile.close();
+
+  proc->setProperty("outputPath", outputPath);
+
+  if (proc->state() != QProcess::Running) {
+    proc->start();
+    proc->waitForStarted();
+  }
+
+  QString request = scriptPath + "|" + outputPath + "\n";
+  proc->write(request.toUtf8());
 }
 
 void MainWindow::processCqOutput() {
-  while (m_cqProcess->canReadLine()) {
-    QString line = QString::fromUtf8(m_cqProcess->readLine()).trimmed();
+  QProcess *proc = qobject_cast<QProcess *>(sender());
+  if (!proc) {
+    if (!m_cqProcessList.isEmpty())
+      proc = m_cqProcessList.first();
+    else
+      return;
+  }
 
-    if (line == "READY") {
-      // Daemon started
+  while (proc->canReadLine()) {
+    QString line = QString::fromUtf8(proc->readLine()).trimmed();
+
+    if (line == "READY" || line.startsWith("DEBUG:")) {
+      if (line.startsWith("DEBUG:")) {
+        qDebug() << "CQ DEBUG:" << line;
+        statusBar()->showMessage(line, 5000);
+      }
       continue;
     }
 
-    if (line.startsWith("DEBUG:")) {
-      qDebug() << "CQ DEBUG:" << line;
-      // 临时开启弹窗以便排查问题
-      // QMessageBox::information(this, "Debug Info", line);
-      statusBar()->showMessage(line, 5000);
-      continue;
-    }
-
-    // Check for result
-    // Our protocol: SUCCESS or SUCCESS|MATERIAL or ERROR: ...
     if (line.startsWith("SUCCESS")) {
       QApplication::restoreOverrideCursor();
 
-      // Check for material override from script
       QStringList parts = line.split('|');
       if (parts.size() > 1) {
         QString matStr = parts[1].trimmed().toUpper();
-        statusBar()->showMessage("脚本指定材质: " + matStr, 5000);
         if (matStr == "STEEL")
           m_currentMaterial = Graphic3d_NOM_STEEL;
         else if (matStr == "CHROME")
@@ -701,104 +736,111 @@ void MainWindow::processCqOutput() {
           m_currentMaterial = Graphic3d_NOM_GLASS;
       }
 
-      QString outputPath = QDir::currentPath() + "/temp_output.brep";
-      // Load Result
+      QString outputPath = proc->property("outputPath").toString();
+      if (outputPath.isEmpty())
+        outputPath = QDir::currentPath() + "/temp_output.brep";
+
       if (!m_isBatchProcessing) {
         m_occtWidget->clearAll();
         m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
+        statusBar()->showMessage("Model built successfully.", 3000);
       } else {
         m_occtWidget->loadBrepFileDeferred(outputPath, m_currentMaterial);
-      }
+        m_completedTasks++;
+        statusBar()->showMessage(QString("正在并发生成: 已完成 %1/%2 个桥墩...")
+                                     .arg(m_completedTasks)
+                                     .arg(m_bridgePierCount));
 
-      if (m_isBatchProcessing) {
-        m_currentPierIndex++;
-        if (m_currentPierIndex < m_bridgePierCount) {
-          statusBar()->showMessage(
-              QString("批量生成: 第 %1/%2 个桥墩...")
-                  .arg(m_currentPierIndex + 1)
-                  .arg(m_bridgePierCount));
-          double yOff = m_currentPierIndex * m_bridgePierSpacing;
-          m_cqScriptEditor->setText(getBridgePier2Script(yOff));
-          onRunCqScript();
-        } else {
+        if (m_completedTasks == m_bridgePierCount) {
           m_isBatchProcessing = false;
           m_occtWidget->fitAll();
           qint64 elapsedMs = m_batchTimer.elapsed();
-          QString msg = QString("全桥创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
-                            .arg(m_bridgePierCount)
-                            .arg(elapsedMs);
+          QString msg =
+              QString("全桥多进程创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
+                  .arg(m_bridgePierCount)
+                  .arg(elapsedMs);
           qDebug() << "Batch generation finished. " << msg;
           statusBar()->showMessage(msg, 10000);
+        } else if (!m_batchQueue.isEmpty()) {
+          dispatchTask(proc);
         }
-      } else {
-        statusBar()->showMessage("Model built successfully.", 3000);
       }
     } else if (line.startsWith("ERROR:") || line.startsWith("EXCEPTION:") ||
                line.startsWith("FATAL:")) {
       QApplication::restoreOverrideCursor();
-      // Read rest of error if multi-line? (Our current run_cq.py sends single
-      // line response usually, but exception might be long. We replaced newline
-      // with ' || ' in python script to ensure single line.)
       QMessageBox::critical(this, "Script Error", line);
+
+      if (m_isBatchProcessing) {
+        m_completedTasks++;
+        if (!m_batchQueue.isEmpty())
+          dispatchTask(proc);
+        else if (m_completedTasks == m_bridgePierCount) {
+          m_isBatchProcessing = false;
+          m_occtWidget->fitAll();
+        }
+      }
     }
   }
 }
 
 QString MainWindow::getBridgePier2Script(double yOffset) {
   return QString(
-      "import cadquery as cq\n"
-      "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
-      "    return (wp.moveTo(-xr, -yr)\n"
-      "        .threePointArc((-px, 0), (-xr, yr))\n"
-      "        .lineTo(-2, yr)\n"
-      "        .threePointArc((-1.29, nmy), (-1, ney))\n"
-      "        .threePointArc((0, iy), (1, ney))\n"
-      "        .threePointArc((1.29, nmy), (2, yr))\n"
-      "        .lineTo(xr, yr)\n"
-      "        .threePointArc((px, 0), (xr, -yr))\n"
-      "        .lineTo(2, -yr)\n"
-      "        .threePointArc((1.29, -nmy), (1, -ney))\n"
-      "        .threePointArc((0, -iy), (-1, -ney))\n"
-      "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
-      "        .close())\n"
-      "\n"
-      "w = cq.Workplane('XY')\n"
-      "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
-      "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, 13.1, 12.1)\n"
-      "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
-      "tuopan = w.loft()\n"
-      "w = cq.Workplane('XY').workplane(offset=27.5)\n"
-      "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
-      "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
-      "dingmao = w.loft()\n"
-      "\n"
-      "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
-      "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
-      "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
-      "tuopan = tuopan.cut(cutter)\n"
-      "dingmao = dingmao.cut(cutter)\n"
-      "\n"
-      "w = cq.Workplane('XY').workplane(offset=-120)\n"
-      "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
-      "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
-      "dunshen = w.loft()\n"
-      "\n"
-      "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, 10)\n"
-      "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, 10)\n"
-      "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
-      "\n"
-      "assy = cq.Assembly()\n"
-      "assy.add(tuopan)\n"
-      "assy.add(dingmao)\n"
-      "assy.add(dunshen)\n"
-      "assy.add(ct1)\n"
-      "assy.add(ct2)\n"
-      "for xi in [-25, 0, 25]:\n"
-      "    for yi in [-15, 15]:\n"
-      "        assy.add(pile, loc=cq.Location((xi, yi, -200)))\n"
-      "\n"
-      "single = assy.toCompound()\n"
-      "result = single.translate((0, %1, 0))\n"
-      "material = 'plastic'\n")
+             "import cadquery as cq\n"
+             "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
+             "    return (wp.moveTo(-xr, -yr)\n"
+             "        .threePointArc((-px, 0), (-xr, yr))\n"
+             "        .lineTo(-2, yr)\n"
+             "        .threePointArc((-1.29, nmy), (-1, ney))\n"
+             "        .threePointArc((0, iy), (1, ney))\n"
+             "        .threePointArc((1.29, nmy), (2, yr))\n"
+             "        .lineTo(xr, yr)\n"
+             "        .threePointArc((px, 0), (xr, -yr))\n"
+             "        .lineTo(2, -yr)\n"
+             "        .threePointArc((1.29, -nmy), (1, -ney))\n"
+             "        .threePointArc((0, -iy), (-1, -ney))\n"
+             "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
+             "        .close())\n"
+             "\n"
+             "w = cq.Workplane('XY')\n"
+             "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
+             "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, "
+             "13.1, 12.1)\n"
+             "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
+             "tuopan = w.loft()\n"
+             "w = cq.Workplane('XY').workplane(offset=27.5)\n"
+             "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
+             "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
+             "dingmao = w.loft()\n"
+             "\n"
+             "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
+             "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
+             "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
+             "tuopan = tuopan.cut(cutter)\n"
+             "dingmao = dingmao.cut(cutter)\n"
+             "\n"
+             "w = cq.Workplane('XY').workplane(offset=-120)\n"
+             "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
+             "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
+             "dunshen = w.loft()\n"
+             "\n"
+             "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, "
+             "44.44, 10)\n"
+             "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, "
+             "59.05, 10)\n"
+             "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
+             "\n"
+             "assy = cq.Assembly()\n"
+             "assy.add(tuopan)\n"
+             "assy.add(dingmao)\n"
+             "assy.add(dunshen)\n"
+             "assy.add(ct1)\n"
+             "assy.add(ct2)\n"
+             "for xi in [-25, 0, 25]:\n"
+             "    for yi in [-15, 15]:\n"
+             "        assy.add(pile, loc=cq.Location((xi, yi, -200)))\n"
+             "\n"
+             "single = assy.toCompound()\n"
+             "result = single.translate((0, %1, 0))\n"
+             "material = 'plastic'\n")
       .arg(yOffset);
 }
