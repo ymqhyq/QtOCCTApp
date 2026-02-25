@@ -29,14 +29,25 @@ _script_local_vars = {}
 def process_request(line):
     """
     Process a single request line.
-    Format: <script_path>|<output_brep_path>
+    Format: {"scriptPath": "...", "outputPath": "...", "args": {...}}
     """
     try:
-        parts = line.strip().split('|')
-        if len(parts) != 2:
-            return f"ERROR: Invalid request format. Expected 'script|output', got '{line.strip()}'"
+        import json
+        try:
+            req = json.loads(line.strip())
+        except Exception as e:
+            return f"ERROR: Invalid JSON request format: {e}"
+            
+        model_name = req.get("modelName")
+        output_file = req.get("outputPath")
         
-        script_file, output_file = parts
+        if not model_name or not output_file:
+            return f"ERROR: Missing modelName or outputPath in request"
+            
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_file = os.path.join(script_dir, "cq_script", f"{model_name}.py")
+            
+        json_args = req.get("args", {})
         
         if not os.path.exists(script_file):
             return f"ERROR: Script file not found: {script_file}"
@@ -57,6 +68,9 @@ def process_request(line):
         _script_global_vars.pop('result', None)
         _script_local_vars.pop('material', None)
         _script_global_vars.pop('material', None)
+        
+        # Inject dynamic json args into the globals
+        _script_global_vars.update(json_args)
         
         # Helper for showing objects (CQ-editor compatibility)
         def show_object(obj, name=None, options=None):

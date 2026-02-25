@@ -16,6 +16,8 @@
 #include <Graphic3d_NameOfMaterial.hxx>
 #include <Quantity_Color.hxx>
 
+#include <QPair>
+
 #include <list>
 
 // Forward declaration
@@ -50,8 +52,14 @@ public:
   void loadBrepAsFullBridge(
       const QString &filename, int count, double spacing,
       Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
-  void loadBrepFileDeferred(const QString &filename,
-                            Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
+  void loadBrepFileDeferred(
+      const QString &filename,
+      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
+
+  TopoDS_Shape readBrepFileToShape(const QString &filename);
+  void buildFullBridgeFromParts(
+      const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
+      int count, double spacing);
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,

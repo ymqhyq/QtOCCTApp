@@ -1,4 +1,4 @@
-#include "../include/MainWindow.h"
+﻿#include "../include/MainWindow.h"
 #include "../include/OCCTWidget.h"
 
 #include "../include/PythonSyntaxHighlighter.h"
@@ -111,6 +111,16 @@ void MainWindow::createFunctionalPanel() {
   });
   layout->addWidget(brepTextBtn);
 
+  // --- Configurations ---
+  QLabel *heightLabel = new QLabel("请输入墩身高度(H):", panelContent);
+  layout->addWidget(heightLabel);
+
+  m_pierHeightSpinBox = new QDoubleSpinBox(panelContent);
+  m_pierHeightSpinBox->setRange(10.0, 1000.0);
+  m_pierHeightSpinBox->setValue(120.0);
+  m_pierHeightSpinBox->setSuffix(" mm");
+  layout->addWidget(m_pierHeightSpinBox);
+
   // Add Fit All button - 缩放到全部视图范围
   QPushButton *fitAllBtn = new QPushButton("Fit All (缩放全部)", panelContent);
   connect(fitAllBtn, &QPushButton::clicked,
@@ -169,6 +179,68 @@ void MainWindow::createFunctionalPanel() {
     }
   });
   layout->addWidget(fullBridgeBtn);
+
+  // --- Sub-component Buttons ---
+  QPushButton *tuopanBtn = new QPushButton("生成顶帽与托盘", panelContent);
+  connect(tuopanBtn, &QPushButton::clicked, [this]() {
+    m_cqScriptEditor->setText(readScript("TuopanDingmao"));
+    onRunCqScript();
+  });
+  layout->addWidget(tuopanBtn);
+
+  QPushButton *dunshenBtn = new QPushButton("生成墩身", panelContent);
+  connect(dunshenBtn, &QPushButton::clicked, [this]() {
+    m_cqScriptEditor->setText(readScript("Dunshen"));
+    onRunCqScript();
+  });
+  layout->addWidget(dunshenBtn);
+
+  QPushButton *chengtaiBtn = new QPushButton("生成承台", panelContent);
+  connect(chengtaiBtn, &QPushButton::clicked, [this]() {
+    m_cqScriptEditor->setText(readScript("Chengtai"));
+    onRunCqScript();
+  });
+  layout->addWidget(chengtaiBtn);
+
+  QPushButton *pileBtn = new QPushButton("生成桩基础", panelContent);
+  connect(pileBtn, &QPushButton::clicked, [this]() {
+    m_cqScriptEditor->setText(readScript("Pile"));
+    onRunCqScript();
+  });
+  layout->addWidget(pileBtn);
+
+  // --- C++ Fast Assembly Button ---
+  QPushButton *fastAssemblyBtn =
+      new QPushButton("全桥-C++极速装配(100墩)", panelContent);
+  fastAssemblyBtn->setStyleSheet(
+      "background-color: #f39c12; color: white; font-weight: bold;"
+      "padding: 6px; border-radius: 4px;");
+  connect(fastAssemblyBtn, &QPushButton::clicked, [this]() {
+    m_occtWidget->clearAll();
+    m_isAssembling = true;
+    m_isBatchProcessing = false;
+    m_bridgePierCount = 100;
+    m_bridgePierSpacing = 340.0;
+    m_completedTasks = 0;
+    m_assemblyParts.clear();
+
+    m_batchQueue.clear();
+    // 0:Tuopan, 1:Dunshen, 2:Chengtai, 3:Pile
+    for (int i = 0; i < 4; ++i) {
+      m_batchQueue.enqueue(i);
+    }
+
+    statusBar()->showMessage(QString("准备基础构件中: 正在调用后台 Python..."));
+    m_batchTimer.start(); // 开始计时
+
+    // 分发任务给空闲进程
+    for (QProcess *proc : m_cqProcessList) {
+      if (!m_batchQueue.isEmpty()) {
+        dispatchTask(proc);
+      }
+    }
+  });
+  layout->addWidget(fastAssemblyBtn);
 
   // Add other potential functionality buttons here
   layout->addStretch(); // Add stretch to push buttons to the top
@@ -636,7 +708,7 @@ void MainWindow::onRunCqScript() {
   if (code.isEmpty())
     return;
 
-  QString scriptPath = QDir::currentPath() + "/temp_script.py";
+  QString scriptPath = QDir::currentPath() + "/cq_script/temp_custom.py";
   QString outputPath = QDir::currentPath() + "/temp_output.brep";
 
   QFile scriptFile(scriptPath);
@@ -649,13 +721,25 @@ void MainWindow::onRunCqScript() {
   scriptFile.close();
 
   proc->setProperty("outputPath", outputPath);
+  proc->setProperty("assemblyIndex", -1);
 
   if (proc->state() != QProcess::Running) {
     proc->start();
     proc->waitForStarted();
   }
 
-  QString request = scriptPath + "|" + outputPath + "\n";
+  QJsonObject args;
+  args["pierHeight"] = m_pierHeightSpinBox->value();
+
+  QJsonObject req;
+  req["modelName"] = "temp_custom";
+  req["outputPath"] = outputPath;
+  req["args"] = args;
+
+  QJsonDocument doc(req);
+  QString jsonString = doc.toJson(QJsonDocument::Compact);
+
+  QString request = jsonString + "\n";
   proc->write(request.toUtf8());
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
@@ -666,20 +750,29 @@ void MainWindow::dispatchTask(QProcess *proc) {
     return;
   int index = m_batchQueue.dequeue();
 
-  double yOff = index * m_bridgePierSpacing;
-  QString code = getBridgePier2Script(yOff);
+  QString modelName;
+  QJsonObject args;
+  args["pierHeight"] = m_pierHeightSpinBox->value();
+
+  if (m_isAssembling) {
+    if (index == 0)
+      modelName = "TuopanDingmao";
+    else if (index == 1)
+      modelName = "Dunshen";
+    else if (index == 2)
+      modelName = "Chengtai";
+    else if (index == 3)
+      modelName = "Pile";
+    proc->setProperty("assemblyIndex", index);
+  } else {
+    double yOff = index * m_bridgePierSpacing;
+    args["yOffset"] = yOff;
+    modelName = "BridgePier2";
+  }
 
   int procId = m_cqProcessList.indexOf(proc);
-  QString scriptPath =
-      QDir::currentPath() + QString("/temp_script_%1.py").arg(procId);
   QString outputPath =
       QDir::currentPath() + QString("/temp_output_%1.brep").arg(procId);
-
-  QFile scriptFile(scriptPath);
-  if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Text))
-    return;
-  scriptFile.write(code.toUtf8());
-  scriptFile.close();
 
   proc->setProperty("outputPath", outputPath);
 
@@ -688,7 +781,14 @@ void MainWindow::dispatchTask(QProcess *proc) {
     proc->waitForStarted();
   }
 
-  QString request = scriptPath + "|" + outputPath + "\n";
+  QJsonObject req;
+  req["modelName"] = modelName;
+  req["outputPath"] = outputPath;
+  req["args"] = args;
+
+  QJsonDocument doc(req);
+  QString jsonString = doc.toJson(QJsonDocument::Compact);
+  QString request = jsonString + "\n";
   proc->write(request.toUtf8());
 }
 
@@ -740,7 +840,28 @@ void MainWindow::processCqOutput() {
       if (outputPath.isEmpty())
         outputPath = QDir::currentPath() + "/temp_output.brep";
 
-      if (!m_isBatchProcessing) {
+      if (m_isAssembling) {
+        m_completedTasks++;
+        TopoDS_Shape shape = m_occtWidget->readBrepFileToShape(outputPath);
+        m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
+
+        statusBar()->showMessage(
+            QString("正在加载基础构件: %1/4").arg(m_completedTasks));
+
+        if (m_completedTasks == 4) {
+          m_isAssembling = false;
+          m_occtWidget->buildFullBridgeFromParts(
+              m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
+          qint64 elapsedMs = m_batchTimer.elapsed();
+          QString msg = QString("极速装配完毕: %1个桥墩阵列. 耗时: %2 毫秒")
+                            .arg(m_bridgePierCount)
+                            .arg(elapsedMs);
+          qDebug() << "C++ Assembly finished. " << msg;
+          statusBar()->showMessage(msg, 10000);
+        } else if (!m_batchQueue.isEmpty()) {
+          dispatchTask(proc);
+        }
+      } else if (!m_isBatchProcessing) {
         m_occtWidget->clearAll();
         m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
         statusBar()->showMessage("Model built successfully.", 3000);
@@ -783,64 +904,11 @@ void MainWindow::processCqOutput() {
   }
 }
 
-QString MainWindow::getBridgePier2Script(double yOffset) {
-  return QString(
-             "import cadquery as cq\n"
-             "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
-             "    return (wp.moveTo(-xr, -yr)\n"
-             "        .threePointArc((-px, 0), (-xr, yr))\n"
-             "        .lineTo(-2, yr)\n"
-             "        .threePointArc((-1.29, nmy), (-1, ney))\n"
-             "        .threePointArc((0, iy), (1, ney))\n"
-             "        .threePointArc((1.29, nmy), (2, yr))\n"
-             "        .lineTo(xr, yr)\n"
-             "        .threePointArc((px, 0), (xr, -yr))\n"
-             "        .lineTo(2, -yr)\n"
-             "        .threePointArc((1.29, -nmy), (1, -ney))\n"
-             "        .threePointArc((0, -iy), (-1, -ney))\n"
-             "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
-             "        .close())\n"
-             "\n"
-             "w = cq.Workplane('XY')\n"
-             "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
-             "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, "
-             "13.1, 12.1)\n"
-             "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
-             "tuopan = w.loft()\n"
-             "w = cq.Workplane('XY').workplane(offset=27.5)\n"
-             "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
-             "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
-             "dingmao = w.loft()\n"
-             "\n"
-             "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
-             "    .lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27)\n"
-             "    .lineTo(7.5, 30).close().extrude(500, both=True))\n"
-             "tuopan = tuopan.cut(cutter)\n"
-             "dingmao = dingmao.cut(cutter)\n"
-             "\n"
-             "w = cq.Workplane('XY').workplane(offset=-120)\n"
-             "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
-             "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
-             "dunshen = w.loft()\n"
-             "\n"
-             "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, "
-             "44.44, 10)\n"
-             "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, "
-             "59.05, 10)\n"
-             "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
-             "\n"
-             "assy = cq.Assembly()\n"
-             "assy.add(tuopan)\n"
-             "assy.add(dingmao)\n"
-             "assy.add(dunshen)\n"
-             "assy.add(ct1)\n"
-             "assy.add(ct2)\n"
-             "for xi in [-25, 0, 25]:\n"
-             "    for yi in [-15, 15]:\n"
-             "        assy.add(pile, loc=cq.Location((xi, yi, -200)))\n"
-             "\n"
-             "single = assy.toCompound()\n"
-             "result = single.translate((0, %1, 0))\n"
-             "material = 'plastic'\n")
-      .arg(yOffset);
+QString MainWindow::readScript(const QString &modelName) {
+  QString path = QDir::currentPath() + "/cq_script/" + modelName + ".py";
+  QFile file(path);
+  if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return QString::fromUtf8(file.readAll());
+  }
+  return QString("# 找不到脚本文件: %1").arg(path);
 }

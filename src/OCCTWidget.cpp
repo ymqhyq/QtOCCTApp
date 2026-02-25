@@ -4,7 +4,9 @@
 
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include <BRepTools.hxx>
+#include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <IntAna_Quadric.hxx>
@@ -19,9 +21,11 @@
 #include <Quantity_Color.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
+#include <TopoDS_Compound.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
+#include <gp_Trsf.hxx>
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
@@ -794,15 +798,29 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
 
   Quantity_Color finalColor;
   switch (material) {
-  case Graphic3d_NOM_GOLD: finalColor = Quantity_NOC_GOLD1; break;
-  case Graphic3d_NOM_BRASS: finalColor = Quantity_NOC_DARKKHAKI; break;
-  case Graphic3d_NOM_BRONZE: finalColor = Quantity_NOC_CHOCOLATE1; break;
+  case Graphic3d_NOM_GOLD:
+    finalColor = Quantity_NOC_GOLD1;
+    break;
+  case Graphic3d_NOM_BRASS:
+    finalColor = Quantity_NOC_DARKKHAKI;
+    break;
+  case Graphic3d_NOM_BRONZE:
+    finalColor = Quantity_NOC_CHOCOLATE1;
+    break;
   case Graphic3d_NOM_CHROME:
   case Graphic3d_NOM_STEEL:
-  case Graphic3d_NOM_ALUMINIUM: finalColor = Quantity_NOC_GRAY30; break;
-  case Graphic3d_NOM_PLASTIC: finalColor = Quantity_NOC_YELLOW; break;
-  case Graphic3d_NOM_GLASS: finalColor = Quantity_NOC_LIGHTBLUE; break;
-  default: finalColor = Quantity_NOC_GRAY75; break;
+  case Graphic3d_NOM_ALUMINIUM:
+    finalColor = Quantity_NOC_GRAY30;
+    break;
+  case Graphic3d_NOM_PLASTIC:
+    finalColor = Quantity_NOC_YELLOW;
+    break;
+  case Graphic3d_NOM_GLASS:
+    finalColor = Quantity_NOC_LIGHTBLUE;
+    break;
+  default:
+    finalColor = Quantity_NOC_GRAY75;
+    break;
   }
 
   if (!m_context.IsNull()) {
@@ -1392,5 +1410,66 @@ void OCCTWidget::drawBridgePier() {
   m_lines.push_back(ais4);
 
   // 刷新视图
+  fitAll();
+}
+
+TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
+  TopoDS_Shape shape;
+  BRep_Builder builder;
+  if (!BRepTools::Read(shape, filename.toStdString().c_str(), builder)) {
+    qWarning() << "Failed to load deferred BREP file:" << filename;
+  }
+  return shape;
+}
+
+void OCCTWidget::buildFullBridgeFromParts(
+    const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
+    int count, double spacing) {
+
+  if (parts.isEmpty())
+    return;
+
+  // 将传入的所有部件，组合成一个完整的独立桥墩 Compound（母版）
+  BRep_Builder builder;
+  TopoDS_Compound basePier;
+  builder.MakeCompound(basePier);
+
+  for (const auto &part : parts) {
+    if (!part.first.IsNull()) {
+      builder.Add(basePier, part.first);
+    }
+  }
+
+  // 循环 count 次，分别计算 Y 轴 offset 进行移动
+  for (int i = 0; i < count; ++i) {
+    double yOff = i * spacing;
+
+    // 只平移
+    gp_Trsf trsf;
+    trsf.SetTranslation(gp_Vec(0, yOff, 0));
+
+    // 底层 API 直接在内存快速复制拓扑和几何
+    BRepBuilderAPI_Transform xform(basePier, trsf, Standard_True);
+    TopoDS_Shape newShape = xform.Shape();
+
+    // 对于材质，因为组合进了 Compound，通常给统一材质较好
+    // 如果想要每个子元件材质不同，则需要在 for(part) 里面单独进行 Transform
+    // 和设置材质
+    // 这里为了演示极限构建速度，统一组合再阵列复制。为了表现不同材质，我们用第二种更精确的方法：
+
+    for (const auto &part : parts) {
+      if (part.first.IsNull())
+        continue;
+
+      BRepBuilderAPI_Transform childXform(part.first, trsf, Standard_True);
+      TopoDS_Shape childShape = childXform.Shape();
+
+      Handle(AIS_Shape) aisShape = new AIS_Shape(childShape);
+      m_context->SetDisplayMode(aisShape, 1, Standard_False);
+      m_context->SetMaterial(aisShape, part.second, Standard_False);
+      m_context->Display(aisShape, Standard_False);
+    }
+  }
+
   fitAll();
 }

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.16)
 
 project(QtOCCTApp VERSION 1.0.0)
 
@@ -279,3 +279,15 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 endif()
+
+# Copy cq_script and run_cq.py to the output directory
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/cq_script
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/cq_script
+)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_SOURCE_DIR}/run_cq.py
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/run_cq.py
+)

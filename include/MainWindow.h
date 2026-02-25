@@ -3,13 +3,17 @@
 
 #include <QCheckBox>
 #include <QDockWidget>
+#include <QDoubleSpinBox>
 #include <QElapsedTimer>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QList>
 #include <QMainWindow>
+#include <QPair>
 #include <QPushButton>
 #include <QQueue>
-#include <QVBoxLayout>
-#include <QWidget>
+
+#include <TopoDS_Shape.hxx>
 
 #include <memory>
 
@@ -44,12 +48,13 @@ private:
   void initializeCqProcess();
   void processCqOutput();
   void dispatchTask(QProcess *proc);
-  QString getBridgePier2Script(double yOffset = 0.0);
+  QString readScript(const QString &modelName);
 
   OCCTWidget *m_occtWidget;
   QDockWidget *m_functionalPanel;
   QDockWidget *m_dockCq;
   QTextEdit *m_cqScriptEditor;
+  QDoubleSpinBox *m_pierHeightSpinBox;
   QPushButton *m_drawLineButton;
   QCheckBox *m_solidTextCheckbox;
   std::unique_ptr<ShxTextGenerator> m_shxGenerator;
@@ -65,6 +70,8 @@ private:
   int m_bridgePierCount = 100;
   double m_bridgePierSpacing = 340.0;
   QElapsedTimer m_batchTimer;
+  bool m_isAssembling = false;
+  QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> m_assemblyParts;
 };
 
 #endif // MAINWINDOW_H
