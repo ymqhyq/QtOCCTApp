@@ -30,25 +30,8 @@ cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, 27)
 tuopan = tuopan.cut(cutter)
 dingmao = dingmao.cut(cutter)
 
-w = cq.Workplane('XY').workplane(offset=-120)
-w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)
-w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)
-dunshen = w.loft()
-
-ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, 10)
-ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, 10)
-pile = cq.Workplane('XY').circle(5).extrude(60)
-
 assy = cq.Assembly()
 assy.add(tuopan)
 assy.add(dingmao)
-assy.add(dunshen)
-assy.add(ct1)
-assy.add(ct2)
-for xi in [-25, 0, 25]:
-    for yi in [-15, 15]:
-        assy.add(pile, loc=cq.Location((xi, yi, -200)))
-
-single = assy.toCompound()
-result = single.translate((0, 31280, 0))
-material = 'plastic'
+result = assy.toCompound()
+material = 'steel'

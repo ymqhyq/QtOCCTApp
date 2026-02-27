@@ -158,7 +158,7 @@ void MainWindow::createFunctionalPanel() {
     m_isBatchProcessing = true;
     m_currentPierIndex = 0;
     m_bridgePierCount = 100;
-    m_bridgePierSpacing = 340.0;
+    m_bridgePierSpacing = 32000.0; // 32m spacing
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_completedTasks = 0;
 
@@ -209,6 +209,13 @@ void MainWindow::createFunctionalPanel() {
   });
   layout->addWidget(pileBtn);
 
+  QPushButton *girderBtn = new QPushButton("生成箱梁", panelContent);
+  connect(girderBtn, &QPushButton::clicked, [this]() {
+    m_cqScriptEditor->setText(readScript("girder"));
+    onRunCqScript();
+  });
+  layout->addWidget(girderBtn);
+
   // --- C++ Fast Assembly Button ---
   QPushButton *fastAssemblyBtn =
       new QPushButton("全桥-C++极速装配(100墩)", panelContent);
@@ -220,13 +227,13 @@ void MainWindow::createFunctionalPanel() {
     m_isAssembling = true;
     m_isBatchProcessing = false;
     m_bridgePierCount = 100;
-    m_bridgePierSpacing = 340.0;
+    m_bridgePierSpacing = 32000.0; // 32m spacing
     m_completedTasks = 0;
     m_assemblyParts.clear();
 
     m_batchQueue.clear();
-    // 0:Tuopan, 1:Dunshen, 2:Chengtai, 3:Pile
-    for (int i = 0; i < 4; ++i) {
+    // 0:Tuopan, 1:Dunshen, 2:Chengtai, 3:Pile, 4:girder
+    for (int i = 0; i < 5; ++i) {
       m_batchQueue.enqueue(i);
     }
 
@@ -763,6 +770,8 @@ void MainWindow::dispatchTask(QProcess *proc) {
       modelName = "Chengtai";
     else if (index == 3)
       modelName = "Pile";
+    else if (index == 4)
+      modelName = "girder";
     proc->setProperty("assemblyIndex", index);
   } else {
     double yOff = index * m_bridgePierSpacing;
@@ -846,9 +855,9 @@ void MainWindow::processCqOutput() {
         m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
 
         statusBar()->showMessage(
-            QString("正在加载基础构件: %1/4").arg(m_completedTasks));
+            QString("正在加载基础构件: %1/5").arg(m_completedTasks));
 
-        if (m_completedTasks == 4) {
+        if (m_completedTasks == 5) {
           m_isAssembling = false;
           m_occtWidget->buildFullBridgeFromParts(
               m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);

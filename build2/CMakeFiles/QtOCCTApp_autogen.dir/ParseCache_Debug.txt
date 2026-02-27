@@ -3,9 +3,168 @@ D:/QtOCCTApp/include/AspectWindow.h
 D:/QtOCCTApp/include/MainWindow.h
  mmc:Q_OBJECT
  mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_NameOfMaterial.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_BaseAllocator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_BaseList.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_BaseMap.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_DefaultHasher.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_DefineAlloc.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_DefineHasher.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_IndexedDataMap.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_List.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_ListNode.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Mat3.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Mat4.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_StlIterator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_TListIterator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_TListNode.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Vec2.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Vec3.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Vec4.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Assert.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Boolean.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_CString.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Character.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_ConstructionError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_DefineAlloc.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_DefineException.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_DefineHandle.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_DomainError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Dump.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_ExtCharacter.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Failure.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Handle.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_HashUtils.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_HashUtils.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_IStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Integer.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Macro.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_NoSuchObject.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_OStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_OutOfRange.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_PCharacter.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_ProgramError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_RangeError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Real.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_SStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Std.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Transient.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Type.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_TypeDef.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_TypeMismatch.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TCollection_AsciiString.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TCollection_AsciiString.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopAbs.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopAbs_Orientation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopAbs_ShapeEnum.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopAbs_State.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopLoc_Datum3D.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopLoc_ItemLocation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopLoc_Location.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopLoc_Location.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopLoc_SListOfItemLocation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopoDS_Shape.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/TopoDS_TShape.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Ax2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Dir.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Dir2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Mat.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Mat2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Pnt.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Pnt2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Trsf.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Trsf2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_TrsfForm.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Vec.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_Vec2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_VectorWithNullMagnitude.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_XY.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/gp_XYZ.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/TopLoc/TopLoc_Datum3D.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/TopLoc/TopLoc_ItemLocation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/TopLoc/TopLoc_Location.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/TopLoc/TopLoc_Location.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/TopLoc/TopLoc_SListOfItemLocation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Ax2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Dir.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Dir2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Mat.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Mat2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Pnt.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Pnt2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Trsf.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Trsf2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_TrsfForm.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Vec.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_Vec2d.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_VectorWithNullMagnitude.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_XY.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKMath/gp/gp_XYZ.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_BaseAllocator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_BaseList.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_BaseMap.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_DefaultHasher.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_DefineAlloc.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_DefineHasher.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_IndexedDataMap.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_List.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_ListNode.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Mat3.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Mat4.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_StlIterator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_TListIterator.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_TListNode.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Vec2.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Vec3.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Vec4.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Assert.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Boolean.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_CString.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Character.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_ConstructionError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_DefineAlloc.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_DefineException.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_DefineHandle.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_DomainError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Dump.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_ExtCharacter.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Failure.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Handle.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_HashUtils.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_HashUtils.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_IStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Integer.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Macro.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_NoSuchObject.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_OStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_OutOfRange.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_PCharacter.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_ProgramError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_RangeError.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Real.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_SStream.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Std.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Transient.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Type.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_TypeDef.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_TypeMismatch.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/TCollection/TCollection_AsciiString.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/TCollection/TCollection_AsciiString.lxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKBRep/TopoDS/TopoDS_Shape.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKBRep/TopoDS/TopoDS_TShape.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs_Orientation.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs_ShapeEnum.hxx
+ mdp:D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs_State.hxx
  mdp:D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKService/Graphic3d/Graphic3d_NameOfMaterial.hxx
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QElapsedTimer
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QJsonDocument
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QJsonObject
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QPair
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QQueue
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/q17memory.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20functional.h
@@ -30,6 +189,9 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qbytearrayalgorithms.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qbytearraylist.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qbytearrayview.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcalendar.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcborcommon.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcborvalue.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qchar.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcheckedint_impl.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcompare.h
@@ -44,6 +206,7 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qcontiguouscache.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdarwinhelpers.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdatastream.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdatetime.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qdebug.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qelapsedtimer.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qendian.h
@@ -61,9 +224,14 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qiodevicebase.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qiterable.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qiterator.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qjsondocument.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qjsonobject.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qjsonparseerror.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qjsonvalue.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qlatin1stringview.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qline.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qlist.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qlocale.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qlogging.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qmalloc.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qmap.h
@@ -85,6 +253,7 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qqueue.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qrect.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qrefcount.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qregularexpression.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qscopedpointer.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qscopeguard.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qset.h
@@ -130,7 +299,9 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qtversionchecks.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qtypeinfo.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qtypes.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qurl.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qutf8stringview.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/quuid.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qvariant.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qvarlengtharray.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/qversiontagging.h
@@ -160,24 +331,22 @@ D:/QtOCCTApp/include/MainWindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qtguiexports.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qtguiglobal.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qtransform.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qvalidator.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qwindowdefs.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qwindowdefs_win.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QCheckBox
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QDockWidget
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QDoubleSpinBox
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QMainWindow
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QPushButton
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QVBoxLayout
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/QWidget
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qabstractbutton.h
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qboxlayout.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qabstractspinbox.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qcheckbox.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qdockwidget.h
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qgridlayout.h
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qlayout.h
- mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qlayoutitem.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qmainwindow.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qpushbutton.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qsizepolicy.h
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qspinbox.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qtabwidget.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qtwidgets-config.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qtwidgetsexports.h
@@ -916,6 +1085,7 @@ D:/QtOCCTApp/include/OCCTWidget.h
  mdp:D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKV3d/V3d/V3d_Viewer.hxx
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QObject
+ mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QPair
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QRect
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSize
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSizeF

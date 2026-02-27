@@ -729,6 +729,7 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKV3d/V3d/V3d_Viewer.hxx \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QObject \
+  D:/Qt/6.10.1/msvc2022_64/include/QtCore/QPair \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QRect \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSize \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSizeF \

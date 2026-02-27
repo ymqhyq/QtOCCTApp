@@ -136,6 +136,27 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Message>	</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory D:/QtOCCTApp/cq_script D:/QtOCCTApp/build2/Debug/cq_script
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_if_different D:/QtOCCTApp/run_cq.py D:/QtOCCTApp/build2/Debug/run_cq.py
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
     <Link>
       <AdditionalDependencies>Debug\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLd.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Guid.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Cored.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPointd.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
@@ -203,6 +224,27 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Message>	</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory D:/QtOCCTApp/cq_script D:/QtOCCTApp/build2/Release/cq_script
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_if_different D:/QtOCCTApp/run_cq.py D:/QtOCCTApp/build2/Release/run_cq.py
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
     <Link>
       <AdditionalDependencies>libs\shxparser\Release\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
@@ -270,6 +312,27 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Message>	</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory D:/QtOCCTApp/cq_script D:/QtOCCTApp/build2/MinSizeRel/cq_script
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_if_different D:/QtOCCTApp/run_cq.py D:/QtOCCTApp/build2/MinSizeRel/run_cq.py
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
     <Link>
       <AdditionalDependencies>libs\shxparser\MinSizeRel\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
@@ -336,6 +399,27 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PreBuildEvent>
+    <PostBuildEvent>
+      <Message>	</Message>
+      <Command>setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_directory D:/QtOCCTApp/cq_script D:/QtOCCTApp/build2/RelWithDebInfo/cq_script
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -E copy_if_different D:/QtOCCTApp/run_cq.py D:/QtOCCTApp/build2/RelWithDebInfo/run_cq.py
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PostBuildEvent>
     <Link>
       <AdditionalDependencies>libs\shxparser\RelWithDebInfo\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>

@@ -60,36 +60,29 @@ def process_request(line):
         with open(script_file, 'r', encoding='utf-8') as f:
             script_content = f.read()
 
-        # Prepare execution environment (Persistent)
-        global _script_global_vars, _script_local_vars
-        
-        # Clear specific variables to avoid carry-over
-        _script_local_vars.pop('result', None)
-        _script_global_vars.pop('result', None)
-        _script_local_vars.pop('material', None)
-        _script_global_vars.pop('material', None)
+        # Prepare execution environment (Isolated namespace)
+        isolated_globals = {
+            "__builtins__": __builtins__,
+            "print": print, # Allow print for debugging
+        }
         
         # Inject dynamic json args into the globals
-        _script_global_vars.update(json_args)
+        isolated_globals.update(json_args)
         
         # Helper for showing objects (CQ-editor compatibility)
         def show_object(obj, name=None, options=None):
-            _script_local_vars['result'] = obj
+            isolated_globals['result'] = obj
 
-        _script_global_vars['show_object'] = show_object
+        isolated_globals['show_object'] = show_object
         
         # Execute script
-        exec(script_content, _script_global_vars, _script_local_vars)
+        exec(script_content, isolated_globals)
         
         # Extract result
-        if 'result' not in _script_local_vars:
-            # Check if user defined 'result' in global scope by mistake (or intentional)
-            if 'result' in _script_global_vars:
-                _script_local_vars['result'] = _script_global_vars['result']
-            else:
-                 return "ERROR: variable 'result' not found in script."
+        if 'result' not in isolated_globals:
+             return "ERROR: variable 'result' not found in script."
 
-        result_obj = _script_local_vars['result']
+        result_obj = isolated_globals['result']
         
         # Handle CadQuery objects
         import cadquery as cq
@@ -110,8 +103,8 @@ def process_request(line):
         # Export to BREP
         if shape_to_export:
              BRepTools.Write_s(shape_to_export, output_file)
-             # Check for material override in script (check both local and global)
-             material = _script_local_vars.get('material', _script_global_vars.get('material', None))
+             # Check for material override in script
+             material = isolated_globals.get('material', None)
              
              # DEBUG: Force print to stderr
              sys.stderr.write(f"DEBUG: Found material: {material}\n")

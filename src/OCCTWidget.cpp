@@ -1429,44 +1429,59 @@ void OCCTWidget::buildFullBridgeFromParts(
   if (parts.isEmpty())
     return;
 
-  // 将传入的所有部件，组合成一个完整的独立桥墩 Compound（母版）
-  BRep_Builder builder;
-  TopoDS_Compound basePier;
-  builder.MakeCompound(basePier);
+  // 区分桥墩部分和箱梁部分 (假设最后一个是箱梁，名字是 girder，如果在 parts
+  // 里则其索引通常是 4) 这里我们使用一个简单启发式：如果某个part的Bounding
+  // Box很长，或者它的索引是最后一个（我们传了5个） 假设传入的 parts = [Tuopan,
+  // Dunshen, Chengtai, Pile, Girder]
+  bool hasGirder = (parts.size() >= 5);
+  int pierPartCount = hasGirder ? parts.size() - 1 : parts.size();
 
-  for (const auto &part : parts) {
-    if (!part.first.IsNull()) {
-      builder.Add(basePier, part.first);
-    }
-  }
-
-  // 循环 count 次，分别计算 Y 轴 offset 进行移动
+  // 循环 count 次，分别计算 Y 轴 offset 进行桥墩移动
   for (int i = 0; i < count; ++i) {
     double yOff = i * spacing;
-
-    // 只平移
     gp_Trsf trsf;
     trsf.SetTranslation(gp_Vec(0, yOff, 0));
 
-    // 底层 API 直接在内存快速复制拓扑和几何
-    BRepBuilderAPI_Transform xform(basePier, trsf, Standard_True);
-    TopoDS_Shape newShape = xform.Shape();
-
-    // 对于材质，因为组合进了 Compound，通常给统一材质较好
-    // 如果想要每个子元件材质不同，则需要在 for(part) 里面单独进行 Transform
-    // 和设置材质
-    // 这里为了演示极限构建速度，统一组合再阵列复制。为了表现不同材质，我们用第二种更精确的方法：
-
-    for (const auto &part : parts) {
-      if (part.first.IsNull())
+    // 为每个桥墩部件进行阵列
+    for (int j = 0; j < pierPartCount; ++j) {
+      if (parts[j].first.IsNull())
         continue;
 
-      BRepBuilderAPI_Transform childXform(part.first, trsf, Standard_True);
+      BRepBuilderAPI_Transform childXform(parts[j].first, trsf, Standard_True);
       TopoDS_Shape childShape = childXform.Shape();
 
       Handle(AIS_Shape) aisShape = new AIS_Shape(childShape);
       m_context->SetDisplayMode(aisShape, 1, Standard_False);
-      m_context->SetMaterial(aisShape, part.second, Standard_False);
+      m_context->SetMaterial(aisShape, parts[j].second, Standard_False);
+      m_context->Display(aisShape, Standard_False);
+    }
+
+    // 如果有箱梁，且不是最后一跨（或要求最后一跨也有）
+    // 通常全桥 100 墩，则有 99 跨梁
+    if (hasGirder && i < count - 1) {
+      // 梁已经在 YZ 面生成，沿着 X 轴挤出 (L=31500)。
+      // 桥墩的布局是沿着 Y 轴分布的。
+      // 所以我们需要把梁从 X 轴旋转到 Y 轴。
+      // 绕 Z 轴旋转 90 度。
+      gp_Trsf rotTrsf;
+      rotTrsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
+
+      gp_Trsf transTrsf;
+      // 需要将其抬高到桥墩托盘/顶帽的顶部高度 Z 约等于 3000 (30.0m)
+      transTrsf.SetTranslation(gp_Vec(0, yOff, 30.0 * 100.0));
+
+      gp_Trsf girderTrsf = transTrsf * rotTrsf;
+
+      BRepBuilderAPI_Transform girderXform(parts.last().first, girderTrsf,
+                                           Standard_True);
+      TopoDS_Shape girderShape = girderXform.Shape();
+
+      Handle(AIS_Shape) aisShape = new AIS_Shape(girderShape);
+      m_context->SetDisplayMode(aisShape, 1, Standard_False);
+      m_context->SetMaterial(aisShape, Graphic3d_NOM_STEEL,
+                             Standard_False); // 梁用 Steel
+      // 用混凝土颜色代替Steel
+      m_context->SetColor(aisShape, Quantity_NOC_GRAY75, Standard_False);
       m_context->Display(aisShape, Standard_False);
     }
   }

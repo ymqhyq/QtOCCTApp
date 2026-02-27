@@ -23,17 +23,31 @@ def setup_environment():
                 pass
             os.environ["PATH"] = conda_lib_bin + os.pathsep + os.environ["PATH"]
 
+_script_global_vars = {}
+_script_local_vars = {}
+
 def process_request(line):
     """
     Process a single request line.
-    Format: <script_path>|<output_brep_path>
+    Format: {"scriptPath": "...", "outputPath": "...", "args": {...}}
     """
     try:
-        parts = line.strip().split('|')
-        if len(parts) != 2:
-            return f"ERROR: Invalid request format. Expected 'script|output', got '{line.strip()}'"
+        import json
+        try:
+            req = json.loads(line.strip())
+        except Exception as e:
+            return f"ERROR: Invalid JSON request format: {e}"
+            
+        model_name = req.get("modelName")
+        output_file = req.get("outputPath")
         
-        script_file, output_file = parts
+        if not model_name or not output_file:
+            return f"ERROR: Missing modelName or outputPath in request"
+            
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_file = os.path.join(script_dir, "cq_script", f"{model_name}.py")
+            
+        json_args = req.get("args", {})
         
         if not os.path.exists(script_file):
             return f"ERROR: Script file not found: {script_file}"
@@ -46,28 +60,29 @@ def process_request(line):
         with open(script_file, 'r', encoding='utf-8') as f:
             script_content = f.read()
 
-        # Prepare execution environment
-        global_vars = {}
-        local_vars = {}
+        # Prepare execution environment (Isolated namespace)
+        isolated_globals = {
+            "__builtins__": __builtins__,
+            "print": print, # Allow print for debugging
+        }
+        
+        # Inject dynamic json args into the globals
+        isolated_globals.update(json_args)
         
         # Helper for showing objects (CQ-editor compatibility)
         def show_object(obj, name=None, options=None):
-            local_vars['result'] = obj
+            isolated_globals['result'] = obj
 
-        global_vars['show_object'] = show_object
+        isolated_globals['show_object'] = show_object
         
         # Execute script
-        exec(script_content, global_vars, local_vars)
+        exec(script_content, isolated_globals)
         
         # Extract result
-        if 'result' not in local_vars:
-            # Check if user defined 'result' in global scope by mistake (or intentional)
-            if 'result' in global_vars:
-                local_vars['result'] = global_vars['result']
-            else:
-                 return "ERROR: variable 'result' not found in script."
+        if 'result' not in isolated_globals:
+             return "ERROR: variable 'result' not found in script."
 
-        result_obj = local_vars['result']
+        result_obj = isolated_globals['result']
         
         # Handle CadQuery objects
         import cadquery as cq
@@ -88,6 +103,14 @@ def process_request(line):
         # Export to BREP
         if shape_to_export:
              BRepTools.Write_s(shape_to_export, output_file)
+             # Check for material override in script
+             material = isolated_globals.get('material', None)
+             
+             # DEBUG: Force print to stderr
+             sys.stderr.write(f"DEBUG: Found material: {material}\n")
+             
+             if material:
+                 return f"SUCCESS|{str(material).upper()}"
              return "SUCCESS"
         else:
              return "ERROR: Result shape is null"
