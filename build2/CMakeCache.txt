@@ -276,6 +276,9 @@ Qt6OpenGLWidgets_DIR:PATH=D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGLWidgets
 //The directory containing a CMake configuration file for Qt6OpenGL.
 Qt6OpenGL_DIR:PATH=D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGL
 
+//The directory containing a CMake configuration file for Qt6Svg.
+Qt6Svg_DIR:PATH=D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg
+
 //The directory containing a CMake configuration file for Qt6WidgetsTools.
 Qt6WidgetsTools_DIR:PATH=D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6WidgetsTools
 

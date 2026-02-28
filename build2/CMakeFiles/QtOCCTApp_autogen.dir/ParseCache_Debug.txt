@@ -1273,9 +1273,6 @@ D:/QtOCCTApp/include/OCCTWidget.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qtwidgetsglobal.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtWidgets/qwidget.h
  mdp:D:/QtOCCTApp/include/OCCTWidget.h
-D:/QtOCCTApp/include/ShxTextGenerator.h
-D:/QtOCCTApp/src/AspectWindow.cpp
-D:/QtOCCTApp/src/Line.cpp
 D:/QtOCCTApp/include/PythonSyntaxHighlighter.h
  mmc:Q_OBJECT
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList
@@ -1470,7 +1467,10 @@ D:/QtOCCTApp/include/PythonSyntaxHighlighter.h
  mdp:D:/Qt/6.10.1/msvc2022_64/include/QtGui/qwindowdefs_win.h
  mdp:D:/QtOCCTApp/include/PythonSyntaxHighlighter.h
 D:/QtOCCTApp/src/MainWindow.cpp
+D:/QtOCCTApp/include/ShxTextGenerator.h
+D:/QtOCCTApp/src/AspectWindow.cpp
+D:/QtOCCTApp/src/Line.cpp
 D:/QtOCCTApp/src/OCCTWidget.cpp
+D:/QtOCCTApp/src/PythonSyntaxHighlighter.cpp
 D:/QtOCCTApp/src/ShxTextGenerator.cpp
 D:/QtOCCTApp/src/main.cpp
-D:/QtOCCTApp/src/PythonSyntaxHighlighter.cpp

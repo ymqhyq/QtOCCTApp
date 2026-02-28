@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "SARibbonMainWindow.h"
 #include <QCheckBox>
 #include <QDockWidget>
 #include <QDoubleSpinBox>
@@ -8,7 +9,6 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
-#include <QMainWindow>
 #include <QPair>
 #include <QPushButton>
 #include <QQueue>
@@ -25,7 +25,7 @@ class QTextEdit;
 class PythonSyntaxHighlighter;
 #include <Graphic3d_NameOfMaterial.hxx>
 
-class MainWindow : public QMainWindow {
+class MainWindow : public SARibbonMainWindow {
   Q_OBJECT
 
 public:
@@ -43,7 +43,7 @@ private slots:
   void onMousePositionChanged(double x, double y, double z);
 
 private:
-  void createFunctionalPanel();
+  void createRibbon();
   void setupCadQueryUi();
   void initializeCqProcess();
   void processCqOutput();
@@ -51,11 +51,9 @@ private:
   QString readScript(const QString &modelName);
 
   OCCTWidget *m_occtWidget;
-  QDockWidget *m_functionalPanel;
   QDockWidget *m_dockCq;
   QTextEdit *m_cqScriptEditor;
   QDoubleSpinBox *m_pierHeightSpinBox;
-  QPushButton *m_drawLineButton;
   QCheckBox *m_solidTextCheckbox;
   std::unique_ptr<ShxTextGenerator> m_shxGenerator;
   QLabel *m_coordLabel;

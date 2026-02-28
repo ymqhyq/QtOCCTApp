@@ -17,9 +17,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_PREFIX_PATH "D:/Qt/6.10.1/msvc2022_64")
 
 # Find required packages
-find_package(Qt6 COMPONENTS Core Widgets Gui OpenGL QUIET)
+find_package(Qt6 COMPONENTS Core Widgets Gui OpenGL Svg QUIET)
 if(NOT Qt6_FOUND)
-    find_package(Qt5 COMPONENTS Core Widgets Gui OpenGL REQUIRED)
+    find_package(Qt5 COMPONENTS Core Widgets Gui OpenGL Svg REQUIRED)
     set(QT_VERSION Qt5)
 else()
     set(QT_VERSION Qt6)
@@ -71,6 +71,7 @@ add_executable(${PROJECT_NAME}
     src/ShxTextGenerator.cpp
     include/PythonSyntaxHighlighter.h
     src/PythonSyntaxHighlighter.cpp
+    resources.qrc
 )
 
 # Include directories
@@ -83,6 +84,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 # Add shxparser library
 add_subdirectory(libs/shxparser)
 target_link_libraries(${PROJECT_NAME} shxparser)
+
+# Add SARibbonBar library
+set(SARIBBON_BUILD_EXAMPLES OFF CACHE BOOL "Disable SARibbon examples" FORCE)
+add_subdirectory("D:/GitHub_Ymqhyq/SARibbon" "${CMAKE_BINARY_DIR}/SARibbon")
+target_link_libraries(${PROJECT_NAME} SARibbonBar)
 
 # Add Qt OpenGL module if needed
 if(QT_VERSION STREQUAL "Qt6")
@@ -99,6 +105,7 @@ if(QT_VERSION STREQUAL "Qt6")
         Qt6::Widgets
         Qt6::Gui
         Qt6::OpenGL
+        Qt6::Svg
     )
 else()
     target_link_libraries(${PROJECT_NAME}
@@ -106,6 +113,7 @@ else()
         Qt5::Widgets
         Qt5::Gui
         Qt5::OpenGL
+        Qt5::Svg
     )
 endif()
 

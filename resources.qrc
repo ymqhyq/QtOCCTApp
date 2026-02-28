@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>resources/icons/draw_line.svg</file>
+        <file>resources/icons/random.svg</file>
+        <file>resources/icons/text_shx.svg</file>
+        <file>resources/icons/text_brep.svg</file>
+        <file>resources/icons/fit_all.svg</file>
+        <file>resources/icons/dimension.svg</file>
+        <file>resources/icons/bridge_pier.svg</file>
+        <file>resources/icons/full_bridge.svg</file>
+        <file>resources/icons/fast_assembly.svg</file>
+        <file>resources/icons/tuopan.svg</file>
+        <file>resources/icons/dunshen.svg</file>
+        <file>resources/icons/chengtai.svg</file>
+        <file>resources/icons/pile.svg</file>
+        <file>resources/icons/girder.svg</file>
+    </qresource>
+</RCC>

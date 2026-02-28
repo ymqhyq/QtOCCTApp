@@ -198,6 +198,15 @@ D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGLWidgets/Qt6OpenGLWidgetsTargets-debu
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGLWidgets/Qt6OpenGLWidgetsTargets-relwithdebinfo.cmake
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGLWidgets/Qt6OpenGLWidgetsTargets.cmake
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6OpenGLWidgets/Qt6OpenGLWidgetsVersionlessAliasTargets.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgAdditionalTargetInfo.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgConfig.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgConfigVersion.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgConfigVersionImpl.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgDependencies.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgTargets-debug.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgTargets-relwithdebinfo.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgTargets.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Svg/Qt6SvgVersionlessAliasTargets.cmake
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Widgets/Qt6QModernWindowsStylePluginAdditionalTargetInfo.cmake
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Widgets/Qt6QModernWindowsStylePluginConfig.cmake
 D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6Widgets/Qt6QModernWindowsStylePluginTargets-debug.cmake
@@ -228,3 +237,4 @@ D:/QtOCCTApp/build2/CMakeFiles/4.0.0/CMakeCCompiler.cmake
 D:/QtOCCTApp/build2/CMakeFiles/4.0.0/CMakeCXXCompiler.cmake
 D:/QtOCCTApp/build2/CMakeFiles/4.0.0/CMakeRCCompiler.cmake
 D:/QtOCCTApp/build2/CMakeFiles/4.0.0/CMakeSystem.cmake
+D:/QtOCCTApp/resources.qrc

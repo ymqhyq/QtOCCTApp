@@ -1,5 +1,9 @@
 ﻿#include "../include/MainWindow.h"
 #include "../include/OCCTWidget.h"
+#include "SARibbonApplicationButton.h"
+#include "SARibbonBar.h"
+#include "SARibbonCategory.h"
+#include "SARibbonPanel.h"
 
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
@@ -9,36 +13,29 @@
 #include <QDebug>
 #include <QDir>
 #include <QDockWidget>
+#include <QIcon>
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
 #include <QStatusBar>
-#include <QTemporaryFile>
 #include <QTextEdit>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
-      m_functionalPanel(nullptr), m_drawLineButton(nullptr),
+    : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_solidTextCheckbox(nullptr), m_coordLabel(nullptr),
       m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC) {
   setWindowTitle("Qt OCCT Application");
-  setMinimumSize(800, 600);
+  setMinimumSize(1024, 768);
 
   // Set the OCCT widget as the central widget
   setCentralWidget(m_occtWidget);
 
-  // Create the functional panel
-  createFunctionalPanel();
+  // Create the ribbon
+  createRibbon();
   setupCadQueryUi();
-
-  // Create menu and toolbar
-  QMenuBar *menuBar = new QMenuBar(this);
-  QMenu *fileMenu = menuBar->addMenu("File");
-  fileMenu->addAction("Exit", this, &QMainWindow::close);
-  setMenuBar(menuBar);
 
   QStatusBar *sBar = new QStatusBar(this);
   setStatusBar(sBar);
@@ -48,8 +45,6 @@ MainWindow::MainWindow(QWidget *parent)
   m_coordLabel->setMinimumWidth(280);
   sBar->addPermanentWidget(m_coordLabel);
 
-  // 连接鼠标位置信号
-  // 连接鼠标位置信号
   // 连接鼠标位置信号
   connect(m_occtWidget, &OCCTWidget::mousePositionChanged, this,
           &MainWindow::onMousePositionChanged);
@@ -66,95 +61,86 @@ MainWindow::~MainWindow() {
   }
 }
 
-void MainWindow::createFunctionalPanel() {
-  // Create dock widget for functional panel
-  m_functionalPanel = new QDockWidget("Functional Panel", this);
-  m_functionalPanel->setAllowedAreas(Qt::LeftDockWidgetArea |
-                                     Qt::RightDockWidgetArea);
+void MainWindow::createRibbon() {
+  SARibbonBar *ribbon = ribbonBar();
+  ribbon->applicationButton()->setText("QtOCCTApp");
 
-  // Create panel content
-  QWidget *panelContent = new QWidget(m_functionalPanel);
-  QVBoxLayout *layout = new QVBoxLayout(panelContent);
+  // Create "Main Tools" category
+  SARibbonCategory *categoryMain = ribbon->addCategoryPage("Main Tools");
 
-  // Add draw line button
-  m_drawLineButton = new QPushButton("Draw Line", panelContent);
-  connect(m_drawLineButton, &QPushButton::clicked, this,
+  // Basic Tasks Panel
+  SARibbonPanel *panelBasic = categoryMain->addPanel("Basic");
+
+  QAction *drawAction =
+      new QAction(QIcon(":/resources/icons/draw_line.svg"), "Draw Line", this);
+  connect(drawAction, &QAction::triggered, this,
           &MainWindow::onDrawLineClicked);
-  layout->addWidget(m_drawLineButton);
+  panelBasic->addLargeAction(drawAction);
 
-  // Add Generate Random Lines button
-  QPushButton *randomLinesBtn =
-      new QPushButton("Generate 10k Lines", panelContent);
-  connect(randomLinesBtn, &QPushButton::clicked,
+  QAction *randLineAction = new QAction(QIcon(":/resources/icons/random.svg"),
+                                        "Generate 10k Lines", this);
+  connect(randLineAction, &QAction::triggered,
           [this]() { m_occtWidget->generateRandomLines(10000); });
-  layout->addWidget(randomLinesBtn);
+  panelBasic->addLargeAction(randLineAction);
 
-  // Add SHX Text button
-  QPushButton *shxTextBtn = new QPushButton("Add SHX Text", panelContent);
-  connect(shxTextBtn, &QPushButton::clicked, this, &MainWindow::onAddShxText);
-  layout->addWidget(shxTextBtn);
+  // View Panel
+  SARibbonPanel *panelView = categoryMain->addPanel("View");
+  QAction *fitAllAction =
+      new QAction(QIcon(":/resources/icons/fit_all.svg"), "Fit All", this);
+  connect(fitAllAction, &QAction::triggered,
+          [this]() { m_occtWidget->fitAll(); });
+  panelView->addLargeAction(fitAllAction);
 
-  // Add Solid Text Checkbox
-  m_solidTextCheckbox = new QCheckBox("Test Solid Text", panelContent);
-  m_solidTextCheckbox->setChecked(true); // Default to solid
-  connect(m_solidTextCheckbox, &QCheckBox::stateChanged, [this](int state) {
-    m_occtWidget->setTextsSolid(state == Qt::Checked);
-  });
-  layout->addWidget(m_solidTextCheckbox);
+  // Text Panel
+  SARibbonPanel *panelText = categoryMain->addPanel("Text");
+  QAction *shxTextAction = new QAction(QIcon(":/resources/icons/text_shx.svg"),
+                                       "Add SHX Text", this);
+  connect(shxTextAction, &QAction::triggered, this, &MainWindow::onAddShxText);
+  panelText->addLargeAction(shxTextAction);
 
-  // Add BRep Text button (uses Checkbox state)
-  QPushButton *brepTextBtn = new QPushButton("Add BRep Text", panelContent);
-  connect(brepTextBtn, &QPushButton::clicked, [this]() {
+  QAction *brepTextAction = new QAction(
+      QIcon(":/resources/icons/text_brep.svg"), "Add BRep Text", this);
+  connect(brepTextAction, &QAction::triggered, [this]() {
     bool isSolid = m_solidTextCheckbox->isChecked();
     double angle = 45.0; // Keep the angle test
     m_occtWidget->add3DText("京沪D1K234+869.75", 50.0, gp_Pnt(0, 0, 0), isSolid,
                             angle);
   });
-  layout->addWidget(brepTextBtn);
+  panelText->addLargeAction(brepTextAction);
 
-  // --- Configurations ---
-  QLabel *heightLabel = new QLabel("请输入墩身高度(H):", panelContent);
-  layout->addWidget(heightLabel);
+  m_solidTextCheckbox = new QCheckBox("Test Solid Text", this);
+  m_solidTextCheckbox->setChecked(true); // Default to solid
+  connect(m_solidTextCheckbox, &QCheckBox::stateChanged, [this](int state) {
+    m_occtWidget->setTextsSolid(state == Qt::Checked);
+  });
+  panelText->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
 
-  m_pierHeightSpinBox = new QDoubleSpinBox(panelContent);
+  // Bridge Generation Category
+  SARibbonCategory *categoryBridge = ribbon->addCategoryPage("Bridge Tools");
+  SARibbonPanel *panelBridge = categoryBridge->addPanel("Bridge");
+
+  QLabel *heightLabel = new QLabel("墩高(mm):", this);
+  m_pierHeightSpinBox = new QDoubleSpinBox(this);
   m_pierHeightSpinBox->setRange(10.0, 50000.0);
   m_pierHeightSpinBox->setValue(12000.0);
-  m_pierHeightSpinBox->setSuffix(" mm");
-  layout->addWidget(m_pierHeightSpinBox);
+  panelBridge->addWidget(heightLabel, SARibbonPanelItem::Small);
+  panelBridge->addWidget(m_pierHeightSpinBox, SARibbonPanelItem::Small);
 
-  // Add Fit All button - 缩放到全部视图范围
-  QPushButton *fitAllBtn = new QPushButton("Fit All (缩放全部)", panelContent);
-  connect(fitAllBtn, &QPushButton::clicked,
-          [this]() { m_occtWidget->fitAll(); });
-  layout->addWidget(fitAllBtn);
-
-  // Add Bridge Pier button - 绘制流线型桥墩
-  QPushButton *bridgePierBtn =
-      new QPushButton("绘制桥墩 (Bridge Pier)", panelContent);
-  bridgePierBtn->setStyleSheet(
-      "background-color: #1a5276; color: white; font-weight: bold;"
-      "padding: 6px; border-radius: 4px;");
-  connect(bridgePierBtn, &QPushButton::clicked, this,
+  QAction *bridgePierAction =
+      new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制桥墩", this);
+  connect(bridgePierAction, &QAction::triggered, this,
           &MainWindow::onDrawBridgePier);
-  layout->addWidget(bridgePierBtn);
+  panelBridge->addLargeAction(bridgePierAction);
 
-  // Add Annotate Bridge Pier Footing button
-  QPushButton *annotatePierBtn =
-      new QPushButton("标注承台(尺寸)", panelContent);
-  annotatePierBtn->setStyleSheet(
-      "background-color: #8e44ad; color: white; font-weight: bold;"
-      "padding: 6px; border-radius: 4px;");
-  connect(annotatePierBtn, &QPushButton::clicked, this,
+  QAction *annotatePierAction =
+      new QAction(QIcon(":/resources/icons/dimension.svg"), "标注承台", this);
+  connect(annotatePierAction, &QAction::triggered, this,
           &MainWindow::onAnnotateBridgePierFooting);
-  layout->addWidget(annotatePierBtn);
+  panelBridge->addLargeAction(annotatePierAction);
 
-  // Full Bridge button - reuse bridgePier2 script, C++ does 100x placement
-  QPushButton *fullBridgeBtn = new QPushButton("全桥(100墩)", panelContent);
-  fullBridgeBtn->setStyleSheet(
-      "background-color: #c0392b; color: white; font-weight: bold;"
-      "padding: 6px; border-radius: 4px;");
-  connect(fullBridgeBtn, &QPushButton::clicked, [this]() {
-    // 多进程批处理模式: 并发调用脚本
+  QAction *fullBridgeAction = new QAction(
+      QIcon(":/resources/icons/full_bridge.svg"), "全桥(100墩)", this);
+  connect(fullBridgeAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
     m_currentPierIndex = 0;
@@ -172,58 +158,17 @@ void MainWindow::createFunctionalPanel() {
         QString("批量并发生成中: 共 %1 个桥墩...").arg(m_bridgePierCount));
     m_batchTimer.start(); // 开始计时
 
-    // 向所有空闲的守护进程分发任务
     for (QProcess *proc : m_cqProcessList) {
       if (!m_batchQueue.isEmpty()) {
         dispatchTask(proc);
       }
     }
   });
-  layout->addWidget(fullBridgeBtn);
+  panelBridge->addLargeAction(fullBridgeAction);
 
-  // --- Sub-component Buttons ---
-  QPushButton *tuopanBtn = new QPushButton("生成顶帽与托盘", panelContent);
-  connect(tuopanBtn, &QPushButton::clicked, [this]() {
-    m_cqScriptEditor->setText(readScript("TuopanDingmao"));
-    onRunCqScript();
-  });
-  layout->addWidget(tuopanBtn);
-
-  QPushButton *dunshenBtn = new QPushButton("生成墩身", panelContent);
-  connect(dunshenBtn, &QPushButton::clicked, [this]() {
-    m_cqScriptEditor->setText(readScript("Dunshen"));
-    onRunCqScript();
-  });
-  layout->addWidget(dunshenBtn);
-
-  QPushButton *chengtaiBtn = new QPushButton("生成承台", panelContent);
-  connect(chengtaiBtn, &QPushButton::clicked, [this]() {
-    m_cqScriptEditor->setText(readScript("Chengtai"));
-    onRunCqScript();
-  });
-  layout->addWidget(chengtaiBtn);
-
-  QPushButton *pileBtn = new QPushButton("生成桩基础", panelContent);
-  connect(pileBtn, &QPushButton::clicked, [this]() {
-    m_cqScriptEditor->setText(readScript("Pile"));
-    onRunCqScript();
-  });
-  layout->addWidget(pileBtn);
-
-  QPushButton *girderBtn = new QPushButton("生成箱梁", panelContent);
-  connect(girderBtn, &QPushButton::clicked, [this]() {
-    m_cqScriptEditor->setText(readScript("girder"));
-    onRunCqScript();
-  });
-  layout->addWidget(girderBtn);
-
-  // --- C++ Fast Assembly Button ---
-  QPushButton *fastAssemblyBtn =
-      new QPushButton("全桥-C++极速装配(100墩)", panelContent);
-  fastAssemblyBtn->setStyleSheet(
-      "background-color: #f39c12; color: white; font-weight: bold;"
-      "padding: 6px; border-radius: 4px;");
-  connect(fastAssemblyBtn, &QPushButton::clicked, [this]() {
+  QAction *fastAssemAction = new QAction(
+      QIcon(":/resources/icons/fast_assembly.svg"), "全桥-C++极速", this);
+  connect(fastAssemAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isAssembling = true;
     m_isBatchProcessing = false;
@@ -236,31 +181,62 @@ void MainWindow::createFunctionalPanel() {
     }
 
     m_batchQueue.clear();
-    // 0:Tuopan, 1:Dunshen, 2:Chengtai, 3:Pile, 4:girder
     for (int i = 0; i < 5; ++i) {
       m_batchQueue.enqueue(i);
     }
 
     statusBar()->showMessage(QString("准备基础构件中: 正在调用后台 Python..."));
-    m_batchTimer.start(); // 开始计时
+    m_batchTimer.start();
 
-    // 分发任务给空闲进程
     for (QProcess *proc : m_cqProcessList) {
       if (!m_batchQueue.isEmpty()) {
         dispatchTask(proc);
       }
     }
   });
-  layout->addWidget(fastAssemblyBtn);
+  panelBridge->addLargeAction(fastAssemAction);
 
-  // Add other potential functionality buttons here
-  layout->addStretch(); // Add stretch to push buttons to the top
+  SARibbonPanel *panelSubCrops = categoryBridge->addPanel("Sub-components");
 
-  panelContent->setLayout(layout);
-  m_functionalPanel->setWidget(panelContent);
+  QAction *tuopanAction =
+      new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
+  connect(tuopanAction, &QAction::triggered, [this]() {
+    m_cqScriptEditor->setText(readScript("TuopanDingmao"));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(tuopanAction);
 
-  // Add the dock widget to the main window
-  addDockWidget(Qt::LeftDockWidgetArea, m_functionalPanel);
+  QAction *dunshenAction =
+      new QAction(QIcon(":/resources/icons/dunshen.svg"), "墩身", this);
+  connect(dunshenAction, &QAction::triggered, [this]() {
+    m_cqScriptEditor->setText(readScript("Dunshen"));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(dunshenAction);
+
+  QAction *chengtaiAction =
+      new QAction(QIcon(":/resources/icons/chengtai.svg"), "承台", this);
+  connect(chengtaiAction, &QAction::triggered, [this]() {
+    m_cqScriptEditor->setText(readScript("Chengtai"));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(chengtaiAction);
+
+  QAction *pileAction =
+      new QAction(QIcon(":/resources/icons/pile.svg"), "桩基础", this);
+  connect(pileAction, &QAction::triggered, [this]() {
+    m_cqScriptEditor->setText(readScript("Pile"));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(pileAction);
+
+  QAction *girderAction =
+      new QAction(QIcon(":/resources/icons/girder.svg"), "箱梁", this);
+  connect(girderAction, &QAction::triggered, [this]() {
+    m_cqScriptEditor->setText(readScript("girder"));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(girderAction);
 }
 
 void MainWindow::onDrawLineClicked() {
@@ -314,7 +290,7 @@ void MainWindow::onAnnotateBridgePierFooting() {
 }
 
 void MainWindow::setupCadQueryUi() {
-  m_dockCq = new QDockWidget("CadQuery Editor", this);
+  m_dockCq = new QDockWidget("脚本", this);
   m_dockCq->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea |
                             Qt::BottomDockWidgetArea);
 
@@ -338,10 +314,13 @@ void MainWindow::setupCadQueryUi() {
   font.setStyleHint(QFont::Monospace);
   m_cqScriptEditor->setFont(font);
 
-  QHBoxLayout *btnLayout = new QHBoxLayout();
+  SARibbonBar *ribbon = ribbonBar();
+  SARibbonCategory *categoryScripts = ribbon->addCategoryPage("脚本 (Scripts)");
+  SARibbonPanel *panelScripts = categoryScripts->addPanel("示例代码");
 
-  QPushButton *runBtn = new QPushButton("切角立方体", content);
-  connect(runBtn, &QPushButton::clicked, [this]() {
+  QAction *runBtn =
+      new QAction(QIcon(":/resources/icons/random.svg"), "切角立方体", this);
+  connect(runBtn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(
         "import cadquery as cq\n"
@@ -350,10 +329,11 @@ void MainWindow::setupCadQueryUi() {
         "material = 'plastic'\n");
     onRunCqScript();
   });
-  btnLayout->addWidget(runBtn);
+  panelScripts->addLargeAction(runBtn);
 
-  QPushButton *holedPlateBtn = new QPushButton("带孔板", content);
-  connect(holedPlateBtn, &QPushButton::clicked, [this]() {
+  QAction *holedPlateBtn =
+      new QAction(QIcon(":/resources/icons/random.svg"), "带孔板", this);
+  connect(holedPlateBtn, &QAction::triggered, [this]() {
     // 使用 Chrome 预设配合深色，可以模拟出更真实的冷钢轨质感
     m_currentMaterial = Graphic3d_NOM_CHROME;
     m_cqScriptEditor->setText("import cadquery as cq\n"
@@ -372,13 +352,12 @@ void MainWindow::setupCadQueryUi() {
                               "material = 'gold'\n");
     onRunCqScript();
   });
-  btnLayout->addWidget(holedPlateBtn);
+  panelScripts->addLargeAction(holedPlateBtn);
 
   // 桥墩按钮
-  QPushButton *bridgePierCqBtn = new QPushButton("桥墩", content);
-  bridgePierCqBtn->setStyleSheet(
-      "background-color: #1a5276; color: white; font-weight: bold;");
-  connect(bridgePierCqBtn, &QPushButton::clicked, [this]() {
+  QAction *bridgePierCqBtn =
+      new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例", this);
+  connect(bridgePierCqBtn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(
         "# 流线型桥墩 - CadQuery/OCP 脚本\n"
@@ -589,13 +568,12 @@ void MainWindow::setupCadQueryUi() {
         "material = 'plastic'\n");
     onRunCqScript();
   });
-  btnLayout->addWidget(bridgePierCqBtn);
+  panelScripts->addLargeAction(bridgePierCqBtn);
 
   // 桥墩2按钮 - 使用 CadQuery Workplane 链式语法
-  QPushButton *bridgePier2Btn = new QPushButton("桥墩2", content);
-  bridgePier2Btn->setStyleSheet(
-      "background-color: #1b4f72; color: white; font-weight: bold;");
-  connect(bridgePier2Btn, &QPushButton::clicked, [this]() {
+  QAction *bridgePier2Btn = new QAction(
+      QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例2", this);
+  connect(bridgePier2Btn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(
         "# 流线型桥墩 - CadQuery Workplane 链式语法\n"
@@ -672,16 +650,13 @@ void MainWindow::setupCadQueryUi() {
         "material = 'plastic'\n");
     onRunCqScript();
   });
-  btnLayout->addWidget(bridgePier2Btn);
+  panelScripts->addLargeAction(bridgePier2Btn);
 
-  QPushButton *runScriptBtn = new QPushButton("运行当前脚本 (Run)", content);
-  runScriptBtn->setStyleSheet(
-      "background-color: #2d5a27; color: white; font-weight: bold;");
-  connect(runScriptBtn, &QPushButton::clicked, this,
-          &MainWindow::onRunCqScript);
-  btnLayout->addWidget(runScriptBtn);
-
-  layout->addLayout(btnLayout);
+  SARibbonPanel *panelRun = categoryScripts->addPanel("运行");
+  QAction *runScriptBtn =
+      new QAction(QIcon(":/resources/icons/random.svg"), "运行当前脚本", this);
+  connect(runScriptBtn, &QAction::triggered, this, &MainWindow::onRunCqScript);
+  panelRun->addLargeAction(runScriptBtn);
 
   content->setLayout(layout);
   m_dockCq->setWidget(content);

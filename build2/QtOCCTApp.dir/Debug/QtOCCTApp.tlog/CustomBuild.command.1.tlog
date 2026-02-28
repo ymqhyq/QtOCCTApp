@@ -1,3 +1,17 @@
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\947262085992D659ACF9B2BF7087C4DB\QRC_RESOURCES.CPP.RULE
+setlocal
+cd D:\QtOCCTApp\build2
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/CMakeFiles/QtOCCTApp_autogen.dir/AutoRcc_resources_EWIEGA46WW_Info.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
 ^D:\QTOCCTAPP\CMAKELISTS.TXT
 setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/CMakeFiles/generate.stamp

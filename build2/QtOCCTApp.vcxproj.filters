@@ -25,13 +25,25 @@
     <ClCompile Include="D:\QtOCCTApp\src\PythonSyntaxHighlighter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\EWIEGA46WW_Debug\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\EWIEGA46WW_Release\qrc_resources.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\mocs_compilation_MinSizeRel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\EWIEGA46WW_MinSizeRel\qrc_resources.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\QtOCCTApp_autogen\EWIEGA46WW_RelWithDebInfo\qrc_resources.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -53,9 +65,18 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\947262085992d659acf9b2bf7087c4db\qrc_resources.cpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
     <CustomBuild Include="D:\QtOCCTApp\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="D:\QtOCCTApp\resources.qrc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{8FD5D73E-D591-3FF8-9082-80F9537B0CBF}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{797F9286-A5FD-3DA1-87AC-400C2961E335}</UniqueIdentifier>
     </Filter>
