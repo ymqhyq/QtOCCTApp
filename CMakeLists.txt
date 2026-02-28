@@ -276,7 +276,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # For Windows
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
-        WIN32_EXECUTABLE TRUE
+        WIN32_EXECUTABLE FALSE
     )
 endif()
 

@@ -158,14 +158,14 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PostBuildEvent>
     <Link>
-      <AdditionalDependencies>Debug\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLd.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Guid.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Cored.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPointd.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>Debug\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLd.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Guid.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Cored.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>D:/QtOCCTApp/build2/Debug/QtOCCTApp.lib</ImportLibrary>
       <ProgramDataBaseFile>D:/QtOCCTApp/build2/Debug/QtOCCTApp.pdb</ProgramDataBaseFile>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
@@ -246,14 +246,14 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PostBuildEvent>
     <Link>
-      <AdditionalDependencies>libs\shxparser\Release\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>libs\shxparser\Release\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>D:/QtOCCTApp/build2/Release/QtOCCTApp.lib</ImportLibrary>
       <ProgramDataBaseFile>D:/QtOCCTApp/build2/Release/QtOCCTApp.pdb</ProgramDataBaseFile>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
@@ -334,14 +334,14 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PostBuildEvent>
     <Link>
-      <AdditionalDependencies>libs\shxparser\MinSizeRel\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>libs\shxparser\MinSizeRel\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>D:/QtOCCTApp/build2/MinSizeRel/QtOCCTApp.lib</ImportLibrary>
       <ProgramDataBaseFile>D:/QtOCCTApp/build2/MinSizeRel/QtOCCTApp.pdb</ProgramDataBaseFile>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
@@ -421,14 +421,14 @@ exit /b %1
 if %errorlevel% neq 0 goto :VCEnd</Command>
     </PostBuildEvent>
     <Link>
-      <AdditionalDependencies>libs\shxparser\RelWithDebInfo\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6EntryPoint.lib;shell32.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalDependencies>libs\shxparser\RelWithDebInfo\shxparser.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGLWidgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6OpenGL.lib;TKernel.lib;TKMath.lib;TKCDF.lib;TKTObj.lib;TKBin.lib;TKXml.lib;TKBool.lib;TKBO.lib;TKCAF.lib;TKXCAF.lib;TKVCAF.lib;TKFeat.lib;TKFillet.lib;TKGeomAlgo.lib;TKGeomBase.lib;TKHLR.lib;TKTopAlgo.lib;TKMesh.lib;TKPrim.lib;TKOffset.lib;TKShHealing.lib;TKG2d.lib;TKG3d.lib;TKOpenGl.lib;TKService.lib;TKV3d.lib;TKBRep.lib;TKXSBase.lib;TKDraw.lib;TKStd.lib;TKStdL.lib;TKXSDRAW.lib;TKXmlXCAF.lib;TKXmlL.lib;TKXmlTObj.lib;TKBinL.lib;TKBinTObj.lib;TKBinXCAF.lib;TKDE.lib;TKDCAF.lib;TKDEIGES.lib;TKDEOBJ.lib;TKDEPLY.lib;TKDESTEP.lib;TKDESTL.lib;TKDEVRML.lib;TKXMesh.lib;TKMeshVS.lib;TKRWMesh.lib;TKLCAF.lib;TKXSDRAWDE.lib;TKXSDRAWIGES.lib;TKXSDRAWOBJ.lib;TKXSDRAWPLY.lib;TKXSDRAWSTEP.lib;TKXSDRAWSTL.lib;TKXSDRAWVRML.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories);D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib</AdditionalLibraryDirectories>
       <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <ImportLibrary>D:/QtOCCTApp/build2/RelWithDebInfo/QtOCCTApp.lib</ImportLibrary>
       <ProgramDataBaseFile>D:/QtOCCTApp/build2/RelWithDebInfo/QtOCCTApp.pdb</ProgramDataBaseFile>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem>Console</SubSystem>
     </Link>
     <ProjectReference>
       <LinkLibraryDependencies>false</LinkLibraryDependencies>

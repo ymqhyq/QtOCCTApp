@@ -5,6 +5,7 @@
 #include "../include/ShxTextGenerator.h"
 #include <QApplication>
 #include <QCheckBox>
+#include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QDockWidget>
@@ -116,8 +117,8 @@ void MainWindow::createFunctionalPanel() {
   layout->addWidget(heightLabel);
 
   m_pierHeightSpinBox = new QDoubleSpinBox(panelContent);
-  m_pierHeightSpinBox->setRange(10.0, 1000.0);
-  m_pierHeightSpinBox->setValue(120.0);
+  m_pierHeightSpinBox->setRange(10.0, 50000.0);
+  m_pierHeightSpinBox->setValue(12000.0);
   m_pierHeightSpinBox->setSuffix(" mm");
   layout->addWidget(m_pierHeightSpinBox);
 
@@ -230,6 +231,9 @@ void MainWindow::createFunctionalPanel() {
     m_bridgePierSpacing = 32000.0; // 32m spacing
     m_completedTasks = 0;
     m_assemblyParts.clear();
+    for (int i = 0; i < 5; ++i) {
+      m_assemblyParts.append(qMakePair(TopoDS_Shape(), Graphic3d_NOM_PLASTIC));
+    }
 
     m_batchQueue.clear();
     // 0:Tuopan, 1:Dunshen, 2:Chengtai, 3:Pile, 4:girder
@@ -715,8 +719,13 @@ void MainWindow::onRunCqScript() {
   if (code.isEmpty())
     return;
 
-  QString scriptPath = QDir::currentPath() + "/cq_script/temp_custom.py";
-  QString outputPath = QDir::currentPath() + "/temp_output.brep";
+  // Generate unique ID based on time to avoid overwriting outputs from
+  // concurrent/serial runs
+  QString uniqueId = QString::number(QDateTime::currentMSecsSinceEpoch());
+  QString scriptPath = QCoreApplication::applicationDirPath() +
+                       "/cq_script/temp_custom_" + uniqueId + ".py";
+  QString outputPath = QCoreApplication::applicationDirPath() +
+                       "/temp_output_" + uniqueId + ".brep";
 
   QFile scriptFile(scriptPath);
   if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -739,7 +748,7 @@ void MainWindow::onRunCqScript() {
   args["pierHeight"] = m_pierHeightSpinBox->value();
 
   QJsonObject req;
-  req["modelName"] = "temp_custom";
+  req["modelName"] = "temp_custom_" + uniqueId;
   req["outputPath"] = outputPath;
   req["args"] = args;
 
@@ -847,12 +856,18 @@ void MainWindow::processCqOutput() {
 
       QString outputPath = proc->property("outputPath").toString();
       if (outputPath.isEmpty())
-        outputPath = QDir::currentPath() + "/temp_output.brep";
+        outputPath =
+            QCoreApplication::applicationDirPath() + "/temp_output.brep";
 
       if (m_isAssembling) {
         m_completedTasks++;
         TopoDS_Shape shape = m_occtWidget->readBrepFileToShape(outputPath);
-        m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
+        int asmIdx = proc->property("assemblyIndex").toInt();
+        if (asmIdx >= 0 && asmIdx < m_assemblyParts.size()) {
+          m_assemblyParts[asmIdx] = qMakePair(shape, m_currentMaterial);
+        } else {
+          m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
+        }
 
         statusBar()->showMessage(
             QString("正在加载基础构件: %1/5").arg(m_completedTasks));

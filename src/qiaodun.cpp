@@ -5,7 +5,7 @@ void DrawThru() {
   // AIS_ListIteratorOfListOfInteractive aListIterator;
   // for (aListIterator.Initialize(aList); aListIterator.More();
   // aListIterator.Next()) { 	myAISContext->Remove(aListIterator.Value(),
-  //Standard_False);
+  //false);
   // }
 
   //******流线型托盘******
@@ -71,7 +71,7 @@ void DrawThru() {
   aWire = BRepBuilderAPI_MakeWire(aWire, anEdge11);
   aWire = BRepBuilderAPI_MakeWire(aWire, anEdge12);
   Handle(AIS_Shape) sec1 = new AIS_Shape(aWire);
-  // myAISContext->Display(sec1,Standard_False);
+  // myAISContext->Display(sec1,false);
   P1.SetCoord(24, -15, 27.5);
   P2.SetCoord(39, 0, 27.5);
   P3.SetCoord(24, 15, 27.5);
@@ -127,7 +127,7 @@ void DrawThru() {
   bWire = BRepBuilderAPI_MakeWire(bWire, anEdge11);
   bWire = BRepBuilderAPI_MakeWire(bWire, anEdge12);
   Handle(AIS_Shape) sec2 = new AIS_Shape(bWire);
-  // myAISContext->Display(sec2,Standard_False);
+  // myAISContext->Display(sec2,false);
   P1.SetCoord(17.88, -14.095, 13.75);
   P2.SetCoord(31.905, 0, 13.75);
   P3.SetCoord(17.88, 14.095, 13.75);
@@ -183,11 +183,11 @@ void DrawThru() {
   mWire = BRepBuilderAPI_MakeWire(mWire, anEdge11);
   mWire = BRepBuilderAPI_MakeWire(mWire, anEdge12);
   Handle(AIS_Shape) sec3 = new AIS_Shape(mWire);
-  // myAISContext->Display(sec3,Standard_False);
+  // myAISContext->Display(sec3,false);
   // 合并
   BRepOffsetAPI_ThruSections tuopan(
-      Standard_True,
-      Standard_False); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
+      true,
+      false); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
   tuopan.AddWire(aWire);
   tuopan.AddWire(mWire);
   tuopan.AddWire(bWire);
@@ -197,11 +197,11 @@ void DrawThru() {
   const Handle(AIS_InteractiveContext) &myAISContext =
       GetDocument()->GetAISContext();
 
-  myAISContext->SetColor(ais, Quantity_NOC_MATRABLUE, Standard_False);
-  myAISContext->SetMaterial(ais, Graphic3d_NOM_PLASTIC, Standard_False);
-  myAISContext->Display(ais, Standard_False);
+  myAISContext->SetColor(ais, Quantity_NOC_MATRABLUE, false);
+  myAISContext->SetMaterial(ais, Graphic3d_NOM_PLASTIC, false);
+  myAISContext->Display(ais, false);
   const Handle(AIS_InteractiveObject) &anIO = ais;
-  myAISContext->SetSelected(anIO, Standard_False);
+  myAISContext->SetSelected(anIO, false);
   // Fit();
   // 顶帽
   P1.SetCoord(24, -15, 30);
@@ -259,21 +259,21 @@ void DrawThru() {
   dWire = BRepBuilderAPI_MakeWire(dWire, anEdge11);
   dWire = BRepBuilderAPI_MakeWire(dWire, anEdge12);
   Handle(AIS_Shape) sec4 = new AIS_Shape(dWire);
-  // myAISContext->Display(sec4,Standard_False);
+  // myAISContext->Display(sec4,false);
   // 合并
   BRepOffsetAPI_ThruSections dingmao(
-      Standard_True,
-      Standard_False); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
+      true,
+      false); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
   dingmao.AddWire(bWire);
   dingmao.AddWire(dWire);
   dingmao.Build();
   TopoDS_Shape S1 = dingmao.Shape();
   Handle(AIS_Shape) ais1 = new AIS_Shape(S1);
-  myAISContext->SetColor(ais1, Quantity_NOC_MATRABLUE, Standard_False);
-  myAISContext->SetMaterial(ais1, Graphic3d_NOM_PLASTIC, Standard_False);
-  myAISContext->Display(ais1, Standard_False);
+  myAISContext->SetColor(ais1, Quantity_NOC_MATRABLUE, false);
+  myAISContext->SetMaterial(ais1, Graphic3d_NOM_PLASTIC, false);
+  myAISContext->Display(ais1, false);
   const Handle(AIS_InteractiveObject) &anIO1 = ais1;
-  myAISContext->SetSelected(anIO1, Standard_False);
+  myAISContext->SetSelected(anIO1, false);
   // Fit();
   // 裁剪
   gp_Dir D(0, 1, 0);
@@ -300,18 +300,18 @@ void DrawThru() {
   TopoDS_Shape FP = BRepBuilderAPI_MakeFace(gp_Pln(gp::ZOX()), MW.Wire());
   BRepLib::BuildCurves3d(FP);
   TopoDS_Face F = BRepBuilderAPI_MakeFace(gp_Pln(gp::ZOX()));
-  BRepFeat_MakePrism MKP(S, FP, F, D, 0, Standard_True);
+  BRepFeat_MakePrism MKP(S, FP, F, D, 0, true);
   MKP.Perform(1000.);
   TopoDS_Shape res = MKP.Shape();
-  BRepFeat_MakePrism MKP1(S1, FP, F, D, 0, Standard_True);
+  BRepFeat_MakePrism MKP1(S1, FP, F, D, 0, true);
   MKP1.Perform(1000.);
   TopoDS_Shape res1 = MKP1.Shape();
   ais->Set(res);
   ais1->Set(res1);
-  myAISContext->Redisplay(ais, Standard_False);
-  myAISContext->Redisplay(ais1, Standard_False);
-  myAISContext->SetSelected(anIO, Standard_False);
-  myAISContext->SetSelected(anIO1, Standard_False);
+  myAISContext->Redisplay(ais, false);
+  myAISContext->Redisplay(ais1, false);
+  myAISContext->SetSelected(anIO, false);
+  myAISContext->SetSelected(anIO1, false);
   // 墩身
   P1.SetCoord(16, -16.67, -120);
   P2.SetCoord(32.67, 0, -120);
@@ -368,42 +368,42 @@ void DrawThru() {
   sWire = BRepBuilderAPI_MakeWire(sWire, anEdge11);
   sWire = BRepBuilderAPI_MakeWire(sWire, anEdge12);
   Handle(AIS_Shape) sec5 = new AIS_Shape(sWire);
-  myAISContext->Display(sec5, Standard_False);
+  myAISContext->Display(sec5, false);
   // 合并
   BRepOffsetAPI_ThruSections dunshen(
-      Standard_True,
-      Standard_False); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
+      true,
+      false); // 第1个参数true代表实体，否则代表shell；第2个参数true代表线性过渡，否则代表非线性过渡（曲线过渡）
   dunshen.AddWire(sWire);
   dunshen.AddWire(aWire);
   dunshen.Build();
   TopoDS_Shape S2 = dunshen.Shape();
   Handle(AIS_Shape) ais2 = new AIS_Shape(S2);
-  myAISContext->SetColor(ais2, Quantity_NOC_MATRABLUE, Standard_False);
-  myAISContext->SetMaterial(ais2, Graphic3d_NOM_PLASTIC, Standard_False);
-  myAISContext->Display(ais2, Standard_False);
+  myAISContext->SetColor(ais2, Quantity_NOC_MATRABLUE, false);
+  myAISContext->SetMaterial(ais2, Graphic3d_NOM_PLASTIC, false);
+  myAISContext->Display(ais2, false);
   const Handle(AIS_InteractiveObject) &anIO2 = ais2;
-  myAISContext->SetSelected(anIO2, Standard_False);
+  myAISContext->SetSelected(anIO2, false);
   // Fit();
   // 承台
   TopoDS_Shape S3 =
       BRepPrimAPI_MakeBox(gp_Pnt(-38.41, -22.22, -130), 76.82, 44.44, 10)
           .Shape();
   Handle(AIS_Shape) ais3 = new AIS_Shape(S3);
-  myAISContext->SetColor(ais3, Quantity_NOC_GREEN, Standard_False);
-  myAISContext->SetMaterial(ais3, Graphic3d_NOM_PLASTIC, Standard_False);
-  myAISContext->Display(ais3, Standard_False);
+  myAISContext->SetColor(ais3, Quantity_NOC_GREEN, false);
+  myAISContext->SetMaterial(ais3, Graphic3d_NOM_PLASTIC, false);
+  myAISContext->Display(ais3, false);
   const Handle(AIS_InteractiveObject) &anIO3 = ais3;
-  myAISContext->SetSelected(anIO3, Standard_False);
+  myAISContext->SetSelected(anIO3, false);
   // Fit();
   TopoDS_Shape S4 =
       BRepPrimAPI_MakeBox(gp_Pnt(-44.79, -29.53, -140), 89.59, 59.05, 10)
           .Shape();
   Handle(AIS_Shape) ais4 = new AIS_Shape(S4);
-  myAISContext->SetColor(ais4, Quantity_NOC_GREEN, Standard_False);
-  myAISContext->SetMaterial(ais4, Graphic3d_NOM_PLASTIC, Standard_False);
-  myAISContext->Display(ais4, Standard_False);
+  myAISContext->SetColor(ais4, Quantity_NOC_GREEN, false);
+  myAISContext->SetMaterial(ais4, Graphic3d_NOM_PLASTIC, false);
+  myAISContext->Display(ais4, false);
   const Handle(AIS_InteractiveObject) &anIO4 = ais4;
-  myAISContext->SetSelected(anIO4, Standard_False);
+  myAISContext->SetSelected(anIO4, false);
   // Fit();
   //******流线型托盘******
 

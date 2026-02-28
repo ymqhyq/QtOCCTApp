@@ -14,7 +14,10 @@
 #include <Prs3d_LineAspect.hxx>
 #include <Prs3d_TextAspect.hxx>
 #include <PrsDim_LengthDimension.hxx>
+#include <QAction>
 #include <QApplication>
+#include <QDebug>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QShowEvent>
@@ -63,7 +66,7 @@ void OCCTWidget::initOCCT() {
 
     // Improve ease of picking/highlighting
     m_context->SetPixelTolerance(10); // Easier to hit lines
-    m_context->SetDisplayMode(AIS_Shaded, Standard_True);
+    m_context->SetDisplayMode(AIS_Shaded, true);
 
     // Create custom aspect window
     m_aspectWindow = new AspectWindow(this);
@@ -178,13 +181,12 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
 
   // Start rotation
   // Start rotation
-  if (event->buttons() & Qt::RightButton) {
+  if (event->button() == Qt::RightButton) {
     if (!m_view.IsNull()) {
       m_view->StartRotation(event->pos().x(), event->pos().y());
       m_startX = event->pos().x();
       m_startY = event->pos().y();
     }
-    return;
   }
 
   gp_Pnt clickPoint;
@@ -234,9 +236,11 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   // We remove the blocking check so execution continues to picking logic
   // (ClickPoint calculation). Panning will happen in Move event.
 
+  /*
   if (!hasIntersection) {
     return;
   }
+  */
 
   if (m_drawLineMode) {
     // First click - set the first point
@@ -255,7 +259,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
         m_dynamicLine.Nullify();
       }
     }
-  } else {
+  } else if (event->button() == Qt::LeftButton) {
     // Select a line if clicked on one
     // Logic remains similar but using original coordinates for MoveTo
     qreal pixelRatio = devicePixelRatio();
@@ -269,8 +273,52 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
 }
 
 void OCCTWidget::mouseReleaseEvent(QMouseEvent *event) {
-  // Handle release if needed
-  Q_UNUSED(event);
+  if (event->button() == Qt::RightButton) {
+    int dx = event->pos().x() - m_startX;
+    int dy = event->pos().y() - m_startY;
+    qDebug() << "Right click release, dx:" << dx << "dy:" << dy
+             << "m_startX:" << m_startX << "m_startY:" << m_startY;
+    if (std::abs(dx) < 10 && std::abs(dy) < 10) {
+      if (!m_context.IsNull()) {
+        qreal pixelRatio = devicePixelRatio();
+        m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
+                          static_cast<int>(event->pos().y() * pixelRatio),
+                          m_view, true);
+
+        m_context->Select(true);
+
+        m_context->InitSelected();
+        qDebug() << "MoreSelected:" << m_context->MoreSelected();
+        if (m_context->MoreSelected()) {
+          qDebug() << "Menu will be shown";
+          QMenu contextMenu(this);
+          QAction *deleteAction =
+              contextMenu.addAction(QString::fromUtf8("删除模型"));
+
+          QAction *selectedAction =
+              contextMenu.exec(event->globalPosition().toPoint());
+          if (selectedAction == deleteAction) {
+            std::list<Handle(AIS_InteractiveObject)> objectsToRemove;
+            m_context->InitSelected();
+            while (m_context->MoreSelected()) {
+              objectsToRemove.push_back(m_context->SelectedInteractive());
+              m_context->NextSelected();
+            }
+            m_context->ClearSelected(Standard_False);
+
+            for (auto obj : objectsToRemove) {
+              Handle(AIS_Shape) shapeObj = Handle(AIS_Shape)::DownCast(obj);
+              if (!shapeObj.IsNull()) {
+                m_lines.remove(shapeObj);
+              }
+              m_context->Remove(obj, Standard_False);
+            }
+            m_context->UpdateCurrentViewer();
+          }
+        }
+      }
+    }
+  }
 }
 
 void OCCTWidget::wheelEvent(QWheelEvent *event) {
@@ -825,10 +873,10 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
 
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-    m_context->SetDisplayMode(aisShape, 1, Standard_False);
-    m_context->SetMaterial(aisShape, material, Standard_False);
-    m_context->SetColor(aisShape, finalColor, Standard_False);
-    m_context->Display(aisShape, Standard_False);
+    m_context->SetDisplayMode(aisShape, 1, false);
+    m_context->SetMaterial(aisShape, material, false);
+    m_context->SetColor(aisShape, finalColor, false);
+    m_context->Display(aisShape, false);
     m_lines.push_back(aisShape);
     // 不调用 updateView() 和 fitAll()，由调用方最终统一刷新
   }
@@ -882,10 +930,10 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
     TopoDS_Shape moved = baseShape.Moved(TopLoc_Location(trsf));
 
     Handle(AIS_Shape) ais = new AIS_Shape(moved);
-    m_context->SetDisplayMode(ais, 1, Standard_False);
-    m_context->SetColor(ais, color, Standard_False);
-    m_context->SetMaterial(ais, material, Standard_False);
-    m_context->Display(ais, Standard_False);
+    m_context->SetDisplayMode(ais, 1, false);
+    m_context->SetColor(ais, color, false);
+    m_context->SetMaterial(ais, material, false);
+    m_context->Display(ais, false);
     m_lines.push_back(ais);
   }
 
@@ -977,7 +1025,7 @@ void OCCTWidget::annotateBridgePierFooting() {
       aspect->SetTextHorizontalPosition(Prs3d_DTHP_Left);
       aspect->SetTextVerticalPosition(Prs3d_DTVP_Above);
     }
-    m_context->Display(dims[i], Standard_False);
+    m_context->Display(dims[i], false);
     m_dimensions.push_back(dims[i]);
   }
 
@@ -1188,7 +1236,7 @@ void OCCTWidget::drawBridgePier() {
   mWire = BRepBuilderAPI_MakeWire(mWire, anEdge12);
 
   // 流线型托盘 - ThruSections 放样
-  BRepOffsetAPI_ThruSections tuopan(Standard_True, Standard_False);
+  BRepOffsetAPI_ThruSections tuopan(true, false);
   tuopan.AddWire(aWire);
   tuopan.AddWire(mWire);
   tuopan.AddWire(bWire);
@@ -1196,10 +1244,10 @@ void OCCTWidget::drawBridgePier() {
   TopoDS_Shape S = tuopan.Shape();
 
   Handle(AIS_Shape) ais = new AIS_Shape(S);
-  m_context->SetDisplayMode(ais, 1, Standard_False);
-  m_context->SetColor(ais, Quantity_NOC_MATRABLUE, Standard_False);
-  m_context->SetMaterial(ais, Graphic3d_NOM_PLASTIC, Standard_False);
-  m_context->Display(ais, Standard_False);
+  m_context->SetDisplayMode(ais, 1, false);
+  m_context->SetColor(ais, Quantity_NOC_MATRABLUE, false);
+  m_context->SetMaterial(ais, Graphic3d_NOM_PLASTIC, false);
+  m_context->Display(ais, false);
   m_lines.push_back(ais);
 
   // --- 顶帽 (Z=30) ---
@@ -1262,17 +1310,17 @@ void OCCTWidget::drawBridgePier() {
   dWire = BRepBuilderAPI_MakeWire(dWire, anEdge12);
 
   // 顶帽 - ThruSections 放样
-  BRepOffsetAPI_ThruSections dingmao(Standard_True, Standard_False);
+  BRepOffsetAPI_ThruSections dingmao(true, false);
   dingmao.AddWire(bWire);
   dingmao.AddWire(dWire);
   dingmao.Build();
   TopoDS_Shape S1 = dingmao.Shape();
 
   Handle(AIS_Shape) ais1 = new AIS_Shape(S1);
-  m_context->SetDisplayMode(ais1, 1, Standard_False);
-  m_context->SetColor(ais1, Quantity_NOC_MATRABLUE, Standard_False);
-  m_context->SetMaterial(ais1, Graphic3d_NOM_PLASTIC, Standard_False);
-  m_context->Display(ais1, Standard_False);
+  m_context->SetDisplayMode(ais1, 1, false);
+  m_context->SetColor(ais1, Quantity_NOC_MATRABLUE, false);
+  m_context->SetMaterial(ais1, Graphic3d_NOM_PLASTIC, false);
+  m_context->Display(ais1, false);
   m_lines.push_back(ais1);
 
   // --- 裁剪 (Prism切割) ---
@@ -1302,18 +1350,18 @@ void OCCTWidget::drawBridgePier() {
   BRepLib::BuildCurves3d(FP);
   TopoDS_Face F = BRepBuilderAPI_MakeFace(gp_Pln(gp::ZOX()));
 
-  BRepFeat_MakePrism MKP(S, FP, F, D, 0, Standard_True);
+  BRepFeat_MakePrism MKP(S, FP, F, D, 0, true);
   MKP.Perform(1000.);
   TopoDS_Shape res = MKP.Shape();
 
-  BRepFeat_MakePrism MKP1(S1, FP, F, D, 0, Standard_True);
+  BRepFeat_MakePrism MKP1(S1, FP, F, D, 0, true);
   MKP1.Perform(1000.);
   TopoDS_Shape res1 = MKP1.Shape();
 
   ais->Set(res);
   ais1->Set(res1);
-  m_context->Redisplay(ais, Standard_False);
-  m_context->Redisplay(ais1, Standard_False);
+  m_context->Redisplay(ais, false);
+  m_context->Redisplay(ais1, false);
 
   // --- 墩身 (Z=-120) ---
   P1.SetCoord(16, -16.67, -120);
@@ -1375,17 +1423,17 @@ void OCCTWidget::drawBridgePier() {
   sWire = BRepBuilderAPI_MakeWire(sWire, anEdge12);
 
   // 墩身 - ThruSections 放样
-  BRepOffsetAPI_ThruSections dunshen(Standard_True, Standard_False);
+  BRepOffsetAPI_ThruSections dunshen(true, false);
   dunshen.AddWire(sWire);
   dunshen.AddWire(aWire);
   dunshen.Build();
   TopoDS_Shape S2 = dunshen.Shape();
 
   Handle(AIS_Shape) ais2 = new AIS_Shape(S2);
-  m_context->SetDisplayMode(ais2, 1, Standard_False);
-  m_context->SetColor(ais2, Quantity_NOC_MATRABLUE, Standard_False);
-  m_context->SetMaterial(ais2, Graphic3d_NOM_PLASTIC, Standard_False);
-  m_context->Display(ais2, Standard_False);
+  m_context->SetDisplayMode(ais2, 1, false);
+  m_context->SetColor(ais2, Quantity_NOC_MATRABLUE, false);
+  m_context->SetMaterial(ais2, Graphic3d_NOM_PLASTIC, false);
+  m_context->Display(ais2, false);
   m_lines.push_back(ais2);
 
   // --- 承台 (两层底座) ---
@@ -1393,20 +1441,20 @@ void OCCTWidget::drawBridgePier() {
       BRepPrimAPI_MakeBox(gp_Pnt(-38.41, -22.22, -130), 76.82, 44.44, 10)
           .Shape();
   Handle(AIS_Shape) ais3 = new AIS_Shape(S3);
-  m_context->SetDisplayMode(ais3, 1, Standard_False);
-  m_context->SetColor(ais3, Quantity_NOC_GREEN, Standard_False);
-  m_context->SetMaterial(ais3, Graphic3d_NOM_PLASTIC, Standard_False);
-  m_context->Display(ais3, Standard_False);
+  m_context->SetDisplayMode(ais3, 1, false);
+  m_context->SetColor(ais3, Quantity_NOC_GREEN, false);
+  m_context->SetMaterial(ais3, Graphic3d_NOM_PLASTIC, false);
+  m_context->Display(ais3, false);
   m_lines.push_back(ais3);
 
   TopoDS_Shape S4 =
       BRepPrimAPI_MakeBox(gp_Pnt(-44.79, -29.53, -140), 89.59, 59.05, 10)
           .Shape();
   Handle(AIS_Shape) ais4 = new AIS_Shape(S4);
-  m_context->SetDisplayMode(ais4, 1, Standard_False);
-  m_context->SetColor(ais4, Quantity_NOC_GREEN, Standard_False);
-  m_context->SetMaterial(ais4, Graphic3d_NOM_PLASTIC, Standard_False);
-  m_context->Display(ais4, Standard_False);
+  m_context->SetDisplayMode(ais4, 1, false);
+  m_context->SetColor(ais4, Quantity_NOC_GREEN, false);
+  m_context->SetMaterial(ais4, Graphic3d_NOM_PLASTIC, false);
+  m_context->Display(ais4, false);
   m_lines.push_back(ais4);
 
   // 刷新视图
@@ -1447,13 +1495,13 @@ void OCCTWidget::buildFullBridgeFromParts(
       if (parts[j].first.IsNull())
         continue;
 
-      BRepBuilderAPI_Transform childXform(parts[j].first, trsf, Standard_True);
+      BRepBuilderAPI_Transform childXform(parts[j].first, trsf, true);
       TopoDS_Shape childShape = childXform.Shape();
 
       Handle(AIS_Shape) aisShape = new AIS_Shape(childShape);
-      m_context->SetDisplayMode(aisShape, 1, Standard_False);
-      m_context->SetMaterial(aisShape, parts[j].second, Standard_False);
-      m_context->Display(aisShape, Standard_False);
+      m_context->SetDisplayMode(aisShape, 1, false);
+      m_context->SetMaterial(aisShape, parts[j].second, false);
+      m_context->Display(aisShape, false);
     }
 
     // 如果有箱梁，且不是最后一跨（或要求最后一跨也有）
@@ -1473,16 +1521,16 @@ void OCCTWidget::buildFullBridgeFromParts(
       gp_Trsf girderTrsf = transTrsf * rotTrsf;
 
       BRepBuilderAPI_Transform girderXform(parts.last().first, girderTrsf,
-                                           Standard_True);
+                                           true);
       TopoDS_Shape girderShape = girderXform.Shape();
 
       Handle(AIS_Shape) aisShape = new AIS_Shape(girderShape);
-      m_context->SetDisplayMode(aisShape, 1, Standard_False);
+      m_context->SetDisplayMode(aisShape, 1, false);
       m_context->SetMaterial(aisShape, Graphic3d_NOM_STEEL,
-                             Standard_False); // 梁用 Steel
+                             false); // 梁用 Steel
       // 用混凝土颜色代替Steel
-      m_context->SetColor(aisShape, Quantity_NOC_GRAY75, Standard_False);
-      m_context->Display(aisShape, Standard_False);
+      m_context->SetColor(aisShape, Quantity_NOC_GRAY75, false);
+      m_context->Display(aisShape, false);
     }
   }
 
