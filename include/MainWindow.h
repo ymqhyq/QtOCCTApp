@@ -9,6 +9,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QPair>
 #include <QPushButton>
 #include <QQueue>
@@ -19,7 +21,6 @@
 
 class OCCTWidget;
 class ShxTextGenerator;
-class QProcess;
 class QLabel;
 class QTextEdit;
 class PythonSyntaxHighlighter;
@@ -42,12 +43,16 @@ private slots:
   void onAnnotateBridgePierFooting(); // 标注标注桥墩承台尺寸
   void onMousePositionChanged(double x, double y, double z);
 
+  // Microservice Connection
+  void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
+
 private:
   void createRibbon();
   void setupCadQueryUi();
-  void initializeCqProcess();
-  void processCqOutput();
-  void dispatchTask(QProcess *proc);
+  void initializeCqNetwork();
+  void sendScriptToMicroservice(const QString &code, const QJsonObject &args,
+                                int assemblyIndex);
+  void dispatchTask(int dummy = 0);
   QString readScript(const QString &modelName);
 
   OCCTWidget *m_occtWidget;
@@ -57,7 +62,7 @@ private:
   QCheckBox *m_solidTextCheckbox;
   std::unique_ptr<ShxTextGenerator> m_shxGenerator;
   QLabel *m_coordLabel;
-  QList<QProcess *> m_cqProcessList;
+  QSharedPointer<QNetworkAccessManager> m_networkManager;
   QQueue<int> m_batchQueue;
   int m_completedTasks = 0;
   PythonSyntaxHighlighter *m_highlighter;

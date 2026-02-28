@@ -92,12 +92,14 @@ target_link_libraries(${PROJECT_NAME} SARibbonBar)
 
 # Add Qt OpenGL module if needed
 if(QT_VERSION STREQUAL "Qt6")
-    find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
+    find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets Network)
     target_link_libraries(${PROJECT_NAME} Qt6::OpenGLWidgets)
 else()
+    find_package(Qt5 REQUIRED COMPONENTS OpenGL Network)
     target_link_libraries(${PROJECT_NAME} Qt5::OpenGL)
 endif()
 
+# Link libraries based on Qt version
 # Link libraries based on Qt version
 if(QT_VERSION STREQUAL "Qt6")
     target_link_libraries(${PROJECT_NAME}
@@ -106,6 +108,7 @@ if(QT_VERSION STREQUAL "Qt6")
         Qt6::Gui
         Qt6::OpenGL
         Qt6::Svg
+        Qt6::Network
     )
 else()
     target_link_libraries(${PROJECT_NAME}
@@ -114,6 +117,7 @@ else()
         Qt5::Gui
         Qt5::OpenGL
         Qt5::Svg
+        Qt5::Network
     )
 endif()
 

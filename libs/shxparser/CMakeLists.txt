@@ -32,6 +32,7 @@ set_target_properties(shxparser PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION 1
     PUBLIC_HEADER include/ShxParser.h
+    DEBUG_POSTFIX ""
 )
 
 # Windows 特定设置

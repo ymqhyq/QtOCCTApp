@@ -276,8 +276,6 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event) {
   if (event->button() == Qt::RightButton) {
     int dx = event->pos().x() - m_startX;
     int dy = event->pos().y() - m_startY;
-    qDebug() << "Right click release, dx:" << dx << "dy:" << dy
-             << "m_startX:" << m_startX << "m_startY:" << m_startY;
     if (std::abs(dx) < 10 && std::abs(dy) < 10) {
       if (!m_context.IsNull()) {
         qreal pixelRatio = devicePixelRatio();
@@ -1502,6 +1500,7 @@ void OCCTWidget::buildFullBridgeFromParts(
       m_context->SetDisplayMode(aisShape, 1, false);
       m_context->SetMaterial(aisShape, parts[j].second, false);
       m_context->Display(aisShape, false);
+      m_lines.push_back(aisShape);
     }
 
     // 如果有箱梁，且不是最后一跨（或要求最后一跨也有）
@@ -1531,6 +1530,7 @@ void OCCTWidget::buildFullBridgeFromParts(
       // 用混凝土颜色代替Steel
       m_context->SetColor(aisShape, Quantity_NOC_GRAY75, false);
       m_context->Display(aisShape, false);
+      m_lines.push_back(aisShape);
     }
   }
 

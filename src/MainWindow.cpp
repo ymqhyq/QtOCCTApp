@@ -17,7 +17,9 @@
 #include <QLabel>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QProcess>
+#include <QNetworkAccessManager>
+#include <QNetworkProxy>
+#include <QNetworkReply>
 #include <QPushButton>
 #include <QStatusBar>
 #include <QTextEdit>
@@ -49,16 +51,11 @@ MainWindow::MainWindow(QWidget *parent)
   connect(m_occtWidget, &OCCTWidget::mousePositionChanged, this,
           &MainWindow::onMousePositionChanged);
 
-  initializeCqProcess();
+  initializeCqNetwork();
 }
 
 MainWindow::~MainWindow() {
-  for (QProcess *proc : m_cqProcessList) {
-    if (proc->state() == QProcess::Running) {
-      proc->kill();
-      proc->waitForFinished();
-    }
-  }
+  // Network connections handle their own cleanup
 }
 
 void MainWindow::createRibbon() {
@@ -158,9 +155,11 @@ void MainWindow::createRibbon() {
         QString("批量并发生成中: 共 %1 个桥墩...").arg(m_bridgePierCount));
     m_batchTimer.start(); // 开始计时
 
-    for (QProcess *proc : m_cqProcessList) {
+    // 向微服务分发第一波任务 (例如先发 8 个)
+    int initialTasks = qMin(8, m_bridgePierCount);
+    for (int i = 0; i < initialTasks; ++i) {
       if (!m_batchQueue.isEmpty()) {
-        dispatchTask(proc);
+        dispatchTask();
       }
     }
   });
@@ -185,12 +184,14 @@ void MainWindow::createRibbon() {
       m_batchQueue.enqueue(i);
     }
 
-    statusBar()->showMessage(QString("准备基础构件中: 正在调用后台 Python..."));
+    statusBar()->showMessage(QString("准备基础构件中: 正在调用后台微服务..."));
     m_batchTimer.start();
 
-    for (QProcess *proc : m_cqProcessList) {
+    // 发送并发拼装任务请求
+    int initialTasks = qMin(5, m_batchQueue.size());
+    for (int i = 0; i < initialTasks; ++i) {
       if (!m_batchQueue.isEmpty()) {
-        dispatchTask(proc);
+        dispatchTask();
       }
     }
   });
@@ -664,79 +665,52 @@ void MainWindow::setupCadQueryUi() {
   addDockWidget(Qt::RightDockWidgetArea, m_dockCq);
 }
 
-void MainWindow::initializeCqProcess() {
-  QString pythonExe = qgetenv("MY_PYTHON_EXE");
-  if (pythonExe.isEmpty()) {
-    pythonExe = "python";
-  }
-
-  // 默认启动 8 个并发的 Python 守护进程
-  int processCount = 8;
-  for (int i = 0; i < processCount; ++i) {
-    QProcess *proc = new QProcess(this);
-    proc->setProgram(pythonExe);
-    proc->setArguments({QCoreApplication::applicationDirPath() + "/run_cq.py"});
-    proc->setProcessChannelMode(QProcess::MergedChannels);
-    connect(proc, &QProcess::readyReadStandardOutput, this,
-            &MainWindow::processCqOutput);
-    proc->start();
-    m_cqProcessList.append(proc);
-  }
+void MainWindow::initializeCqNetwork() {
+  m_networkManager =
+      QSharedPointer<QNetworkAccessManager>(new QNetworkAccessManager());
+  m_networkManager->setProxy(QNetworkProxy::NoProxy);
 }
 
 void MainWindow::onRunCqScript() {
-  if (m_cqProcessList.isEmpty())
-    return;
-  QProcess *proc = m_cqProcessList.first();
-
-  // Execute CadQuery script
   QString code = m_cqScriptEditor->toPlainText();
   if (code.isEmpty())
     return;
 
-  // Generate unique ID based on time to avoid overwriting outputs from
-  // concurrent/serial runs
-  QString uniqueId = QString::number(QDateTime::currentMSecsSinceEpoch());
-  QString scriptPath = QCoreApplication::applicationDirPath() +
-                       "/cq_script/temp_custom_" + uniqueId + ".py";
-  QString outputPath = QCoreApplication::applicationDirPath() +
-                       "/temp_output_" + uniqueId + ".brep";
-
-  QFile scriptFile(scriptPath);
-  if (!scriptFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-    QMessageBox::critical(this, "Error",
-                          "Cannot create temporary script file.");
-    return;
-  }
-  scriptFile.write(code.toUtf8());
-  scriptFile.close();
-
-  proc->setProperty("outputPath", outputPath);
-  proc->setProperty("assemblyIndex", -1);
-
-  if (proc->state() != QProcess::Running) {
-    proc->start();
-    proc->waitForStarted();
-  }
-
   QJsonObject args;
   args["pierHeight"] = m_pierHeightSpinBox->value();
 
+  sendScriptToMicroservice(code, args, -1);
+}
+
+void MainWindow::sendScriptToMicroservice(const QString &code,
+                                          const QJsonObject &args,
+                                          int assemblyIndex) {
   QJsonObject req;
-  req["modelName"] = "temp_custom_" + uniqueId;
-  req["outputPath"] = outputPath;
+  req["code"] = code;
   req["args"] = args;
 
   QJsonDocument doc(req);
-  QString jsonString = doc.toJson(QJsonDocument::Compact);
+  QByteArray postData = doc.toJson();
 
-  QString request = jsonString + "\n";
-  proc->write(request.toUtf8());
+  QNetworkRequest request(QUrl("http://127.0.0.1:8000/api/v1/model/generate"));
+  request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
-  QApplication::setOverrideCursor(Qt::WaitCursor);
+  QNetworkReply *reply = m_networkManager->post(request, postData);
+
+  // Track assemblyIndex alongside the reply so callback knows how to process it
+  reply->setProperty("assemblyIndex", assemblyIndex);
+
+  connect(reply, &QNetworkReply::finished, [this, reply]() {
+    int assemblyIdx = reply->property("assemblyIndex").toInt();
+    this->onCqNetworkReply(reply, assemblyIdx);
+  });
+
+  if (assemblyIndex == -1) {
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+  }
 }
 
-void MainWindow::dispatchTask(QProcess *proc) {
+void MainWindow::dispatchTask(int) {
   if (m_batchQueue.isEmpty())
     return;
   int index = m_batchQueue.dequeue();
@@ -756,149 +730,146 @@ void MainWindow::dispatchTask(QProcess *proc) {
       modelName = "Pile";
     else if (index == 4)
       modelName = "girder";
-    proc->setProperty("assemblyIndex", index);
+
+    QString code = readScript(modelName);
+    sendScriptToMicroservice(code, args, index);
   } else {
-    double yOff = index * m_bridgePierSpacing;
-    args["yOffset"] = yOff;
-    modelName = "BridgePier2";
+    // 独立批量生成全桥 (通过 C++ 循环位移并各自使用 bridgePier2 脚本)
+    modelName = "temp_full_bridge_pier_cxx_" + QString::number(index);
+    QString code =
+        "import cadquery as cq\n"
+        "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
+        "    return (wp.moveTo(-xr, -yr)\n"
+        "        .threePointArc((-px, 0), (-xr, yr))\n"
+        "        .lineTo(-2, yr).threePointArc((-1.29, nmy), (-1, ney))\n"
+        "        .threePointArc((0, iy), (1, ney))\n"
+        "        .threePointArc((1.29, nmy), (2, yr))\n"
+        "        .lineTo(xr, yr).threePointArc((px, 0), (xr, -yr))\n"
+        "        .lineTo(2, -yr).threePointArc((1.29, -nmy), (1, -ney))\n"
+        "        .threePointArc((0, -iy), (-1, -ney))\n"
+        "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
+        "        .close())\n"
+        "w = cq.Workplane('XY')\n"
+        "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
+        "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, "
+        "13.1, 12.1)\n"
+        "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
+        "tuopan = w.loft()\n"
+        "w = cq.Workplane('XY').workplane(offset=27.5)\n"
+        "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
+        "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
+        "dingmao = w.loft()\n"
+        "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, "
+        "27).lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27).lineTo(7.5, "
+        "30).close().extrude(500, both=True))\n"
+        "tuopan = tuopan.cut(cutter)\n"
+        "dingmao = dingmao.cut(cutter)\n"
+        "w = cq.Workplane('XY').workplane(offset=-120)\n"
+        "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
+        "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
+        "dunshen = w.loft()\n"
+        "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, "
+        "10)\n"
+        "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, "
+        "10)\n"
+        "assy = cq.Assembly()\n"
+        "assy.add(tuopan, name='tuopan')\n"
+        "assy.add(dingmao, name='dingmao')\n"
+        "assy.add(dunshen, name='dunshen')\n"
+        "assy.add(ct1, name='ct1')\n"
+        "assy.add(ct2, name='ct2')\n"
+        "result = assy.toCompound()\n";
+
+    sendScriptToMicroservice(code, args, -2);
   }
-
-  int procId = m_cqProcessList.indexOf(proc);
-  QString outputPath =
-      QDir::currentPath() + QString("/temp_output_%1.brep").arg(procId);
-
-  proc->setProperty("outputPath", outputPath);
-
-  if (proc->state() != QProcess::Running) {
-    proc->start();
-    proc->waitForStarted();
-  }
-
-  QJsonObject req;
-  req["modelName"] = modelName;
-  req["outputPath"] = outputPath;
-  req["args"] = args;
-
-  QJsonDocument doc(req);
-  QString jsonString = doc.toJson(QJsonDocument::Compact);
-  QString request = jsonString + "\n";
-  proc->write(request.toUtf8());
 }
 
-void MainWindow::processCqOutput() {
-  QProcess *proc = qobject_cast<QProcess *>(sender());
-  if (!proc) {
-    if (!m_cqProcessList.isEmpty())
-      proc = m_cqProcessList.first();
-    else
-      return;
+void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
+  QApplication::restoreOverrideCursor();
+  reply->deleteLater();
+
+  if (reply->error() != QNetworkReply::NoError) {
+    QByteArray errData = reply->readAll();
+    QString errMsg = reply->errorString();
+    if (!errData.isEmpty()) {
+      errMsg += "\n详细信息: " + QString::fromUtf8(errData);
+    }
+    QMessageBox::critical(this, "Network Error", errMsg);
+
+    if (m_isBatchProcessing) {
+      m_completedTasks++;
+      if (!m_batchQueue.isEmpty())
+        dispatchTask();
+      else if (m_completedTasks == m_bridgePierCount) {
+        m_isBatchProcessing = false;
+        m_occtWidget->fitAll();
+      }
+    }
+    return;
   }
 
-  while (proc->canReadLine()) {
-    QString line = QString::fromUtf8(proc->readLine()).trimmed();
+  // Generate a unique file path or use memory stream if modifying OCCTWidget to
+  // take QByteArray For now, save the file to disk then load it
+  QByteArray brepData = reply->readAll();
+  QString uniqueId = QString::number(QDateTime::currentMSecsSinceEpoch()) +
+                     "_" + QString::number(assemblyIndex);
+  QString outputPath = QCoreApplication::applicationDirPath() +
+                       "/temp_output_" + uniqueId + ".brep";
 
-    if (line == "READY" || line.startsWith("DEBUG:")) {
-      if (line.startsWith("DEBUG:")) {
-        qDebug() << "CQ DEBUG:" << line;
-        statusBar()->showMessage(line, 5000);
-      }
-      continue;
+  QFile file(outputPath);
+  if (file.open(QIODevice::WriteOnly)) {
+    file.write(brepData);
+    file.close();
+  }
+
+  if (m_isAssembling) {
+    m_completedTasks++;
+    TopoDS_Shape shape = m_occtWidget->readBrepFileToShape(outputPath);
+    if (assemblyIndex >= 0 && assemblyIndex < m_assemblyParts.size()) {
+      m_assemblyParts[assemblyIndex] = qMakePair(shape, m_currentMaterial);
+    } else {
+      m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
     }
 
-    if (line.startsWith("SUCCESS")) {
-      QApplication::restoreOverrideCursor();
+    statusBar()->showMessage(
+        QString("正在加载基础构件: %1/5").arg(m_completedTasks));
 
-      QStringList parts = line.split('|');
-      if (parts.size() > 1) {
-        QString matStr = parts[1].trimmed().toUpper();
-        if (matStr == "STEEL")
-          m_currentMaterial = Graphic3d_NOM_STEEL;
-        else if (matStr == "CHROME")
-          m_currentMaterial = Graphic3d_NOM_CHROME;
-        else if (matStr == "ALUMINIUM" || matStr == "ALUMINUM")
-          m_currentMaterial = Graphic3d_NOM_ALUMINIUM;
-        else if (matStr == "BRASS")
-          m_currentMaterial = Graphic3d_NOM_BRASS;
-        else if (matStr == "GOLD")
-          m_currentMaterial = Graphic3d_NOM_GOLD;
-        else if (matStr == "BRONZE")
-          m_currentMaterial = Graphic3d_NOM_BRONZE;
-        else if (matStr == "PLASTIC")
-          m_currentMaterial = Graphic3d_NOM_PLASTIC;
-        else if (matStr == "GLASS")
-          m_currentMaterial = Graphic3d_NOM_GLASS;
-      }
+    if (m_completedTasks == 5) {
+      m_isAssembling = false;
+      m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount,
+                                             m_bridgePierSpacing);
+      qint64 elapsedMs = m_batchTimer.elapsed();
+      QString msg = QString("极速装配完毕: %1个桥墩阵列. 耗时: %2 毫秒")
+                        .arg(m_bridgePierCount)
+                        .arg(elapsedMs);
+      qDebug() << "C++ Assembly finished. " << msg;
+      statusBar()->showMessage(msg, 10000);
+    } else if (!m_batchQueue.isEmpty()) {
+      dispatchTask();
+    }
+  } else if (!m_isBatchProcessing) {
+    m_occtWidget->clearAll();
+    m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
+    statusBar()->showMessage("Model generated successfully via Microservice.",
+                             3000);
+  } else {
+    m_occtWidget->loadBrepFileDeferred(outputPath, m_currentMaterial);
+    m_completedTasks++;
+    statusBar()->showMessage(QString("正在并发生成: 已完成 %1/%2 个桥墩...")
+                                 .arg(m_completedTasks)
+                                 .arg(m_bridgePierCount));
 
-      QString outputPath = proc->property("outputPath").toString();
-      if (outputPath.isEmpty())
-        outputPath =
-            QCoreApplication::applicationDirPath() + "/temp_output.brep";
-
-      if (m_isAssembling) {
-        m_completedTasks++;
-        TopoDS_Shape shape = m_occtWidget->readBrepFileToShape(outputPath);
-        int asmIdx = proc->property("assemblyIndex").toInt();
-        if (asmIdx >= 0 && asmIdx < m_assemblyParts.size()) {
-          m_assemblyParts[asmIdx] = qMakePair(shape, m_currentMaterial);
-        } else {
-          m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
-        }
-
-        statusBar()->showMessage(
-            QString("正在加载基础构件: %1/5").arg(m_completedTasks));
-
-        if (m_completedTasks == 5) {
-          m_isAssembling = false;
-          m_occtWidget->buildFullBridgeFromParts(
-              m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
-          qint64 elapsedMs = m_batchTimer.elapsed();
-          QString msg = QString("极速装配完毕: %1个桥墩阵列. 耗时: %2 毫秒")
-                            .arg(m_bridgePierCount)
-                            .arg(elapsedMs);
-          qDebug() << "C++ Assembly finished. " << msg;
-          statusBar()->showMessage(msg, 10000);
-        } else if (!m_batchQueue.isEmpty()) {
-          dispatchTask(proc);
-        }
-      } else if (!m_isBatchProcessing) {
-        m_occtWidget->clearAll();
-        m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
-        statusBar()->showMessage("Model built successfully.", 3000);
-      } else {
-        m_occtWidget->loadBrepFileDeferred(outputPath, m_currentMaterial);
-        m_completedTasks++;
-        statusBar()->showMessage(QString("正在并发生成: 已完成 %1/%2 个桥墩...")
-                                     .arg(m_completedTasks)
-                                     .arg(m_bridgePierCount));
-
-        if (m_completedTasks == m_bridgePierCount) {
-          m_isBatchProcessing = false;
-          m_occtWidget->fitAll();
-          qint64 elapsedMs = m_batchTimer.elapsed();
-          QString msg =
-              QString("全桥多进程创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
-                  .arg(m_bridgePierCount)
-                  .arg(elapsedMs);
-          qDebug() << "Batch generation finished. " << msg;
-          statusBar()->showMessage(msg, 10000);
-        } else if (!m_batchQueue.isEmpty()) {
-          dispatchTask(proc);
-        }
-      }
-    } else if (line.startsWith("ERROR:") || line.startsWith("EXCEPTION:") ||
-               line.startsWith("FATAL:")) {
-      QApplication::restoreOverrideCursor();
-      QMessageBox::critical(this, "Script Error", line);
-
-      if (m_isBatchProcessing) {
-        m_completedTasks++;
-        if (!m_batchQueue.isEmpty())
-          dispatchTask(proc);
-        else if (m_completedTasks == m_bridgePierCount) {
-          m_isBatchProcessing = false;
-          m_occtWidget->fitAll();
-        }
-      }
+    if (m_completedTasks == m_bridgePierCount) {
+      m_isBatchProcessing = false;
+      m_occtWidget->fitAll();
+      qint64 elapsedMs = m_batchTimer.elapsed();
+      QString msg = QString("全桥多进程创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
+                        .arg(m_bridgePierCount)
+                        .arg(elapsedMs);
+      qDebug() << "Batch generation finished. " << msg;
+      statusBar()->showMessage(msg, 10000);
+    } else if (!m_batchQueue.isEmpty()) {
+      dispatchTask();
     }
   }
 }

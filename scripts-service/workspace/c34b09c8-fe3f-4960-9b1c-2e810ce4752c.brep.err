@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "D:\QtOCCTApp\scripts-service\worker.py", line 37, in main
+    BRepTools.Write_s(result, output_path)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+TypeError: Write_s(): incompatible function arguments. The following argument types are supported:
+    1. (theShape: OCP.TopoDS.TopoDS_Shape, theStream: io.BytesIO, theProgress: OCP.Message.Message_ProgressRange = <OCP.Message.Message_ProgressRange object at 0x00000234FF193E70>) -> None
+    2. (theShape: OCP.TopoDS.TopoDS_Shape, theStream: io.BytesIO, theWithTriangles: bool, theWithNormals: bool, theVersion: OCP.TopTools.TopTools_FormatVersion, theProgress: OCP.Message.Message_ProgressRange = <OCP.Message.Message_ProgressRange object at 0x00000234FF191830>) -> None
+    3. (theShape: OCP.TopoDS.TopoDS_Shape, theFile: str, theProgress: OCP.Message.Message_ProgressRange = <OCP.Message.Message_ProgressRange object at 0x00000234FEE7BEF0>) -> bool
+    4. (theShape: OCP.TopoDS.TopoDS_Shape, theFile: str, theWithTriangles: bool, theWithNormals: bool, theVersion: OCP.TopTools.TopTools_FormatVersion, theProgress: OCP.Message.Message_ProgressRange = <OCP.Message.Message_ProgressRange object at 0x00000234FF2469F0>) -> bool
+
+Invoked with: <cadquery.occ_impl.shapes.Compound object at 0x00000234842D7350>, 'D:\\QtOCCTApp\\scripts-service\\workspace\\c34b09c8-fe3f-4960-9b1c-2e810ce4752c.brep'
