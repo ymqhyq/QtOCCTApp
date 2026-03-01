@@ -23,6 +23,7 @@
 #include <QPushButton>
 #include <QStatusBar>
 #include <QTextEdit>
+#include <QUuid>
 #include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent)
@@ -140,11 +141,13 @@ void MainWindow::createRibbon() {
   connect(fullBridgeAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
+    m_isAssembling = false; // 确保不会误入极速装配分支
     m_currentPierIndex = 0;
     m_bridgePierCount = 100;
     m_bridgePierSpacing = 32000.0; // 32m spacing
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_completedTasks = 0;
+    m_batchShapes.clear();
 
     m_batchQueue.clear();
     for (int i = 0; i < m_bridgePierCount; ++i) {
@@ -152,15 +155,13 @@ void MainWindow::createRibbon() {
     }
 
     statusBar()->showMessage(
-        QString("批量并发生成中: 共 %1 个桥墩...").arg(m_bridgePierCount));
+        QString("全部并发生成中: 共 %1 个桥墩已全部发送至微服务...")
+            .arg(m_bridgePierCount));
     m_batchTimer.start(); // 开始计时
 
-    // 向微服务分发第一波任务 (例如先发 8 个)
-    int initialTasks = qMin(8, m_bridgePierCount);
-    for (int i = 0; i < initialTasks; ++i) {
-      if (!m_batchQueue.isEmpty()) {
-        dispatchTask();
-      }
+    // 一次性发出所有任务，服务端异步并发处理
+    while (!m_batchQueue.isEmpty()) {
+      dispatchTask();
     }
   });
   panelBridge->addLargeAction(fullBridgeAction);
@@ -597,55 +598,56 @@ void MainWindow::setupCadQueryUi() {
         "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
         "        .close())\n"
         "\n"
-        "# === 流线型托盘 (Z=0 -> 13.75 -> 27.5) ===\n"
+        "# === 流线型托盘 (Z=0 -> 13.75 -> 2750) ===\n"
         "w = cq.Workplane('XY')\n"
-        "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
-        "w = draw(w.workplane(offset=13.75),\n"
-        "         17.88, 14.095, 31.905, 13.8, 13.1, 12.1)\n"
-        "w = draw(w.workplane(offset=13.75),\n"
-        "         24, 15, 39, 14.71, 14, 13)\n"
+        "w = draw(w, 1600, 1400, 3000, 1374, 1300, 1200)\n"
+        "w = draw(w.workplane(offset=1375),\n"
+        "         1788, 1409.5, 3190.5, 1380, 1310, 1210)\n"
+        "w = draw(w.workplane(offset=1375),\n"
+        "         2400, 1500, 3900, 1471, 1400, 1300)\n"
         "tuopan = w.loft()\n"
         "\n"
-        "# === 顶帽 (Z=27.5 -> 30) ===\n"
-        "w = cq.Workplane('XY').workplane(offset=27.5)\n"
-        "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
-        "w = draw(w.workplane(offset=2.5),\n"
-        "         24, 15, 39, 14.71, 14, 13)\n"
+        "# === 顶帽 (Z=2750 -> 3000) ===\n"
+        "w = cq.Workplane('XY').workplane(offset=2750)\n"
+        "w = draw(w, 2400, 1500, 3900, 1471, 1400, 1300)\n"
+        "w = draw(w.workplane(offset=250),\n"
+        "         2400, 1500, 3900, 1471, 1400, 1300)\n"
         "dingmao = w.loft()\n"
         "\n"
         "# === 裁剪 (梯形槽道沿Y方向) ===\n"
         "cutter = (cq.Workplane('XZ')\n"
-        "    .moveTo(-7.5, 30).lineTo(-7.5, 27)\n"
-        "    .lineTo(-5.5, 25).lineTo(5.5, 25)\n"
-        "    .lineTo(7.5, 27).lineTo(7.5, 30)\n"
-        "    .close().extrude(500, both=True))\n"
+        "    .moveTo(-750, 3000).lineTo(-750, 2700)\n"
+        "    .lineTo(-550, 2500).lineTo(550, 2500)\n"
+        "    .lineTo(750, 2700).lineTo(750, 3000)\n"
+        "    .close().extrude(50000, both=True))\n"
         "tuopan = tuopan.cut(cutter)\n"
         "dingmao = dingmao.cut(cutter)\n"
         "\n"
-        "# === 墩身 (Z=-120 -> 0) ===\n"
-        "w = cq.Workplane('XY').workplane(offset=-120)\n"
-        "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
-        "w = draw(w.workplane(offset=120),\n"
-        "         16, 14, 30, 13.74, 13, 12)\n"
+        "pierHeight = globals().get('pierHeight', 12000.0)\n"
+        "# === 墩身 ===\n"
+        "w = cq.Workplane('XY').workplane(offset=-pierHeight)\n"
+        "w = draw(w, 1600, 1667, 3267, 1637, 1567, 1467)\n"
+        "w = draw(w.workplane(offset=pierHeight),\n"
+        "         1600, 1400, 3000, 1374, 1300, 1200)\n"
         "dunshen = w.loft()\n"
         "\n"
         "# === 承台 (两层底座) ===\n"
-        "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, "
-        "10)\n"
-        "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, "
-        "10)\n"
+        "ct1 = cq.Workplane('XY').workplane(offset=-(pierHeight + "
+        "500)).box(7682, 4444, 1000)\n"
+        "ct2 = cq.Workplane('XY').workplane(offset=-(pierHeight + "
+        "1500)).box(8959, 5905, 1000)\n"
         "# === Assembly 装配 (桩共享同一几何) ===\n"
-        "pile = cq.Workplane('XY').circle(5).extrude(60)\n"
+        "pile = cq.Workplane('XY').circle(500).extrude(6000)\n"
         "assy = cq.Assembly()\n"
         "assy.add(tuopan, name='tuopan')\n"
         "assy.add(dingmao, name='dingmao')\n"
         "assy.add(dunshen, name='dunshen')\n"
         "assy.add(ct1, name='ct1')\n"
         "assy.add(ct2, name='ct2')\n"
-        "for xi in [-25, 0, 25]:\n"
-        "    for yi in [-15, 15]:\n"
+        "for xi in [-2500, 0, 2500]:\n"
+        "    for yi in [-1500, 1500]:\n"
         "        assy.add(pile,\n"
-        "            loc=cq.Location((xi, yi, -200)),\n"
+        "            loc=cq.Location((xi, yi, -(pierHeight + 8000))),\n"
         "            name=f'pile_{xi}_{yi}')\n"
         "result = assy.toCompound()\n"
         "material = 'plastic'\n");
@@ -736,51 +738,12 @@ void MainWindow::dispatchTask(int) {
   } else {
     // 独立批量生成全桥 (通过 C++ 循环位移并各自使用 bridgePier2 脚本)
     modelName = "temp_full_bridge_pier_cxx_" + QString::number(index);
-    QString code =
-        "import cadquery as cq\n"
-        "def draw(wp, xr, yr, px, nmy, ney, iy):\n"
-        "    return (wp.moveTo(-xr, -yr)\n"
-        "        .threePointArc((-px, 0), (-xr, yr))\n"
-        "        .lineTo(-2, yr).threePointArc((-1.29, nmy), (-1, ney))\n"
-        "        .threePointArc((0, iy), (1, ney))\n"
-        "        .threePointArc((1.29, nmy), (2, yr))\n"
-        "        .lineTo(xr, yr).threePointArc((px, 0), (xr, -yr))\n"
-        "        .lineTo(2, -yr).threePointArc((1.29, -nmy), (1, -ney))\n"
-        "        .threePointArc((0, -iy), (-1, -ney))\n"
-        "        .threePointArc((-1.29, -nmy), (-2, -yr))\n"
-        "        .close())\n"
-        "w = cq.Workplane('XY')\n"
-        "w = draw(w, 16, 14, 30, 13.74, 13, 12)\n"
-        "w = draw(w.workplane(offset=13.75), 17.88, 14.095, 31.905, 13.8, "
-        "13.1, 12.1)\n"
-        "w = draw(w.workplane(offset=13.75), 24, 15, 39, 14.71, 14, 13)\n"
-        "tuopan = w.loft()\n"
-        "w = cq.Workplane('XY').workplane(offset=27.5)\n"
-        "w = draw(w, 24, 15, 39, 14.71, 14, 13)\n"
-        "w = draw(w.workplane(offset=2.5), 24, 15, 39, 14.71, 14, 13)\n"
-        "dingmao = w.loft()\n"
-        "cutter = (cq.Workplane('XZ').moveTo(-7.5, 30).lineTo(-7.5, "
-        "27).lineTo(-5.5, 25).lineTo(5.5, 25).lineTo(7.5, 27).lineTo(7.5, "
-        "30).close().extrude(500, both=True))\n"
-        "tuopan = tuopan.cut(cutter)\n"
-        "dingmao = dingmao.cut(cutter)\n"
-        "w = cq.Workplane('XY').workplane(offset=-120)\n"
-        "w = draw(w, 16, 16.67, 32.67, 16.37, 15.67, 14.67)\n"
-        "w = draw(w.workplane(offset=120), 16, 14, 30, 13.74, 13, 12)\n"
-        "dunshen = w.loft()\n"
-        "ct1 = cq.Workplane('XY').workplane(offset=-125).box(76.82, 44.44, "
-        "10)\n"
-        "ct2 = cq.Workplane('XY').workplane(offset=-135).box(89.59, 59.05, "
-        "10)\n"
-        "assy = cq.Assembly()\n"
-        "assy.add(tuopan, name='tuopan')\n"
-        "assy.add(dingmao, name='dingmao')\n"
-        "assy.add(dunshen, name='dunshen')\n"
-        "assy.add(ct1, name='ct1')\n"
-        "assy.add(ct2, name='ct2')\n"
-        "result = assy.toCompound()\n";
+    QString code = readScript("BridgePier2");
 
-    sendScriptToMicroservice(code, args, -2);
+    // 注意：在这里发送 args，其中 yOffset 是由 C++ 计算出来的毫米值
+    args["yOffset"] = index * m_bridgePierSpacing;
+
+    sendScriptToMicroservice(code, args, index);
   }
 }
 
@@ -808,23 +771,16 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
     return;
   }
 
-  // Generate a unique file path or use memory stream if modifying OCCTWidget to
-  // take QByteArray For now, save the file to disk then load it
   QByteArray brepData = reply->readAll();
-  QString uniqueId = QString::number(QDateTime::currentMSecsSinceEpoch()) +
-                     "_" + QString::number(assemblyIndex);
-  QString outputPath = QCoreApplication::applicationDirPath() +
-                       "/temp_output_" + uniqueId + ".brep";
 
-  QFile file(outputPath);
-  if (file.open(QIODevice::WriteOnly)) {
-    file.write(brepData);
-    file.close();
-  }
+  qDebug() << "Reply received: assemblyIndex=" << assemblyIndex
+           << "dataSize=" << brepData.size()
+           << "isAssembling=" << m_isAssembling
+           << "isBatch=" << m_isBatchProcessing;
 
   if (m_isAssembling) {
     m_completedTasks++;
-    TopoDS_Shape shape = m_occtWidget->readBrepFileToShape(outputPath);
+    TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
     if (assemblyIndex >= 0 && assemblyIndex < m_assemblyParts.size()) {
       m_assemblyParts[assemblyIndex] = qMakePair(shape, m_currentMaterial);
     } else {
@@ -849,11 +805,21 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
     }
   } else if (!m_isBatchProcessing) {
     m_occtWidget->clearAll();
-    m_occtWidget->loadBrepFile(outputPath, m_currentMaterial);
+    TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
+    if (!shape.IsNull()) {
+      m_occtWidget->displayShape(shape, m_currentMaterial);
+    }
     statusBar()->showMessage("Model generated successfully via Microservice.",
                              3000);
   } else {
-    m_occtWidget->loadBrepFileDeferred(outputPath, m_currentMaterial);
+    // 并发全桥 100墩模式
+    TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
+    if (!shape.IsNull()) {
+      // 注意：脚本内部已经根据 yOffset 参数做了 translate((0, yOffset, 0)),
+      // 所以 C++ 这里不需要再做二次偏移，直接加入集合即可。
+      m_batchShapes.append(shape);
+    }
+
     m_completedTasks++;
     statusBar()->showMessage(QString("正在并发生成: 已完成 %1/%2 个桥墩...")
                                  .arg(m_completedTasks)
@@ -861,15 +827,17 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
 
     if (m_completedTasks == m_bridgePierCount) {
       m_isBatchProcessing = false;
+
+      // 所有 100 墩收集完毕，一次性合成并交给 OCCTWidget 显示以避免高频渲染崩溃
+      m_occtWidget->buildFullBridgeFromShapes(m_batchShapes, m_currentMaterial);
       m_occtWidget->fitAll();
+
       qint64 elapsedMs = m_batchTimer.elapsed();
-      QString msg = QString("全桥多进程创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
+      QString msg = QString("全桥并发创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
                         .arg(m_bridgePierCount)
                         .arg(elapsedMs);
       qDebug() << "Batch generation finished. " << msg;
       statusBar()->showMessage(msg, 10000);
-    } else if (!m_batchQueue.isEmpty()) {
-      dispatchTask();
     }
   }
 }
