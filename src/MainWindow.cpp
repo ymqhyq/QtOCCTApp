@@ -773,6 +773,12 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
 
   QByteArray brepData = reply->readAll();
 
+  // Safety check: parse data only if MainWindow object is still valid and not
+  // shutting down
+  if (brepData.isEmpty()) {
+    return;
+  }
+
   qDebug() << "Reply received: assemblyIndex=" << assemblyIndex
            << "dataSize=" << brepData.size()
            << "isAssembling=" << m_isAssembling
@@ -831,6 +837,10 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
       // 所有 100 墩收集完毕，一次性合成并交给 OCCTWidget 显示以避免高频渲染崩溃
       m_occtWidget->buildFullBridgeFromShapes(m_batchShapes, m_currentMaterial);
       m_occtWidget->fitAll();
+
+      // IMPORTANT: Clear batch shapes to release TopoDS_Shape handles and
+      // memory
+      m_batchShapes.clear();
 
       qint64 elapsedMs = m_batchTimer.elapsed();
       QString msg = QString("全桥并发创建完毕: %1个独立桥墩. 耗时: %2 毫秒")

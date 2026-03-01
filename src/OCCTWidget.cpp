@@ -778,6 +778,9 @@ void OCCTWidget::fitAll() {
   if (!m_view.IsNull()) {
     m_view->FitAll();
     m_view->ZFitAll();
+    if (!m_context.IsNull()) {
+      m_context->UpdateCurrentViewer();
+    }
     m_view->Redraw();
   }
 }
@@ -834,13 +837,21 @@ void OCCTWidget::loadBrepFile(const QString &filename,
 }
 
 void OCCTWidget::loadBrepFileDeferred(const QString &filename,
-                                      Graphic3d_NameOfMaterial material) {
+                                      Graphic3d_NameOfMaterial material,
+                                      double yOffset) {
   TopoDS_Shape shape;
   BRep_Builder builder;
 
   QByteArray ba = filename.toLocal8Bit();
   if (!BRepTools::Read(shape, ba.data(), builder))
     return;
+
+  // 如果有 Y 轴偏移，对形状做平移变换
+  if (std::abs(yOffset) > 1e-6) {
+    gp_Trsf trsf;
+    trsf.SetTranslation(gp_Vec(0, yOffset, 0));
+    shape = shape.Moved(TopLoc_Location(trsf));
+  }
 
   Quantity_Color finalColor;
   switch (material) {
@@ -946,7 +957,7 @@ void OCCTWidget::clearAll() {
   // Remove all shapes stored in m_lines
   for (const auto &aisShape : m_lines) {
     if (!aisShape.IsNull()) {
-      m_context->Remove(aisShape, false); // false to defer update
+      m_context->Remove(aisShape, false); // Keep false for loop efficiency
     }
   }
   m_lines.clear();
@@ -964,6 +975,9 @@ void OCCTWidget::clearAll() {
     m_dynamicLine.Nullify();
   }
 
+  // CRITICAL: Call UpdateCurrentViewer synchronously to ensure internal OCCT
+  // structures are cleaned before handles for shapes/objects are potentially
+  // deleted.
   m_context->UpdateCurrentViewer();
 }
 
@@ -1468,6 +1482,65 @@ TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
   return shape;
 }
 
+TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
+  TopoDS_Shape shape;
+  if (data.isEmpty())
+    return shape;
+
+  BRep_Builder builder;
+  // Use a stringstream directly from the QByteArray data
+  std::istringstream ss(std::string(data.constData(), data.length()));
+  BRepTools::Read(shape, ss, builder);
+
+  if (shape.IsNull()) {
+    qWarning()
+        << "BRepTools::Read failed to parse shape from memory! Data size: "
+        << data.length();
+  }
+  return shape;
+}
+
+void OCCTWidget::displayShape(const TopoDS_Shape &shape,
+                              Graphic3d_NameOfMaterial material) {
+  if (shape.IsNull() || m_context.IsNull())
+    return;
+
+  Quantity_Color finalColor;
+  switch (material) {
+  case Graphic3d_NOM_GOLD:
+    finalColor = Quantity_NOC_GOLD1;
+    break;
+  case Graphic3d_NOM_BRASS:
+    finalColor = Quantity_NOC_DARKKHAKI;
+    break;
+  case Graphic3d_NOM_BRONZE:
+    finalColor = Quantity_NOC_CHOCOLATE1;
+    break;
+  case Graphic3d_NOM_CHROME:
+  case Graphic3d_NOM_STEEL:
+  case Graphic3d_NOM_ALUMINIUM:
+    finalColor = Quantity_NOC_GRAY30;
+    break;
+  case Graphic3d_NOM_PLASTIC:
+    finalColor = Quantity_NOC_YELLOW;
+    break;
+  case Graphic3d_NOM_GLASS:
+    finalColor = Quantity_NOC_LIGHTBLUE;
+    break;
+  default:
+    finalColor = Quantity_NOC_GRAY75;
+    break;
+  }
+
+  Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+  m_context->SetDisplayMode(aisShape, 1, false);
+  m_context->SetMaterial(aisShape, material, false);
+  m_context->SetColor(aisShape, finalColor, false);
+  m_context->Display(aisShape, false);
+  m_lines.push_back(aisShape);
+  fitAll();
+}
+
 void OCCTWidget::buildFullBridgeFromParts(
     const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
     int count, double spacing) {
@@ -1534,5 +1607,82 @@ void OCCTWidget::buildFullBridgeFromParts(
     }
   }
 
+  fitAll();
+}
+
+void OCCTWidget::buildFullBridgeFromShapes(const QList<TopoDS_Shape> &shapes,
+                                           Graphic3d_NameOfMaterial material) {
+
+  qDebug() << "buildFullBridgeFromShapes: Received " << shapes.size()
+           << " shapes.";
+
+  if (shapes.isEmpty() || m_context.IsNull()) {
+    qWarning()
+        << "buildFullBridgeFromShapes aborting: Shapes empty or context null.";
+    return;
+  }
+
+  Quantity_Color finalColor;
+  switch (material) {
+  case Graphic3d_NOM_GOLD:
+    finalColor = Quantity_NOC_GOLD1;
+    break;
+  case Graphic3d_NOM_BRASS:
+    finalColor = Quantity_NOC_DARKKHAKI;
+    break;
+  case Graphic3d_NOM_BRONZE:
+    finalColor = Quantity_NOC_CHOCOLATE1;
+    break;
+  case Graphic3d_NOM_CHROME:
+  case Graphic3d_NOM_STEEL:
+  case Graphic3d_NOM_ALUMINIUM:
+    finalColor = Quantity_NOC_GRAY30;
+    break;
+  case Graphic3d_NOM_PLASTIC:
+    finalColor = Quantity_NOC_YELLOW;
+    break;
+  case Graphic3d_NOM_GLASS:
+    finalColor = Quantity_NOC_LIGHTBLUE;
+    break;
+  default:
+    finalColor = Quantity_NOC_GRAY75;
+    break;
+  }
+
+  // Create a compound to hold all 100 piers. This is MUCH more stable than
+  // creating 100 AIS_Shapes.
+  TopoDS_Compound compound;
+  BRep_Builder builder;
+  builder.MakeCompound(compound);
+
+  int processed = 0;
+  for (const TopoDS_Shape &shape : shapes) {
+    if (!shape.IsNull()) {
+      builder.Add(compound, shape);
+      processed++;
+    }
+  }
+
+  if (processed > 0) {
+    Handle(AIS_Shape) aisShape = new AIS_Shape(compound);
+    m_context->SetDisplayMode(aisShape, 1, false);
+    m_context->SetMaterial(aisShape, material, false);
+
+    // Apply color
+    m_context->SetColor(aisShape, finalColor, false);
+
+    m_context->Display(aisShape, true);
+    m_lines.push_back(aisShape);
+  }
+
+  qDebug() << "buildFullBridgeFromShapes: Pushed 1 compound containing "
+           << processed << " shapes.";
+
+  // Force update once all shapes are registered in OCCT
+  if (!m_context.IsNull()) {
+    m_context->UpdateCurrentViewer();
+  }
+
+  // 最后调用一次 fitAll 更新视图
   fitAll();
 }
