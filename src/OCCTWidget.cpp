@@ -1520,6 +1520,9 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
   case Graphic3d_NOM_ALUMINIUM:
     finalColor = Quantity_NOC_GRAY30;
     break;
+  case Graphic3d_NOM_STONE:
+    finalColor = Quantity_NOC_GRAY80; // 石头材质模拟混凝土，颜色稍浅
+    break;
   case Graphic3d_NOM_PLASTIC:
     finalColor = Quantity_NOC_GRAY75;
     break;

@@ -1,4 +1,4 @@
-﻿#include "../include/MainWindow.h"
+#include "../include/MainWindow.h"
 #include "../include/OCCTWidget.h"
 #include "SARibbonApplicationButton.h"
 #include "SARibbonBar.h"
@@ -33,6 +33,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC) {
   setWindowTitle("Qt OCCT Application");
   setMinimumSize(1024, 768);
+  showMaximized();
 
   // Set the OCCT widget as the central widget
   setCentralWidget(m_occtWidget);
@@ -152,7 +153,7 @@ void MainWindow::createRibbon() {
     m_currentPierIndex = 0;
     m_bridgePierCount = 100;
     m_bridgePierSpacing = 31600.0; // 31.6m spacing (31.5m girder + 10cm gap)
-    m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    m_currentMaterial = Graphic3d_NOM_STONE;
     m_completedTasks = 0;
     m_batchShapes.clear();
 
@@ -877,8 +878,8 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
       m_assemblyParts.append(qMakePair(TopoDS_Shape(), Graphic3d_NOM_PLASTIC));
     }
 
-    // 默认构件材质
-    Graphic3d_NameOfMaterial mat = Graphic3d_NOM_PLASTIC;
+    // 默认构件材质：物理混凝土
+    Graphic3d_NameOfMaterial mat = Graphic3d_NOM_STONE;
     if (assemblyIndex == 6 || assemblyIndex == 7)
       mat = Graphic3d_NOM_STEEL; // 支座用钢材 (6, 7)
 
