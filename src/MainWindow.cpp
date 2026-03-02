@@ -4,6 +4,7 @@
 #include "SARibbonBar.h"
 #include "SARibbonCategory.h"
 #include "SARibbonPanel.h"
+#include <BRepBuilderAPI_Transform.hxx>
 
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
@@ -150,7 +151,7 @@ void MainWindow::createRibbon() {
     m_isAssembling = false; // 确保不会误入极速装配分支
     m_currentPierIndex = 0;
     m_bridgePierCount = 100;
-    m_bridgePierSpacing = 32000.0; // 32m spacing
+    m_bridgePierSpacing = 31600.0; // 31.6m spacing (31.5m girder + 10cm gap)
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_completedTasks = 0;
     m_batchShapes.clear();
@@ -179,15 +180,11 @@ void MainWindow::createRibbon() {
     m_isAssembling = true;
     m_isBatchProcessing = false;
     m_bridgePierCount = 100;
-    m_bridgePierSpacing = 32000.0; // 32m spacing
+    m_bridgePierSpacing = 31600.0; // 31.6m spacing (31.5m girder + 10cm gap)
     m_completedTasks = 0;
     m_assemblyParts.clear();
-    for (int i = 0; i < 5; ++i) {
-      m_assemblyParts.append(qMakePair(TopoDS_Shape(), Graphic3d_NOM_PLASTIC));
-    }
-
     m_batchQueue.clear();
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 9; ++i) { // 桩、承台、墩身、托盘、垫石x2、支座x2、箱梁
       m_batchQueue.enqueue(i);
     }
 
@@ -195,11 +192,9 @@ void MainWindow::createRibbon() {
     m_batchTimer.start();
 
     // 发送并发拼装任务请求
-    int initialTasks = qMin(5, m_batchQueue.size());
+    int initialTasks = qMin(9, m_batchQueue.size());
     for (int i = 0; i < initialTasks; ++i) {
-      if (!m_batchQueue.isEmpty()) {
-        dispatchTask();
-      }
+      dispatchTask();
     }
   });
   panelBridge->addLargeAction(fastAssemAction);
@@ -310,8 +305,30 @@ void MainWindow::onDrawBridgePier() {
 }
 
 void MainWindow::onDrawFullBridgePier() {
-  m_occtWidget->drawFullBridgePier();
-  statusBar()->showMessage("完全体桥墩模型已生成（全要素 C++ 实作）", 3000);
+  m_occtWidget->clearAll();
+  m_isAssembling = true;
+  m_isBatchProcessing = false;
+  m_bridgePierCount = 1;
+  m_bridgePierSpacing = 0.0;
+  m_completedTasks = 0;
+  m_batchShapes.clear();
+  m_assemblyParts.clear();
+
+  // 定义待请求的脚本列表
+  // 索引 0-7 分别对应：桩、承台、墩身、托盘、垫石1、垫石2、支座1、支座2
+  m_batchQueue.clear();
+  for (int i = 0; i < 9; ++i) {
+    m_batchQueue.enqueue(i);
+  }
+
+  statusBar()->showMessage("正在通过微服务分项构建全要素桥墩...");
+  m_batchTimer.start();
+
+  // 手动触发初始任务请求
+  int initialCount = qMin(5, m_batchQueue.size());
+  for (int i = 0; i < initialCount; ++i) {
+    dispatchTask();
+  }
 }
 
 void MainWindow::onAnnotateBridgePierFooting() {
@@ -768,16 +785,35 @@ void MainWindow::dispatchTask(int) {
   args["pierHeight"] = m_pierHeightSpinBox->value();
 
   if (m_isAssembling) {
-    if (index == 0)
-      modelName = "TuopanDingmao";
-    else if (index == 1)
-      modelName = "Dunshen";
-    else if (index == 2)
-      modelName = "Chengtai";
-    else if (index == 3)
+    // Map index to script name for full bridge pier assembly
+    switch (index) {
+    case 0:
       modelName = "Pile";
-    else if (index == 4)
+      break;
+    case 1:
+      modelName = "Chengtai";
+      break;
+    case 2:
+      modelName = "Dunshen";
+      break;
+    case 3:
+      modelName = "TuopanDingmao";
+      break;
+    case 4: // bed_stone 1
+    case 5: // bed_stone 2
+      modelName = "bed_stone";
+      break;
+    case 6: // bearing 1
+    case 7: // bearing 2
+      modelName = "bearing";
+      break;
+    case 8: // girder
       modelName = "girder";
+      break;
+    default:
+      qWarning() << "Unknown assembly index:" << index;
+      return;
+    }
 
     QString code = readScript(modelName);
     sendScriptToMicroservice(code, args, index);
@@ -805,7 +841,16 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
     }
     QMessageBox::critical(this, "Network Error", errMsg);
 
-    if (m_isBatchProcessing) {
+    if (m_isAssembling) {
+      m_completedTasks++;
+      if (m_completedTasks == 8) {
+        statusBar()->showMessage("完全体桥墩脚本拼装完成 (部分构件可能缺失)",
+                                 5000);
+        m_isAssembling = false;
+      } else {
+        dispatchTask();
+      }
+    } else if (m_isBatchProcessing) {
       m_completedTasks++;
       if (!m_batchQueue.isEmpty())
         dispatchTask();
@@ -825,29 +870,105 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
            << "isBatch=" << m_isBatchProcessing;
 
   if (m_isAssembling) {
-    m_completedTasks++;
     TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
-    if (assemblyIndex >= 0 && assemblyIndex < m_assemblyParts.size()) {
-      m_assemblyParts[assemblyIndex] = qMakePair(shape, m_currentMaterial);
-    } else {
-      m_assemblyParts.append(qMakePair(shape, m_currentMaterial));
+
+    // 确保 m_assemblyParts 足够大
+    while (m_assemblyParts.size() <= assemblyIndex) {
+      m_assemblyParts.append(qMakePair(TopoDS_Shape(), Graphic3d_NOM_PLASTIC));
     }
 
-    statusBar()->showMessage(
-        QString("正在加载基础构件: %1/5").arg(m_completedTasks));
+    // 默认构件材质
+    Graphic3d_NameOfMaterial mat = Graphic3d_NOM_PLASTIC;
+    if (assemblyIndex == 6 || assemblyIndex == 7)
+      mat = Graphic3d_NOM_STEEL; // 支座用钢材 (6, 7)
 
-    if (m_completedTasks == 5) {
+    m_assemblyParts[assemblyIndex] = qMakePair(shape, mat);
+    m_completedTasks++;
+
+    if (m_completedTasks == 9) {
+      if (m_assemblyParts.size() < 9) {
+        qWarning()
+            << "Assembly aborted: parts list incomplete despite 9 replies.";
+        m_isAssembling = false;
+        return;
+      }
+
+      statusBar()->showMessage("所有分项构件已构建完成，正在生成桥梁...");
+
+      if (m_bridgePierCount > 1) {
+        // 全桥 C++ 极速模式：在 C++ 端进行多墩复制
+        m_occtWidget->buildFullBridgeFromParts(
+            m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
+        statusBar()->showMessage(
+            QString("全桥拼装完成: %1 个桥墩").arg(m_bridgePierCount), 5000);
+      } else {
+        // 单座桥墩显示
+        // 桩基、承台、墩身、托盘 (0,1,2,3) 保持原位
+        for (int i = 0; i <= 3; ++i) {
+          if (!m_assemblyParts[i].first.IsNull()) {
+            m_occtWidget->displayShape(m_assemblyParts[i].first,
+                                       m_assemblyParts[i].second);
+          }
+        }
+
+        // 变换矩阵
+        gp_Trsf t4;
+        t4.SetTranslation(gp_Vec(-1650.0, 0, 3000.0));
+        gp_Trsf t5;
+        t5.SetTranslation(gp_Vec(1650.0, 0, 3000.0));
+        gp_Trsf t6;
+        t6.SetTranslation(gp_Vec(-1650.0, 0, 3400.0));
+        gp_Trsf t7;
+        t7.SetTranslation(gp_Vec(1650.0, 0, 3400.0));
+
+        // 垫石 (4, 5)
+        if (!m_assemblyParts[4].first.IsNull()) {
+          m_occtWidget->displayShape(
+              BRepBuilderAPI_Transform(m_assemblyParts[4].first, t4).Shape(),
+              m_assemblyParts[4].second, Quantity_NOC_WHITE);
+        }
+        if (!m_assemblyParts[5].first.IsNull()) {
+          m_occtWidget->displayShape(
+              BRepBuilderAPI_Transform(m_assemblyParts[5].first, t5).Shape(),
+              m_assemblyParts[5].second, Quantity_NOC_WHITE);
+        }
+
+        // 支座 (6, 7)
+        if (!m_assemblyParts[6].first.IsNull()) {
+          m_occtWidget->displayShape(
+              BRepBuilderAPI_Transform(m_assemblyParts[6].first, t6).Shape(),
+              m_assemblyParts[6].second);
+        }
+        if (!m_assemblyParts[7].first.IsNull()) {
+          m_occtWidget->displayShape(
+              BRepBuilderAPI_Transform(m_assemblyParts[7].first, t7).Shape(),
+              m_assemblyParts[7].second);
+        }
+
+        // 箱梁 (8) - 在单墩模式下也显示一跨
+        if (!m_assemblyParts[8].first.IsNull()) {
+          gp_Trsf rot;
+          rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
+          gp_Trsf trans;
+          trans.SetTranslation(gp_Vec(0, 50.0, 3650.0));
+          gp_Trsf girderTrsf = trans * rot;
+          m_occtWidget->displayShape(
+              BRepBuilderAPI_Transform(m_assemblyParts[8].first, girderTrsf)
+                  .Shape(),
+              m_assemblyParts[8].second);
+        }
+
+        statusBar()->showMessage("单座桥墩拼装完成", 3000);
+      }
+
       m_isAssembling = false;
-      m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount,
-                                             m_bridgePierSpacing);
+      m_occtWidget->fitAll();
       qint64 elapsedMs = m_batchTimer.elapsed();
-      QString msg = QString("极速装配完毕: %1个桥墩阵列. 耗时: %2 毫秒")
-                        .arg(m_bridgePierCount)
-                        .arg(elapsedMs);
-      qDebug() << "C++ Assembly finished. " << msg;
+      QString msg = QString("拼装完毕. 耗时: %1 毫秒").arg(elapsedMs);
+      qDebug() << "Assembly operation finished. " << msg;
       statusBar()->showMessage(msg, 10000);
-    } else if (!m_batchQueue.isEmpty()) {
-      dispatchTask();
+    } else {
+      dispatchTask(); // 继续处理下一个索引
     }
   } else if (!m_isBatchProcessing) {
     m_occtWidget->clearAll();

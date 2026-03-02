@@ -872,7 +872,7 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
     finalColor = Quantity_NOC_GRAY30;
     break;
   case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_YELLOW;
+    finalColor = Quantity_NOC_GRAY75;
     break;
   case Graphic3d_NOM_GLASS:
     finalColor = Quantity_NOC_LIGHTBLUE;
@@ -1473,98 +1473,8 @@ void OCCTWidget::drawBridgePier() {
 }
 
 void OCCTWidget::drawFullBridgePier() {
-  if (m_context.IsNull())
-    return;
-
-  clearAll();
-
-  // ====== 核心参数 (单位: mm) ======
-  double pierH = 12000.0;         // 墩身高度
-  double scale = 100.0;           // 基础比例
-  double capTopZ = 30.0 * scale;  // 托盘顶面高度 (3000mm)
-  double capBottomZ = 0.0;        // 托盘底面高度 (0mm)
-  double bodyBottomZ = -pierH;    // 墩身底面高度 (-12000mm)
-  double footingH = 2500.0;       // 承台厚度
-  double footingW = 10000.0;      // 承台宽度 (桥横向，沿X轴)
-  double footingL = 6000.0;       // 承台长度 (桥纵向，沿Y轴)
-  double bedStoneDim = 1200.0;    // 垫石边长
-  double bedStoneH = 400.0;       // 垫石高度
-  double lateralSpacing = 3300.0; // 垫石中心距 (沿X轴)
-  double bearingH = 250.0;        // 支座高度
-
-  // 1. 桩基础 (3x2 阵列)
-  double pileR = 750.0;
-  double pileL = 10000.0;
-  for (double x : {-3500.0, 0.0, 3500.0}) {
-    for (double y : {-2000.0, 2000.0}) {
-      gp_Pnt pnt(x, y, bodyBottomZ - footingH - pileL);
-      TopoDS_Shape pile =
-          BRepPrimAPI_MakeCylinder(gp_Ax2(pnt, gp_Dir(0, 0, 1)), pileR, pileL)
-              .Shape();
-      addShape(pile, Quantity_NOC_GRAY50, Graphic3d_NOM_PLASTIC);
-    }
-  }
-
-  // 2. 承台
-  gp_Pnt footingPnt(-footingW / 2.0, -footingL / 2.0, bodyBottomZ - footingH);
-  TopoDS_Shape footing =
-      BRepPrimAPI_MakeBox(footingPnt, footingW, footingL, footingH).Shape();
-  addShape(footing, Quantity_NOC_GRAY60, Graphic3d_NOM_PLASTIC);
-
-  // 3. 通用截面生成函数
-  auto make_pier_wire = [&](double z, double xr, double yr, double xr2) {
-    gp_Pnt pt1(xr, -yr, z), pt2(xr2, 0, z), pt3(xr, yr, z);
-    gp_Pnt pt1_1(-xr, -yr, z), pt2_1(-xr2, 0, z), pt3_1(-xr, yr, z);
-    BRepBuilderAPI_MakeWire mw;
-    mw.Add(BRepBuilderAPI_MakeEdge(
-        GC_MakeArcOfCircle(pt1_1, pt2_1, pt3_1).Value()));
-    mw.Add(BRepBuilderAPI_MakeEdge(pt3_1, pt3));
-    mw.Add(BRepBuilderAPI_MakeEdge(GC_MakeArcOfCircle(pt3, pt2, pt1).Value()));
-    mw.Add(BRepBuilderAPI_MakeEdge(pt1, pt1_1));
-    return mw.Wire();
-  };
-
-  // 4. 墩身 (Loft Body)
-  BRepOffsetAPI_ThruSections bodyLoft(true, false);
-  // 底部截面 (16, 16.67, 32.67) - 原始尺寸
-  bodyLoft.AddWire(
-      make_pier_wire(bodyBottomZ, 16 * scale, 16.67 * scale, 32.67 * scale));
-  // 顶部截面 (必须严格匹配托盘底部 16, 14, 30)
-  bodyLoft.AddWire(
-      make_pier_wire(capBottomZ, 16 * scale, 14.0 * scale, 30.0 * scale));
-  bodyLoft.Build();
-  addShape(bodyLoft.Shape(), Quantity_NOC_MATRABLUE, Graphic3d_NOM_PLASTIC);
-
-  // 5. 托盘 (Loft Tray)
-  BRepOffsetAPI_ThruSections capLoft(true, false);
-  // 底部匹配墩身
-  capLoft.AddWire(
-      make_pier_wire(capBottomZ, 16 * scale, 14 * scale, 30 * scale));
-  // 顶部外扩
-  capLoft.AddWire(make_pier_wire(capTopZ, 24 * scale, 15 * scale, 39 * scale));
-  capLoft.Build();
-  addShape(capLoft.Shape(), Quantity_NOC_MATRABLUE, Graphic3d_NOM_PLASTIC);
-
-  // 6. 垫石与支座 (沿 X 轴对称)
-  for (double side : {-1.0, 1.0}) {
-    double xPos = (lateralSpacing / 2.0) * side;
-
-    // 垫石 (BedStone)
-    gp_Pnt bsStart(xPos - bedStoneDim / 2.0, -bedStoneDim / 2.0, capTopZ);
-    TopoDS_Shape bedStone =
-        BRepPrimAPI_MakeBox(bsStart, bedStoneDim, bedStoneDim, bedStoneH)
-            .Shape();
-    addShape(bedStone, Quantity_NOC_WHITE, Graphic3d_NOM_PLASTIC);
-
-    // 支座 (Bearing)
-    double brDim = 650.0;
-    gp_Pnt brStart(xPos - brDim / 2.0, -brDim / 2.0, capTopZ + bedStoneH);
-    TopoDS_Shape bearing =
-        BRepPrimAPI_MakeBox(brStart, brDim, brDim, bearingH).Shape();
-    addShape(bearing, Quantity_NOC_GRAY20, Graphic3d_NOM_STEEL);
-  }
-
-  fitAll();
+  // 此功能现已由 MainWindow::onDrawFullBridgePier 通过分项调用微服务脚本实现。
+  // 原本的 C++ 原生建模逻辑已移除，以确保构件定义统一由脚本驱动。
 }
 
 TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
@@ -1590,7 +1500,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
 }
 
 void OCCTWidget::displayShape(const TopoDS_Shape &shape,
-                              Graphic3d_NameOfMaterial material) {
+                              Graphic3d_NameOfMaterial material, bool fit) {
   if (shape.IsNull() || m_context.IsNull())
     return;
 
@@ -1611,7 +1521,7 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
     finalColor = Quantity_NOC_GRAY30;
     break;
   case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_YELLOW;
+    finalColor = Quantity_NOC_GRAY75;
     break;
   case Graphic3d_NOM_GLASS:
     finalColor = Quantity_NOC_LIGHTBLUE;
@@ -1621,13 +1531,23 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
     break;
   }
 
+  displayShape(shape, material, finalColor, fit);
+}
+
+void OCCTWidget::displayShape(const TopoDS_Shape &shape,
+                              Graphic3d_NameOfMaterial material,
+                              const Quantity_Color &color, bool fit) {
+  if (shape.IsNull() || m_context.IsNull())
+    return;
+
   Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
   m_context->SetDisplayMode(aisShape, 1, false);
   m_context->SetMaterial(aisShape, material, false);
-  m_context->SetColor(aisShape, finalColor, false);
+  m_context->SetColor(aisShape, color, false);
   m_context->Display(aisShape, false);
   m_lines.push_back(aisShape);
-  fitAll();
+  if (fit)
+    fitAll();
 }
 
 void OCCTWidget::buildFullBridgeFromParts(
@@ -1637,62 +1557,62 @@ void OCCTWidget::buildFullBridgeFromParts(
   if (parts.isEmpty())
     return;
 
-  // 区分桥墩部分和箱梁部分 (假设最后一个是箱梁，名字是 girder，如果在 parts
-  // 里则其索引通常是 4) 这里我们使用一个简单启发式：如果某个part的Bounding
-  // Box很长，或者它的索引是最后一个（我们传了5个） 假设传入的 parts = [Tuopan,
-  // Dunshen, Chengtai, Pile, Girder]
-  bool hasGirder = (parts.size() >= 5);
-  int pierPartCount = hasGirder ? parts.size() - 1 : parts.size();
+  // 0:Pile, 1:Chengtai, 2:Dunshen, 3:Tuopan, 4:Stone1, 5:Stone2, 6:Bearing1,
+  // 7:Bearing2, 8:Girder
+  int partsAvailable = parts.size();
 
   // 循环 count 次，分别计算 Y 轴 offset 进行桥墩移动
   for (int i = 0; i < count; ++i) {
     double yOff = i * spacing;
-    gp_Trsf trsf;
-    trsf.SetTranslation(gp_Vec(0, yOff, 0));
 
-    // 为每个桥墩部件进行阵列
-    for (int j = 0; j < pierPartCount; ++j) {
+    // 绘制一座桥墩的所有部件 (及复制)
+    for (int j = 0; j < qMin(8, partsAvailable); ++j) {
       if (parts[j].first.IsNull())
         continue;
 
-      BRepBuilderAPI_Transform childXform(parts[j].first, trsf, true);
-      TopoDS_Shape childShape = childXform.Shape();
+      gp_Trsf pierTrsf;
+      gp_Vec offset(0, yOff, 0);
 
-      Handle(AIS_Shape) aisShape = new AIS_Shape(childShape);
-      m_context->SetDisplayMode(aisShape, 1, false);
-      m_context->SetMaterial(aisShape, parts[j].second, false);
-      m_context->Display(aisShape, false);
-      m_lines.push_back(aisShape);
+      // 特殊处理垫石和支座的 X/Z 位移
+      if (j == 4)
+        offset += gp_Vec(-1650.0, 0, 3000.0); // Stone 1
+      if (j == 5)
+        offset += gp_Vec(1650.0, 0, 3000.0); // Stone 2
+      if (j == 6)
+        offset += gp_Vec(-1650.0, 0, 3400.0); // Bearing 1
+      if (j == 7)
+        offset += gp_Vec(1650.0, 0, 3400.0); // Bearing 2
+
+      pierTrsf.SetTranslation(offset);
+
+      BRepBuilderAPI_Transform xform(parts[j].first, pierTrsf, true);
+      TopoDS_Shape shape = xform.Shape();
+
+      Quantity_Color color = Quantity_NOC_GRAY75;
+      if (j >= 4 && j <= 5)
+        color = Quantity_NOC_WHITE; // 垫石白色
+      else if (j >= 6 && j <= 7)
+        color = Quantity_NOC_GRAY30; // 支座/钢材
+
+      displayShape(shape, parts[j].second, color, false); // 不高频 fitAll
     }
 
-    // 如果有箱梁，且不是最后一跨（或要求最后一跨也有）
-    // 通常全桥 100 墩，则有 99 跨梁
-    if (hasGirder && i < count - 1) {
-      // 梁已经在 YZ 面生成，沿着 X 轴挤出 (L=31500)。
-      // 桥墩的布局是沿着 Y 轴分布的。
-      // 所以我们需要把梁从 X 轴旋转到 Y 轴。
-      // 绕 Z 轴旋转 90 度。
-      gp_Trsf rotTrsf;
-      rotTrsf.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
+    // 绘制连接当前墩到下一墩的箱梁
+    if (partsAvailable > 8 && i < count - 1) {
+      if (!parts[8].first.IsNull()) {
+        gp_Trsf rot;
+        rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
 
-      gp_Trsf transTrsf;
-      // 需要将其抬高到桥墩托盘/顶帽的顶部高度 Z 约等于 3000 (30.0m)
-      transTrsf.SetTranslation(gp_Vec(0, yOff, 30.0 * 100.0));
+        gp_Trsf trans;
+        // 梁放置在支座上方 Z=3650.0
+        // 墩间距 31.6m, 梁长 31.5m, 缝隙 100mm, 每端 50mm
+        trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0));
 
-      gp_Trsf girderTrsf = transTrsf * rotTrsf;
-
-      BRepBuilderAPI_Transform girderXform(parts.last().first, girderTrsf,
-                                           true);
-      TopoDS_Shape girderShape = girderXform.Shape();
-
-      Handle(AIS_Shape) aisShape = new AIS_Shape(girderShape);
-      m_context->SetDisplayMode(aisShape, 1, false);
-      m_context->SetMaterial(aisShape, Graphic3d_NOM_STEEL,
-                             false); // 梁用 Steel
-      // 用混凝土颜色代替Steel
-      m_context->SetColor(aisShape, Quantity_NOC_GRAY75, false);
-      m_context->Display(aisShape, false);
-      m_lines.push_back(aisShape);
+        gp_Trsf girderTrsf = trans * rot;
+        BRepBuilderAPI_Transform xform(parts[8].first, girderTrsf, true);
+        displayShape(xform.Shape(), Graphic3d_NOM_PLASTIC, Quantity_NOC_GRAY75,
+                     false);
+      }
     }
   }
 
@@ -1706,8 +1626,8 @@ void OCCTWidget::buildFullBridgeFromShapes(const QList<TopoDS_Shape> &shapes,
            << " shapes.";
 
   if (shapes.isEmpty() || m_context.IsNull()) {
-    qWarning()
-        << "buildFullBridgeFromShapes aborting: Shapes empty or context null.";
+    qWarning() << "buildFullBridgeFromShapes aborting: Shapes empty or "
+                  "context null.";
     return;
   }
 
@@ -1728,7 +1648,10 @@ void OCCTWidget::buildFullBridgeFromShapes(const QList<TopoDS_Shape> &shapes,
     finalColor = Quantity_NOC_GRAY30;
     break;
   case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_YELLOW;
+    finalColor = Quantity_NOC_GRAY75; // 将默认塑料材质映射为混凝土灰
+    break;
+  case Graphic3d_NOM_STONE:
+    finalColor = Quantity_NOC_GRAY80; // 备用混凝土灰
     break;
   case Graphic3d_NOM_GLASS:
     finalColor = Quantity_NOC_LIGHTBLUE;

@@ -60,7 +60,11 @@ public:
   TopoDS_Shape readBrepFileToShape(const QString &filename);
   TopoDS_Shape readBrepFromMemory(const QByteArray &data);
   void displayShape(const TopoDS_Shape &shape,
-                    Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
+                    Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
+                    bool fit = true);
+  void displayShape(const TopoDS_Shape &shape,
+                    Graphic3d_NameOfMaterial material,
+                    const Quantity_Color &color, bool fit = true);
   void buildFullBridgeFromParts(
       const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
       int count, double spacing);
