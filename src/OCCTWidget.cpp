@@ -5,6 +5,8 @@
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
@@ -957,7 +959,7 @@ void OCCTWidget::clearAll() {
   // Remove all shapes stored in m_lines
   for (const auto &aisShape : m_lines) {
     if (!aisShape.IsNull()) {
-      m_context->Remove(aisShape, false); // Keep false for loop efficiency
+      m_context->Remove(aisShape, false); // false to defer update
     }
   }
   m_lines.clear();
@@ -975,9 +977,6 @@ void OCCTWidget::clearAll() {
     m_dynamicLine.Nullify();
   }
 
-  // CRITICAL: Call UpdateCurrentViewer synchronously to ensure internal OCCT
-  // structures are cleaned before handles for shapes/objects are potentially
-  // deleted.
   m_context->UpdateCurrentViewer();
 }
 
@@ -1473,6 +1472,101 @@ void OCCTWidget::drawBridgePier() {
   fitAll();
 }
 
+void OCCTWidget::drawFullBridgePier() {
+  if (m_context.IsNull())
+    return;
+
+  clearAll();
+
+  // ====== 核心参数 (单位: mm) ======
+  double pierH = 12000.0;         // 墩身高度
+  double scale = 100.0;           // 基础比例
+  double capTopZ = 30.0 * scale;  // 托盘顶面高度 (3000mm)
+  double capBottomZ = 0.0;        // 托盘底面高度 (0mm)
+  double bodyBottomZ = -pierH;    // 墩身底面高度 (-12000mm)
+  double footingH = 2500.0;       // 承台厚度
+  double footingW = 10000.0;      // 承台宽度 (桥横向，沿X轴)
+  double footingL = 6000.0;       // 承台长度 (桥纵向，沿Y轴)
+  double bedStoneDim = 1200.0;    // 垫石边长
+  double bedStoneH = 400.0;       // 垫石高度
+  double lateralSpacing = 3300.0; // 垫石中心距 (沿X轴)
+  double bearingH = 250.0;        // 支座高度
+
+  // 1. 桩基础 (3x2 阵列)
+  double pileR = 750.0;
+  double pileL = 10000.0;
+  for (double x : {-3500.0, 0.0, 3500.0}) {
+    for (double y : {-2000.0, 2000.0}) {
+      gp_Pnt pnt(x, y, bodyBottomZ - footingH - pileL);
+      TopoDS_Shape pile =
+          BRepPrimAPI_MakeCylinder(gp_Ax2(pnt, gp_Dir(0, 0, 1)), pileR, pileL)
+              .Shape();
+      addShape(pile, Quantity_NOC_GRAY50, Graphic3d_NOM_PLASTIC);
+    }
+  }
+
+  // 2. 承台
+  gp_Pnt footingPnt(-footingW / 2.0, -footingL / 2.0, bodyBottomZ - footingH);
+  TopoDS_Shape footing =
+      BRepPrimAPI_MakeBox(footingPnt, footingW, footingL, footingH).Shape();
+  addShape(footing, Quantity_NOC_GRAY60, Graphic3d_NOM_PLASTIC);
+
+  // 3. 通用截面生成函数
+  auto make_pier_wire = [&](double z, double xr, double yr, double xr2) {
+    gp_Pnt pt1(xr, -yr, z), pt2(xr2, 0, z), pt3(xr, yr, z);
+    gp_Pnt pt1_1(-xr, -yr, z), pt2_1(-xr2, 0, z), pt3_1(-xr, yr, z);
+    BRepBuilderAPI_MakeWire mw;
+    mw.Add(BRepBuilderAPI_MakeEdge(
+        GC_MakeArcOfCircle(pt1_1, pt2_1, pt3_1).Value()));
+    mw.Add(BRepBuilderAPI_MakeEdge(pt3_1, pt3));
+    mw.Add(BRepBuilderAPI_MakeEdge(GC_MakeArcOfCircle(pt3, pt2, pt1).Value()));
+    mw.Add(BRepBuilderAPI_MakeEdge(pt1, pt1_1));
+    return mw.Wire();
+  };
+
+  // 4. 墩身 (Loft Body)
+  BRepOffsetAPI_ThruSections bodyLoft(true, false);
+  // 底部截面 (16, 16.67, 32.67) - 原始尺寸
+  bodyLoft.AddWire(
+      make_pier_wire(bodyBottomZ, 16 * scale, 16.67 * scale, 32.67 * scale));
+  // 顶部截面 (必须严格匹配托盘底部 16, 14, 30)
+  bodyLoft.AddWire(
+      make_pier_wire(capBottomZ, 16 * scale, 14.0 * scale, 30.0 * scale));
+  bodyLoft.Build();
+  addShape(bodyLoft.Shape(), Quantity_NOC_MATRABLUE, Graphic3d_NOM_PLASTIC);
+
+  // 5. 托盘 (Loft Tray)
+  BRepOffsetAPI_ThruSections capLoft(true, false);
+  // 底部匹配墩身
+  capLoft.AddWire(
+      make_pier_wire(capBottomZ, 16 * scale, 14 * scale, 30 * scale));
+  // 顶部外扩
+  capLoft.AddWire(make_pier_wire(capTopZ, 24 * scale, 15 * scale, 39 * scale));
+  capLoft.Build();
+  addShape(capLoft.Shape(), Quantity_NOC_MATRABLUE, Graphic3d_NOM_PLASTIC);
+
+  // 6. 垫石与支座 (沿 X 轴对称)
+  for (double side : {-1.0, 1.0}) {
+    double xPos = (lateralSpacing / 2.0) * side;
+
+    // 垫石 (BedStone)
+    gp_Pnt bsStart(xPos - bedStoneDim / 2.0, -bedStoneDim / 2.0, capTopZ);
+    TopoDS_Shape bedStone =
+        BRepPrimAPI_MakeBox(bsStart, bedStoneDim, bedStoneDim, bedStoneH)
+            .Shape();
+    addShape(bedStone, Quantity_NOC_WHITE, Graphic3d_NOM_PLASTIC);
+
+    // 支座 (Bearing)
+    double brDim = 650.0;
+    gp_Pnt brStart(xPos - brDim / 2.0, -brDim / 2.0, capTopZ + bedStoneH);
+    TopoDS_Shape bearing =
+        BRepPrimAPI_MakeBox(brStart, brDim, brDim, bearingH).Shape();
+    addShape(bearing, Quantity_NOC_GRAY20, Graphic3d_NOM_STEEL);
+  }
+
+  fitAll();
+}
+
 TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
   TopoDS_Shape shape;
   BRep_Builder builder;
@@ -1484,14 +1578,9 @@ TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
 
 TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
   TopoDS_Shape shape;
-  if (data.isEmpty())
-    return shape;
-
   BRep_Builder builder;
-  // Use a stringstream directly from the QByteArray data
-  std::istringstream ss(std::string(data.constData(), data.length()));
+  std::stringstream ss(std::string(data.constData(), data.length()));
   BRepTools::Read(shape, ss, builder);
-
   if (shape.IsNull()) {
     qWarning()
         << "BRepTools::Read failed to parse shape from memory! Data size: "
@@ -1649,39 +1738,26 @@ void OCCTWidget::buildFullBridgeFromShapes(const QList<TopoDS_Shape> &shapes,
     break;
   }
 
-  // Create a compound to hold all 100 piers. This is MUCH more stable than
-  // creating 100 AIS_Shapes.
-  TopoDS_Compound compound;
-  BRep_Builder builder;
-  builder.MakeCompound(compound);
+  qDebug() << "buildFullBridgeFromShapes: Processing individual shape AIS "
+              "assignment. Count: "
+           << shapes.size();
 
   int processed = 0;
   for (const TopoDS_Shape &shape : shapes) {
     if (!shape.IsNull()) {
-      builder.Add(compound, shape);
+      // 先生成网格再显示能够显著提升渲染稳定性和速度
+      Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+      m_context->SetDisplayMode(aisShape, 1, false);
+      m_context->SetMaterial(aisShape, material, false);
+      m_context->SetColor(aisShape, finalColor, false);
+      m_context->Display(aisShape, false);
+      m_lines.push_back(aisShape);
       processed++;
     }
   }
 
-  if (processed > 0) {
-    Handle(AIS_Shape) aisShape = new AIS_Shape(compound);
-    m_context->SetDisplayMode(aisShape, 1, false);
-    m_context->SetMaterial(aisShape, material, false);
-
-    // Apply color
-    m_context->SetColor(aisShape, finalColor, false);
-
-    m_context->Display(aisShape, true);
-    m_lines.push_back(aisShape);
-  }
-
-  qDebug() << "buildFullBridgeFromShapes: Pushed 1 compound containing "
-           << processed << " shapes.";
-
-  // Force update once all shapes are registered in OCCT
-  if (!m_context.IsNull()) {
-    m_context->UpdateCurrentViewer();
-  }
+  qDebug() << "buildFullBridgeFromShapes: Pushed " << processed
+           << " AIS_Shapes.";
 
   // 最后调用一次 fitAll 更新视图
   fitAll();

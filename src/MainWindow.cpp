@@ -130,6 +130,12 @@ void MainWindow::createRibbon() {
           &MainWindow::onDrawBridgePier);
   panelBridge->addLargeAction(bridgePierAction);
 
+  QAction *fullBridgePierAction = new QAction(
+      QIcon(":/resources/icons/bridge_pier.svg"), "完全体桥墩", this);
+  connect(fullBridgePierAction, &QAction::triggered, this,
+          &MainWindow::onDrawFullBridgePier);
+  panelBridge->addLargeAction(fullBridgePierAction);
+
   QAction *annotatePierAction =
       new QAction(QIcon(":/resources/icons/dimension.svg"), "标注承台", this);
   connect(annotatePierAction, &QAction::triggered, this,
@@ -239,6 +245,23 @@ void MainWindow::createRibbon() {
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(girderAction);
+
+  QAction *foundationAction = new QAction(
+      QIcon(":/resources/icons/foundation.svg"), "避雷针基础", this);
+  connect(foundationAction, &QAction::triggered, this,
+          &MainWindow::onDrawFoundation);
+  panelSubCrops->addSmallAction(foundationAction);
+
+  QAction *bedStoneAction =
+      new QAction(QIcon(":/resources/icons/bed_stone.svg"), "垫石", this);
+  connect(bedStoneAction, &QAction::triggered, this,
+          &MainWindow::onDrawBedStone);
+  panelSubCrops->addSmallAction(bedStoneAction);
+
+  QAction *bearingAction =
+      new QAction(QIcon(":/resources/icons/bearing.svg"), "支座", this);
+  connect(bearingAction, &QAction::triggered, this, &MainWindow::onDrawBearing);
+  panelSubCrops->addSmallAction(bearingAction);
 }
 
 void MainWindow::onDrawLineClicked() {
@@ -286,9 +309,32 @@ void MainWindow::onDrawBridgePier() {
   statusBar()->showMessage("桥墩模型已生成", 3000);
 }
 
+void MainWindow::onDrawFullBridgePier() {
+  m_occtWidget->drawFullBridgePier();
+  statusBar()->showMessage("完全体桥墩模型已生成（全要素 C++ 实作）", 3000);
+}
+
 void MainWindow::onAnnotateBridgePierFooting() {
   m_occtWidget->annotateBridgePierFooting();
   statusBar()->showMessage("已添加承台长宽高尺寸标注", 3000);
+}
+
+void MainWindow::onDrawFoundation() {
+  m_cqScriptEditor->setText(readScript("lightning_rod_foundation"));
+  onRunCqScript();
+  statusBar()->showMessage("避雷针基础脚本已加载并运行", 3000);
+}
+
+void MainWindow::onDrawBedStone() {
+  m_cqScriptEditor->setText(readScript("bed_stone"));
+  onRunCqScript();
+  statusBar()->showMessage("垫石脚本已加载并运行", 3000);
+}
+
+void MainWindow::onDrawBearing() {
+  m_cqScriptEditor->setText(readScript("bearing"));
+  onRunCqScript();
+  statusBar()->showMessage("支座脚本已加载并运行", 3000);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -773,12 +819,6 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
 
   QByteArray brepData = reply->readAll();
 
-  // Safety check: parse data only if MainWindow object is still valid and not
-  // shutting down
-  if (brepData.isEmpty()) {
-    return;
-  }
-
   qDebug() << "Reply received: assemblyIndex=" << assemblyIndex
            << "dataSize=" << brepData.size()
            << "isAssembling=" << m_isAssembling
@@ -837,10 +877,6 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
       // 所有 100 墩收集完毕，一次性合成并交给 OCCTWidget 显示以避免高频渲染崩溃
       m_occtWidget->buildFullBridgeFromShapes(m_batchShapes, m_currentMaterial);
       m_occtWidget->fitAll();
-
-      // IMPORTANT: Clear batch shapes to release TopoDS_Shape handles and
-      // memory
-      m_batchShapes.clear();
 
       qint64 elapsedMs = m_batchTimer.elapsed();
       QString msg = QString("全桥并发创建完毕: %1个独立桥墩. 耗时: %2 毫秒")

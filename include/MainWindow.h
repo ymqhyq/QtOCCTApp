@@ -40,7 +40,11 @@ private slots:
   void onDrawLineClicked();
   void onAddShxText();
   void onDrawBridgePier();            // 绘制桥墩
+  void onDrawFullBridgePier();        // 绘制完全体桥墩
   void onAnnotateBridgePierFooting(); // 标注标注桥墩承台尺寸
+  void onDrawFoundation();            // 绘制避雷针基础
+  void onDrawBedStone();              // 绘制垫石
+  void onDrawBearing();               // 绘制支座
   void onMousePositionChanged(double x, double y, double z);
 
   // Microservice Connection
@@ -75,6 +79,7 @@ private:
   QElapsedTimer m_batchTimer;
   bool m_isAssembling = false;
   QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> m_assemblyParts;
+  QList<TopoDS_Shape> m_batchShapes;
 };
 
 #endif // MAINWINDOW_H

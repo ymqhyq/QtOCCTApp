@@ -14,5 +14,8 @@
         <file>resources/icons/chengtai.svg</file>
         <file>resources/icons/pile.svg</file>
         <file>resources/icons/girder.svg</file>
+        <file>resources/icons/foundation.svg</file>
+        <file>resources/icons/bed_stone.svg</file>
+        <file>resources/icons/bearing.svg</file>
     </qresource>
 </RCC>

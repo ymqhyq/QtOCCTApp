@@ -48,18 +48,25 @@ public:
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
   void drawBridgePier();            // 绘制流线型桥墩
+  void drawFullBridgePier();        // 绘制完全体桥墩
   void annotateBridgePierFooting(); // 标注桥墩承台尺寸
   void loadBrepAsFullBridge(
       const QString &filename, int count, double spacing,
       Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void loadBrepFileDeferred(
       const QString &filename,
-      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
-
+      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
+      double yOffset = 0.0);
   TopoDS_Shape readBrepFileToShape(const QString &filename);
+  TopoDS_Shape readBrepFromMemory(const QByteArray &data);
+  void displayShape(const TopoDS_Shape &shape,
+                    Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void buildFullBridgeFromParts(
       const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
       int count, double spacing);
+  void buildFullBridgeFromShapes(
+      const QList<TopoDS_Shape> &shapes,
+      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
