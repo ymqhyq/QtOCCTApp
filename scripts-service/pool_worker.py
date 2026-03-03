@@ -12,7 +12,7 @@ import cadquery as cq
 from OCP.TopoDS import TopoDS_Shape
 from OCP.BRepTools import BRepTools
 
-def execute_task(code, args, output_path):
+def execute_task(code, args, output_path, args_file=None):
     """在当前进程中执行 CadQuery 脚本并导出 BREP"""
     local_vars = {"cq": cq}
     for k, v in args.items():
@@ -20,6 +20,18 @@ def execute_task(code, args, output_path):
     
     exec(code, local_vars, local_vars)
     
+    # 提取脚本执行后的参数值（回传给前端）
+    if args_file:
+        updated_args = {}
+        # 收集所有基础类型的本地变量，包括脚本计算出的 out 参数
+        for k, v in local_vars.items():
+            if not k.startswith('_') and k != 'cq' and k != 'result' and k != 'shape_to_export':
+                if isinstance(v, (int, float, str, bool)):
+                    updated_args[k] = v
+        
+        with open(args_file + ".out", "w", encoding="utf-8") as f:
+            json.dump(updated_args, f, ensure_ascii=False)
+
     if "result" not in local_vars:
         raise KeyError("脚本没有输出包含 'result' 变量")
     
@@ -74,7 +86,7 @@ for line in sys.stdin:
         with open(args_file, 'r', encoding='utf-8') as f:
             args = json.load(f)
         
-        execute_task(code, args, output_path)
+        execute_task(code, args, output_path, args_file)
         print("OK", flush=True)
         
     except Exception:

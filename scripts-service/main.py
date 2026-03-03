@@ -100,9 +100,10 @@ class WorkerPool:
             proc.kill()
             return None
     
-    async def execute(self, code_file: str, args_file: str, output_path: str) -> bool:
+    async def execute(self, code_file: str, args_file: str, output_path: str) -> tuple[bool, dict]:
         """向空闲工作进程分发一个任务"""
         worker = await self.available.get()
+        updated_args = {}
         
         try:
             # 检查进程是否还活着
@@ -123,10 +124,19 @@ class WorkerPool:
             
             if result == "OK":
                 await self.available.put(worker)
-                return True
+                # 尝试读取导出的参数
+                out_args_path = args_file + ".out"
+                if os.path.exists(out_args_path):
+                    try:
+                        with open(out_args_path, "r", encoding="utf-8") as f:
+                            updated_args = json.load(f)
+                        os.remove(out_args_path)
+                    except Exception as e:
+                        logger.warning(f"读取导出的参数失败: {e}")
+                return True, updated_args
             elif result == "ERR":
                 await self.available.put(worker)
-                return False
+                return False, {}
             else:
                 # 异常输出，进程可能已损坏
                 raise RuntimeError(f"工作进程异常输出: {result}")
@@ -214,8 +224,11 @@ async def generate_model(request: ScriptRequest):
             json.dump(request.args, f)
         
         # 分发到预热的工作进程池（非阻塞）
-        success = await worker_pool.execute(code_file, args_file, output_path)
+        success, updated_args = await worker_pool.execute(code_file, args_file, output_path)
         
+        # 使用更新后的参数（包含脚本计算出的结果）进行返回
+        effective_args = request.args.copy()
+        effective_args.update(updated_args)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -235,10 +248,26 @@ async def generate_model(request: ScriptRequest):
 
     # JHB (JSON-Header + Binary-Body) 封装
     # 构造元数据
+    raw_schema = MODELS_SCHEMA.get(request.model_type, {}) if request.model_type else {}
+    ordered_schema = {}
+    if raw_schema:
+        # 提取构件显示名称
+        ordered_schema["name"] = raw_schema.get("name", request.model_type)
+        # 将字段字典转换为有序列表处理
+        fields_list = []
+        for key, info in raw_schema.items():
+            if key == "name" or not isinstance(info, dict):
+                continue
+            field_data = info.copy()
+            field_data["key"] = key
+            fields_list.append(field_data)
+        ordered_schema["fields"] = fields_list
+
     metadata = {
-        "args": request.args,
+        "args": effective_args,
         "modelType": request.model_type,
-        "schema": MODELS_SCHEMA.get(request.model_type, {}) if request.model_type else {}
+        "name": ordered_schema.get("name", request.model_type),
+        "schema": ordered_schema
     }
     
     try:

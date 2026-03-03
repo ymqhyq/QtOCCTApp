@@ -1014,9 +1014,12 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
           QString("%1: %2").arg(it.key()).arg(it.value().toString())));
     }
   } else {
-    for (auto it = schema.begin(); it != schema.end(); ++it) {
-      QVariantMap fieldInfo = it.value().toMap();
-      QString labelText = fieldInfo.value("label", it.key()).toString();
+    // 改为遍历有序的 fields 列表
+    QVariantList fields = schema.value("fields").toList();
+    for (const QVariant &fieldVar : fields) {
+      QVariantMap fieldInfo = fieldVar.toMap();
+      QString key = fieldInfo.value("key").toString();
+      QString labelText = fieldInfo.value("label", key).toString();
       QString unit = fieldInfo.value("unit", "").toString();
       if (!unit.isEmpty())
         labelText += QString(" (%1)").arg(unit);
@@ -1026,19 +1029,34 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
       m_propertyLayout->addWidget(label);
 
       QString type = fieldInfo.value("type").toString();
+      QString access = fieldInfo.value("access", "inout").toString();
+      // 兼容用户在 YAML 中定义的 'out' 和 'output'
+      bool readOnly = (access == "out" || access == "output");
+
       if (type == "float" || type == "int") {
         QDoubleSpinBox *dsb = new QDoubleSpinBox();
+        dsb->setObjectName(key); // 设置控件名方便后续查询
         dsb->setRange(-1000000, 1000000);
-        double val = currentArgs.contains(it.key())
-                         ? currentArgs.value(it.key()).toDouble()
+        dsb->setSingleStep(100.0); // 设置调整步长为 0.1m (100mm)
+        double val = currentArgs.contains(key)
+                         ? currentArgs.value(key).toDouble()
                          : fieldInfo.value("default", 0.0).toDouble();
         dsb->setValue(val);
+        if (readOnly) {
+          dsb->setReadOnly(true);
+          dsb->setStyleSheet("background-color: #f0f0f0; color: #666;");
+        }
         m_propertyLayout->addWidget(dsb);
       } else {
-        QString val = currentArgs.contains(it.key())
-                          ? currentArgs.value(it.key()).toString()
+        QString val = currentArgs.contains(key)
+                          ? currentArgs.value(key).toString()
                           : fieldInfo.value("default", "").toString();
         QLineEdit *edit = new QLineEdit(val);
+        edit->setObjectName(key); // 设置控件名方便后续查询
+        if (readOnly) {
+          edit->setReadOnly(true);
+          edit->setStyleSheet("background-color: #f0f0f0; color: #666;");
+        }
         m_propertyLayout->addWidget(edit);
       }
     }
@@ -1049,6 +1067,45 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
   updateBtn->setStyleSheet(
       "background-color: #0078d4; color: white; border: none; padding: 8px; "
       "font-weight: bold; border-radius: 4px;");
+
+  // 绑定点击事件：收集参数并重新触发建模
+  connect(updateBtn, &QPushButton::clicked, [this, modelType]() {
+    QJsonObject newArgs;
+    // 遍历布局找到所有的输入控件
+    for (int i = 0; i < m_propertyLayout->count(); ++i) {
+      QWidget *w = m_propertyLayout->itemAt(i)->widget();
+      if (!w)
+        continue;
+      QString key = w->objectName();
+      if (key.isEmpty())
+        continue;
+
+      if (QDoubleSpinBox *dsb = qobject_cast<QDoubleSpinBox *>(w)) {
+        if (!dsb->isReadOnly()) {
+          newArgs[key] = dsb->value();
+        }
+      } else if (QLineEdit *le = qobject_cast<QLineEdit *>(w)) {
+        if (!le->isReadOnly()) {
+          newArgs[key] = le->text();
+        }
+      }
+    }
+
+    qDebug() << "Updating model with args:" << newArgs;
+
+    // 注入全局参数，确保脚本（如墩身、承台）能正常运行
+    newArgs["pierHeight"] = m_pierHeightSpinBox->value();
+
+    QString code = readScript(modelType);
+    if (!code.isEmpty()) {
+      // 如果是在装配图中选中的构件，目前逻辑是作为独立构件重新生成预览。
+      // 注意：这里 assemblyIndex 传入 -1 表示这不是装配任务的一部分。
+      sendScriptToMicroservice(code, newArgs, -1, modelType);
+      statusBar()->showMessage(QString("正在重新生成: %1").arg(modelType),
+                               3000);
+    }
+  });
+
   m_propertyLayout->addWidget(updateBtn);
   m_propertyLayout->addStretch();
 }

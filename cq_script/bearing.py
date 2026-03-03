@@ -5,14 +5,16 @@ import cadquery as cq
 # 该支座位于垫石上方 (Z从 350 到 600)。
 # 结构包含：底钢板、圆柱体支座芯、顶钢板。
 
-# 定义参数 (由 Schema/前端控制)
-type = globals().get('type', "固定支座")
-height = globals().get('height', 250.0)
+# 定义参数 (均为 out 参数，由脚本内部计算输出)
+type = "固定支座"
+height = 250.0
+length = 650.0
+width = 650.0
 
 # 内部衍生参数 (单位: mm)
-base_dim = 650.0    # 钢板尺寸 (650x650)
-plate_h = 20.0     # 钢板厚度
-core_r = 241.25     # 圆柱芯半径
+base_dim = length    # 钢板尺寸使用 length 控制
+plate_h = 20.0       # 钢板厚度
+core_r = 241.25      # 圆柱芯半径
 core_h = height - 2 * plate_h # 总高减去两块钢板厚度
 
 # 创建模型
