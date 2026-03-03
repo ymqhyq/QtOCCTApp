@@ -16,8 +16,8 @@
 #include <Graphic3d_NameOfMaterial.hxx>
 #include <Quantity_Color.hxx>
 
-#include <QPair>
-
+#include <QMap>
+#include <QVariant>
 #include <list>
 
 // Forward declaration
@@ -36,7 +36,8 @@ public:
   void
   addShape(const TopoDS_Shape &shape,
            const Quantity_Color &color = Quantity_Color(Quantity_NOC_YELLOW),
-           Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
+           Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
+           const QVariantMap &metadata = QVariantMap());
   void selectLine(const gp_Pnt &point);
   void setDrawLineMode(bool enabled) { m_drawLineMode = enabled; }
   void generateRandomLines(int count);
@@ -61,16 +62,20 @@ public:
   TopoDS_Shape readBrepFromMemory(const QByteArray &data);
   void displayShape(const TopoDS_Shape &shape,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
-                    bool fit = true);
+                    bool fit = true,
+                    const QVariantMap &metadata = QVariantMap());
   void displayShape(const TopoDS_Shape &shape,
                     Graphic3d_NameOfMaterial material,
-                    const Quantity_Color &color, bool fit = true);
-  void buildFullBridgeFromParts(
-      const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
-      int count, double spacing);
-  void buildFullBridgeFromShapes(
-      const QList<TopoDS_Shape> &shapes,
-      Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
+                    const Quantity_Color &color, bool fit = true,
+                    const QVariantMap &metadata = QVariantMap());
+  struct AssemblyPart {
+    TopoDS_Shape shape;
+    Graphic3d_NameOfMaterial material;
+    QVariantMap metadata;
+  };
+  void buildFullBridgeFromParts(const QList<AssemblyPart> &parts, int count,
+                                double spacing);
+  void buildFullBridgeFromBatch(const QList<AssemblyPart> &parts);
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
@@ -83,6 +88,7 @@ private:
 signals:
   void lineSelected();
   void mousePositionChanged(double x, double y, double z);
+  void objectSelected(const QVariantMap &metadata);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -111,6 +117,7 @@ private:
   AspectWindow *m_aspectWindow;
 
   std::list<Handle(AIS_Shape)> m_lines;
+  QMap<Handle(AIS_InteractiveObject), QVariantMap> m_objectMetadata;
   std::list<Handle(AIS_InteractiveObject)> m_dimensions;
   Handle(AIS_Shape) m_selectedLine;
 

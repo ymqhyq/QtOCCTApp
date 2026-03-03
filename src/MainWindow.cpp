@@ -10,18 +10,23 @@
 #include "../include/ShxTextGenerator.h"
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
+#include <QDataStream>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QDockWidget>
 #include <QIcon>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
 #include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QSpinBox>
 #include <QStatusBar>
 #include <QTextEdit>
 #include <QUuid>
@@ -30,8 +35,10 @@
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_solidTextCheckbox(nullptr), m_coordLabel(nullptr),
-      m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC) {
-  setWindowTitle("Qt OCCT Application");
+      m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC),
+      m_propertyDock(nullptr), m_propertyWidget(nullptr),
+      m_propertyLayout(nullptr), m_currentModelType("BridgePier2") {
+  setWindowTitle("Qt OCCT Application - Schema Enabled");
   setMinimumSize(1024, 768);
   showMaximized();
 
@@ -53,6 +60,10 @@ MainWindow::MainWindow(QWidget *parent)
   // 连接鼠标位置信号
   connect(m_occtWidget, &OCCTWidget::mousePositionChanged, this,
           &MainWindow::onMousePositionChanged);
+
+  // 连接对象选中信号
+  connect(m_occtWidget, &OCCTWidget::objectSelected, this,
+          &MainWindow::onObjectSelected);
 
   initializeCqNetwork();
 }
@@ -128,14 +139,18 @@ void MainWindow::createRibbon() {
 
   QAction *bridgePierAction =
       new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制桥墩", this);
-  connect(bridgePierAction, &QAction::triggered, this,
-          &MainWindow::onDrawBridgePier);
+  connect(bridgePierAction, &QAction::triggered, [this]() {
+    m_currentModelType = "BridgePier2";
+    onDrawBridgePier();
+  });
   panelBridge->addLargeAction(bridgePierAction);
 
   QAction *fullBridgePierAction = new QAction(
       QIcon(":/resources/icons/bridge_pier.svg"), "完全体桥墩", this);
-  connect(fullBridgePierAction, &QAction::triggered, this,
-          &MainWindow::onDrawFullBridgePier);
+  connect(fullBridgePierAction, &QAction::triggered, [this]() {
+    m_currentModelType = "BridgePier2";
+    onDrawFullBridgePier();
+  });
   panelBridge->addLargeAction(fullBridgePierAction);
 
   QAction *annotatePierAction =
@@ -155,7 +170,7 @@ void MainWindow::createRibbon() {
     m_bridgePierSpacing = 31600.0; // 31.6m spacing (31.5m girder + 10cm gap)
     m_currentMaterial = Graphic3d_NOM_STONE;
     m_completedTasks = 0;
-    m_batchShapes.clear();
+    m_batchParts.clear();
 
     m_batchQueue.clear();
     for (int i = 0; i < m_bridgePierCount; ++i) {
@@ -205,7 +220,8 @@ void MainWindow::createRibbon() {
   QAction *tuopanAction =
       new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
   connect(tuopanAction, &QAction::triggered, [this]() {
-    m_cqScriptEditor->setText(readScript("TuopanDingmao"));
+    m_currentModelType = "TuopanDingmao";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(tuopanAction);
@@ -213,7 +229,8 @@ void MainWindow::createRibbon() {
   QAction *dunshenAction =
       new QAction(QIcon(":/resources/icons/dunshen.svg"), "墩身", this);
   connect(dunshenAction, &QAction::triggered, [this]() {
-    m_cqScriptEditor->setText(readScript("Dunshen"));
+    m_currentModelType = "Dunshen";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(dunshenAction);
@@ -221,7 +238,8 @@ void MainWindow::createRibbon() {
   QAction *chengtaiAction =
       new QAction(QIcon(":/resources/icons/chengtai.svg"), "承台", this);
   connect(chengtaiAction, &QAction::triggered, [this]() {
-    m_cqScriptEditor->setText(readScript("Chengtai"));
+    m_currentModelType = "Chengtai";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(chengtaiAction);
@@ -229,7 +247,8 @@ void MainWindow::createRibbon() {
   QAction *pileAction =
       new QAction(QIcon(":/resources/icons/pile.svg"), "桩基础", this);
   connect(pileAction, &QAction::triggered, [this]() {
-    m_cqScriptEditor->setText(readScript("Pile"));
+    m_currentModelType = "Pile";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(pileAction);
@@ -237,7 +256,8 @@ void MainWindow::createRibbon() {
   QAction *girderAction =
       new QAction(QIcon(":/resources/icons/girder.svg"), "箱梁", this);
   connect(girderAction, &QAction::triggered, [this]() {
-    m_cqScriptEditor->setText(readScript("girder"));
+    m_currentModelType = "girder";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
   panelSubCrops->addSmallAction(girderAction);
@@ -312,7 +332,7 @@ void MainWindow::onDrawFullBridgePier() {
   m_bridgePierCount = 1;
   m_bridgePierSpacing = 0.0;
   m_completedTasks = 0;
-  m_batchShapes.clear();
+  m_batchParts.clear();
   m_assemblyParts.clear();
 
   // 定义待请求的脚本列表
@@ -338,19 +358,22 @@ void MainWindow::onAnnotateBridgePierFooting() {
 }
 
 void MainWindow::onDrawFoundation() {
-  m_cqScriptEditor->setText(readScript("lightning_rod_foundation"));
+  m_currentModelType = "lightning_rod_foundation";
+  m_cqScriptEditor->setText(readScript(m_currentModelType));
   onRunCqScript();
   statusBar()->showMessage("避雷针基础脚本已加载并运行", 3000);
 }
 
 void MainWindow::onDrawBedStone() {
-  m_cqScriptEditor->setText(readScript("bed_stone"));
+  m_currentModelType = "bed_stone";
+  m_cqScriptEditor->setText(readScript(m_currentModelType));
   onRunCqScript();
   statusBar()->showMessage("垫石脚本已加载并运行", 3000);
 }
 
 void MainWindow::onDrawBearing() {
-  m_cqScriptEditor->setText(readScript("bearing"));
+  m_currentModelType = "bearing";
+  m_cqScriptEditor->setText(readScript(m_currentModelType));
   onRunCqScript();
   statusBar()->showMessage("支座脚本已加载并运行", 3000);
 }
@@ -727,8 +750,26 @@ void MainWindow::setupCadQueryUi() {
 
   content->setLayout(layout);
   m_dockCq->setWidget(content);
-
   addDockWidget(Qt::RightDockWidgetArea, m_dockCq);
+
+  // --- 初始化属性面板 ---
+  m_propertyDock = new QDockWidget("属性", this);
+  m_propertyDock->setAllowedAreas(Qt::RightDockWidgetArea |
+                                  Qt::LeftDockWidgetArea);
+
+  m_propertyWidget = new QWidget();
+  m_propertyLayout = new QVBoxLayout(m_propertyWidget);
+  m_propertyLayout->setAlignment(Qt::AlignTop);
+
+  QScrollArea *scroll = new QScrollArea();
+  scroll->setWidgetResizable(true);
+  scroll->setWidget(m_propertyWidget);
+
+  m_propertyDock->setWidget(scroll);
+  addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
+
+  // 初始状态
+  onObjectSelected(QVariantMap());
 }
 
 void MainWindow::initializeCqNetwork() {
@@ -745,15 +786,17 @@ void MainWindow::onRunCqScript() {
   QJsonObject args;
   args["pierHeight"] = m_pierHeightSpinBox->value();
 
-  sendScriptToMicroservice(code, args, -1);
+  sendScriptToMicroservice(code, args, -1, m_currentModelType);
 }
 
 void MainWindow::sendScriptToMicroservice(const QString &code,
                                           const QJsonObject &args,
-                                          int assemblyIndex) {
+                                          int assemblyIndex,
+                                          const QString &modelType) {
   QJsonObject req;
   req["code"] = code;
   req["args"] = args;
+  req["model_type"] = modelType;
 
   QJsonDocument doc(req);
   QByteArray postData = doc.toJson();
@@ -817,23 +860,21 @@ void MainWindow::dispatchTask(int) {
     }
 
     QString code = readScript(modelName);
-    sendScriptToMicroservice(code, args, index);
+    sendScriptToMicroservice(code, args, index, modelName);
   } else {
-    // 独立批量生成全桥 (通过 C++ 循环位移并各自使用 bridgePier2 脚本)
-    modelName = "temp_full_bridge_pier_cxx_" + QString::number(index);
-    QString code = readScript("BridgePier2");
+    // 独立批量生成全桥 (通过 C++ 循环位移并各自使用 BridgePier2 脚本)
+    modelName = "BridgePier2"; // 实际使用的脚本模板名
+    QString code = readScript(modelName);
 
     // 注意：在这里发送 args，其中 yOffset 是由 C++ 计算出来的毫米值
     args["yOffset"] = index * m_bridgePierSpacing;
 
-    sendScriptToMicroservice(code, args, index);
+    sendScriptToMicroservice(code, args, index, modelName);
   }
 }
 
 void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
   QApplication::restoreOverrideCursor();
-  reply->deleteLater();
-
   if (reply->error() != QNetworkReply::NoError) {
     QByteArray errData = reply->readAll();
     QString errMsg = reply->errorString();
@@ -845,169 +886,171 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
     if (m_isAssembling) {
       m_completedTasks++;
       if (m_completedTasks == 8) {
-        statusBar()->showMessage("完全体桥墩脚本拼装完成 (部分构件可能缺失)",
-                                 5000);
+        statusBar()->showMessage("脚本拼装中断", 5000);
         m_isAssembling = false;
       } else {
         dispatchTask();
       }
-    } else if (m_isBatchProcessing) {
-      m_completedTasks++;
-      if (!m_batchQueue.isEmpty())
-        dispatchTask();
-      else if (m_completedTasks == m_bridgePierCount) {
-        m_isBatchProcessing = false;
-        m_occtWidget->fitAll();
-      }
     }
+    reply->deleteLater();
     return;
   }
 
-  QByteArray brepData = reply->readAll();
+  QByteArray data = reply->readAll();
+  reply->deleteLater();
 
-  qDebug() << "Reply received: assemblyIndex=" << assemblyIndex
-           << "dataSize=" << brepData.size()
-           << "isAssembling=" << m_isAssembling
-           << "isBatch=" << m_isBatchProcessing;
+  // --- JHB 协议解析 ---
+  if (data.size() < 4) {
+    qWarning() << "JHB 数据过短";
+    return;
+  }
+
+  uint32_t jsonLen = 0;
+  memcpy(&jsonLen, data.constData(), 4); // 小端序
+
+  if (data.size() < (int)(4 + jsonLen)) {
+    qWarning() << "JHB 元数据长度异常";
+    return;
+  }
+
+  QByteArray jsonData = data.mid(4, jsonLen);
+  QByteArray brepData = data.mid(4 + jsonLen);
+
+  QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+  QVariantMap metadata = doc.object().toVariantMap();
 
   if (m_isAssembling) {
     TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
-
-    // 确保 m_assemblyParts 足够大
     while (m_assemblyParts.size() <= assemblyIndex) {
-      m_assemblyParts.append(qMakePair(TopoDS_Shape(), Graphic3d_NOM_PLASTIC));
+      m_assemblyParts.append(
+          {TopoDS_Shape(), Graphic3d_NOM_PLASTIC, QVariantMap()});
     }
-
-    // 默认构件材质：物理混凝土
     Graphic3d_NameOfMaterial mat = Graphic3d_NOM_STONE;
     if (assemblyIndex == 6 || assemblyIndex == 7)
-      mat = Graphic3d_NOM_STEEL; // 支座用钢材 (6, 7)
+      mat = Graphic3d_NOM_STEEL;
 
-    m_assemblyParts[assemblyIndex] = qMakePair(shape, mat);
+    m_assemblyParts[assemblyIndex] = {shape, mat, metadata};
     m_completedTasks++;
 
     if (m_completedTasks == 9) {
-      if (m_assemblyParts.size() < 9) {
-        qWarning()
-            << "Assembly aborted: parts list incomplete despite 9 replies.";
-        m_isAssembling = false;
-        return;
-      }
-
-      statusBar()->showMessage("所有分项构件已构建完成，正在生成桥梁...");
-
-      if (m_bridgePierCount > 1) {
-        // 全桥 C++ 极速模式：在 C++ 端进行多墩复制
-        m_occtWidget->buildFullBridgeFromParts(
-            m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
-        statusBar()->showMessage(
-            QString("全桥拼装完成: %1 个桥墩").arg(m_bridgePierCount), 5000);
-      } else {
-        // 单座桥墩显示
-        // 桩基、承台、墩身、托盘 (0,1,2,3) 保持原位
-        for (int i = 0; i <= 3; ++i) {
-          if (!m_assemblyParts[i].first.IsNull()) {
-            m_occtWidget->displayShape(m_assemblyParts[i].first,
-                                       m_assemblyParts[i].second);
-          }
-        }
-
-        // 变换矩阵
-        gp_Trsf t4;
-        t4.SetTranslation(gp_Vec(-1650.0, 0, 3000.0));
-        gp_Trsf t5;
-        t5.SetTranslation(gp_Vec(1650.0, 0, 3000.0));
-        gp_Trsf t6;
-        t6.SetTranslation(gp_Vec(-1650.0, 0, 3400.0));
-        gp_Trsf t7;
-        t7.SetTranslation(gp_Vec(1650.0, 0, 3400.0));
-
-        // 垫石 (4, 5)
-        if (!m_assemblyParts[4].first.IsNull()) {
-          m_occtWidget->displayShape(
-              BRepBuilderAPI_Transform(m_assemblyParts[4].first, t4).Shape(),
-              m_assemblyParts[4].second, Quantity_NOC_WHITE);
-        }
-        if (!m_assemblyParts[5].first.IsNull()) {
-          m_occtWidget->displayShape(
-              BRepBuilderAPI_Transform(m_assemblyParts[5].first, t5).Shape(),
-              m_assemblyParts[5].second, Quantity_NOC_WHITE);
-        }
-
-        // 支座 (6, 7)
-        if (!m_assemblyParts[6].first.IsNull()) {
-          m_occtWidget->displayShape(
-              BRepBuilderAPI_Transform(m_assemblyParts[6].first, t6).Shape(),
-              m_assemblyParts[6].second);
-        }
-        if (!m_assemblyParts[7].first.IsNull()) {
-          m_occtWidget->displayShape(
-              BRepBuilderAPI_Transform(m_assemblyParts[7].first, t7).Shape(),
-              m_assemblyParts[7].second);
-        }
-
-        // 箱梁 (8) - 在单墩模式下也显示一跨
-        if (!m_assemblyParts[8].first.IsNull()) {
-          gp_Trsf rot;
-          rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
-          gp_Trsf trans;
-          trans.SetTranslation(gp_Vec(0, 50.0, 3650.0));
-          gp_Trsf girderTrsf = trans * rot;
-          m_occtWidget->displayShape(
-              BRepBuilderAPI_Transform(m_assemblyParts[8].first, girderTrsf)
-                  .Shape(),
-              m_assemblyParts[8].second);
-        }
-
-        statusBar()->showMessage("单座桥墩拼装完成", 3000);
-      }
-
+      m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount,
+                                             m_bridgePierSpacing);
+      statusBar()->showMessage("全桥拼装完成", 5000);
       m_isAssembling = false;
       m_occtWidget->fitAll();
-      qint64 elapsedMs = m_batchTimer.elapsed();
-      QString msg = QString("拼装完毕. 耗时: %1 毫秒").arg(elapsedMs);
-      qDebug() << "Assembly operation finished. " << msg;
-      statusBar()->showMessage(msg, 10000);
     } else {
-      dispatchTask(); // 继续处理下一个索引
+      dispatchTask();
     }
-  } else if (!m_isBatchProcessing) {
-    m_occtWidget->clearAll();
+  } else if (m_isBatchProcessing) {
     TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
     if (!shape.IsNull()) {
-      m_occtWidget->displayShape(shape, m_currentMaterial);
+      m_batchParts.append({shape, m_currentMaterial, metadata});
     }
-    statusBar()->showMessage("Model generated successfully via Microservice.",
-                             3000);
-  } else {
-    // 并发全桥 100墩模式
-    TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
-    if (!shape.IsNull()) {
-      // 注意：脚本内部已经根据 yOffset 参数做了 translate((0, yOffset, 0)),
-      // 所以 C++ 这里不需要再做二次偏移，直接加入集合即可。
-      m_batchShapes.append(shape);
-    }
-
     m_completedTasks++;
-    statusBar()->showMessage(QString("正在并发生成: 已完成 %1/%2 个桥墩...")
+    statusBar()->showMessage(QString("正在并发生成: %1/%2")
                                  .arg(m_completedTasks)
                                  .arg(m_bridgePierCount));
 
     if (m_completedTasks == m_bridgePierCount) {
       m_isBatchProcessing = false;
-
-      // 所有 100 墩收集完毕，一次性合成并交给 OCCTWidget 显示以避免高频渲染崩溃
-      m_occtWidget->buildFullBridgeFromShapes(m_batchShapes, m_currentMaterial);
+      m_occtWidget->buildFullBridgeFromBatch(m_batchParts);
       m_occtWidget->fitAll();
+      statusBar()->showMessage(
+          QString("全桥生成完毕. 耗时: %1 ms").arg(m_batchTimer.elapsed()),
+          10000);
+    }
+  } else {
+    m_occtWidget->clearAll();
+    TopoDS_Shape shape = m_occtWidget->readBrepFromMemory(brepData);
+    if (!shape.IsNull()) {
+      m_occtWidget->displayShape(shape, m_currentMaterial, true, metadata);
+    }
+    statusBar()->showMessage("模型生成成功", 3000);
+  }
+}
 
-      qint64 elapsedMs = m_batchTimer.elapsed();
-      QString msg = QString("全桥并发创建完毕: %1个独立桥墩. 耗时: %2 毫秒")
-                        .arg(m_bridgePierCount)
-                        .arg(elapsedMs);
-      qDebug() << "Batch generation finished. " << msg;
-      statusBar()->showMessage(msg, 10000);
+void MainWindow::onObjectSelected(const QVariantMap &metadata) {
+  // 清空当前布局
+  QLayoutItem *child;
+  while ((child = m_propertyLayout->takeAt(0)) != nullptr) {
+    if (child->widget()) {
+      child->widget()->deleteLater();
+    }
+    delete child;
+  }
+
+  if (metadata.isEmpty()) {
+    QLabel *emptyLabel = new QLabel("未选中任何构件");
+    emptyLabel->setAlignment(Qt::AlignCenter);
+    emptyLabel->setStyleSheet("color: #888; margin-top: 20px;");
+    m_propertyLayout->addWidget(emptyLabel);
+    return;
+  }
+
+  qDebug() << "Selected object metadata:"
+           << QJsonDocument::fromVariant(metadata).toJson();
+
+  // 渲染标题
+  QString modelType = metadata.value("modelType").toString();
+  QString displayName = metadata.value("name", modelType).toString();
+  if (displayName.isEmpty())
+    displayName = "构件实例";
+
+  QLabel *title = new QLabel(QString("<b>属性: %1</b>").arg(displayName));
+  title->setStyleSheet(
+      "font-size: 14px; border-bottom: 1px solid #ccc; padding-bottom: 5px;");
+  m_propertyLayout->addWidget(title);
+
+  // 渲染参数列表 (基于 Schema)
+  QVariantMap schema = metadata.value("schema").toMap();
+  QVariantMap currentArgs = metadata.value("args").toMap();
+
+  if (schema.isEmpty()) {
+    m_propertyLayout->addWidget(new QLabel("<i>暂无可用属性</i>"));
+    for (auto it = currentArgs.begin(); it != currentArgs.end(); ++it) {
+      if (it.key() == "yOffset")
+        continue;
+      m_propertyLayout->addWidget(new QLabel(
+          QString("%1: %2").arg(it.key()).arg(it.value().toString())));
+    }
+  } else {
+    for (auto it = schema.begin(); it != schema.end(); ++it) {
+      QVariantMap fieldInfo = it.value().toMap();
+      QString labelText = fieldInfo.value("label", it.key()).toString();
+      QString unit = fieldInfo.value("unit", "").toString();
+      if (!unit.isEmpty())
+        labelText += QString(" (%1)").arg(unit);
+
+      QLabel *label = new QLabel(labelText);
+      label->setStyleSheet("margin-top: 8px; font-weight: bold;");
+      m_propertyLayout->addWidget(label);
+
+      QString type = fieldInfo.value("type").toString();
+      if (type == "float" || type == "int") {
+        QDoubleSpinBox *dsb = new QDoubleSpinBox();
+        dsb->setRange(-1000000, 1000000);
+        double val = currentArgs.contains(it.key())
+                         ? currentArgs.value(it.key()).toDouble()
+                         : fieldInfo.value("default", 0.0).toDouble();
+        dsb->setValue(val);
+        m_propertyLayout->addWidget(dsb);
+      } else {
+        QString val = currentArgs.contains(it.key())
+                          ? currentArgs.value(it.key()).toString()
+                          : fieldInfo.value("default", "").toString();
+        QLineEdit *edit = new QLineEdit(val);
+        m_propertyLayout->addWidget(edit);
+      }
     }
   }
+
+  m_propertyLayout->addSpacing(20);
+  QPushButton *updateBtn = new QPushButton("重新生成模型");
+  updateBtn->setStyleSheet(
+      "background-color: #0078d4; color: white; border: none; padding: 8px; "
+      "font-weight: bold; border-radius: 4px;");
+  m_propertyLayout->addWidget(updateBtn);
+  m_propertyLayout->addStretch();
 }
 
 QString MainWindow::readScript(const QString &modelName) {

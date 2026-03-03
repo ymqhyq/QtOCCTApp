@@ -14,12 +14,16 @@
 #include <QPair>
 #include <QPushButton>
 #include <QQueue>
+#include <QScrollArea>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
 #include <TopoDS_Shape.hxx>
 
 #include <memory>
 
-class OCCTWidget;
+#include "OCCTWidget.h"
+
 class ShxTextGenerator;
 class QLabel;
 class QTextEdit;
@@ -46,6 +50,7 @@ private slots:
   void onDrawBedStone();              // 绘制垫石
   void onDrawBearing();               // 绘制支座
   void onMousePositionChanged(double x, double y, double z);
+  void onObjectSelected(const QVariantMap &metadata);
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
@@ -55,12 +60,16 @@ private:
   void setupCadQueryUi();
   void initializeCqNetwork();
   void sendScriptToMicroservice(const QString &code, const QJsonObject &args,
-                                int assemblyIndex);
+                                int assemblyIndex,
+                                const QString &modelType = QString());
   void dispatchTask(int dummy = 0);
   QString readScript(const QString &modelName);
 
   OCCTWidget *m_occtWidget;
   QDockWidget *m_dockCq;
+  QDockWidget *m_propertyDock;
+  QWidget *m_propertyWidget;
+  QVBoxLayout *m_propertyLayout;
   QTextEdit *m_cqScriptEditor;
   QDoubleSpinBox *m_pierHeightSpinBox;
   QCheckBox *m_solidTextCheckbox;
@@ -73,13 +82,14 @@ private:
   Graphic3d_NameOfMaterial m_currentMaterial;
   bool m_fullBridgeMode = false;
   bool m_isBatchProcessing = false;
+  QString m_currentModelType;
   int m_currentPierIndex = 0;
   int m_bridgePierCount = 100;
   double m_bridgePierSpacing = 340.0;
   QElapsedTimer m_batchTimer;
   bool m_isAssembling = false;
-  QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> m_assemblyParts;
-  QList<TopoDS_Shape> m_batchShapes;
+  QList<OCCTWidget::AssemblyPart> m_assemblyParts;
+  QList<OCCTWidget::AssemblyPart> m_batchParts;
 };
 
 #endif // MAINWINDOW_H

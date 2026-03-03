@@ -270,6 +270,22 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
                       true);
 
     m_context->Select(true);
+
+    // 发出对象选中信号
+    m_context->InitSelected();
+    if (m_context->MoreSelected()) {
+      Handle(AIS_InteractiveObject) selObj = m_context->SelectedInteractive();
+      if (m_objectMetadata.contains(selObj)) {
+        emit objectSelected(m_objectMetadata[selObj]);
+      } else {
+        // 如果没有元数据，可以发送一个空的或基本的
+        QVariantMap basicMeta;
+        basicMeta["name"] = selObj->DynamicType()->Name();
+        emit objectSelected(basicMeta);
+      }
+    } else {
+      emit objectSelected(QVariantMap()); // 发送空表示取消选中
+    }
   }
   update();
 }
@@ -470,7 +486,8 @@ void OCCTWidget::addLine(const gp_Pnt &start, const gp_Pnt &end) {
 
 void OCCTWidget::addShape(const TopoDS_Shape &shape,
                           const Quantity_Color &color,
-                          Graphic3d_NameOfMaterial material) {
+                          Graphic3d_NameOfMaterial material,
+                          const QVariantMap &metadata) {
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
 
@@ -487,6 +504,9 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
     m_context->Display(aisShape, false);
 
     m_lines.push_back(aisShape);
+    if (!metadata.isEmpty()) {
+      m_objectMetadata[aisShape] = metadata;
+    }
     updateView();
   }
 }
@@ -963,6 +983,7 @@ void OCCTWidget::clearAll() {
     }
   }
   m_lines.clear();
+  m_objectMetadata.clear();
 
   for (const auto &dim : m_dimensions) {
     if (!dim.IsNull()) {
@@ -1500,11 +1521,13 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
 }
 
 void OCCTWidget::displayShape(const TopoDS_Shape &shape,
-                              Graphic3d_NameOfMaterial material, bool fit) {
+                              Graphic3d_NameOfMaterial material, bool fit,
+                              const QVariantMap &metadata) {
   if (shape.IsNull() || m_context.IsNull())
     return;
 
   Quantity_Color finalColor;
+  // ... (switch case logic remains)
   switch (material) {
   case Graphic3d_NOM_GOLD:
     finalColor = Quantity_NOC_GOLD1;
@@ -1534,12 +1557,13 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
     break;
   }
 
-  displayShape(shape, material, finalColor, fit);
+  displayShape(shape, material, finalColor, fit, metadata);
 }
 
 void OCCTWidget::displayShape(const TopoDS_Shape &shape,
                               Graphic3d_NameOfMaterial material,
-                              const Quantity_Color &color, bool fit) {
+                              const Quantity_Color &color, bool fit,
+                              const QVariantMap &metadata) {
   if (shape.IsNull() || m_context.IsNull())
     return;
 
@@ -1549,13 +1573,15 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
   m_context->SetColor(aisShape, color, false);
   m_context->Display(aisShape, false);
   m_lines.push_back(aisShape);
+  if (!metadata.isEmpty()) {
+    m_objectMetadata[aisShape] = metadata;
+  }
   if (fit)
     fitAll();
 }
 
 void OCCTWidget::buildFullBridgeFromParts(
-    const QList<QPair<TopoDS_Shape, Graphic3d_NameOfMaterial>> &parts,
-    int count, double spacing) {
+    const QList<OCCTWidget::AssemblyPart> &parts, int count, double spacing) {
 
   if (parts.isEmpty())
     return;
@@ -1570,7 +1596,7 @@ void OCCTWidget::buildFullBridgeFromParts(
 
     // 绘制一座桥墩的所有部件 (及复制)
     for (int j = 0; j < qMin(8, partsAvailable); ++j) {
-      if (parts[j].first.IsNull())
+      if (parts[j].shape.IsNull())
         continue;
 
       gp_Trsf pierTrsf;
@@ -1588,7 +1614,7 @@ void OCCTWidget::buildFullBridgeFromParts(
 
       pierTrsf.SetTranslation(offset);
 
-      BRepBuilderAPI_Transform xform(parts[j].first, pierTrsf, true);
+      BRepBuilderAPI_Transform xform(parts[j].shape, pierTrsf, true);
       TopoDS_Shape shape = xform.Shape();
 
       Quantity_Color color = Quantity_NOC_GRAY75;
@@ -1597,12 +1623,12 @@ void OCCTWidget::buildFullBridgeFromParts(
       else if (j >= 6 && j <= 7)
         color = Quantity_NOC_GRAY30; // 支座/钢材
 
-      displayShape(shape, parts[j].second, color, false); // 不高频 fitAll
+      displayShape(shape, parts[j].material, color, false, parts[j].metadata);
     }
 
     // 绘制连接当前墩到下一墩的箱梁
     if (partsAvailable > 8 && i < count - 1) {
-      if (!parts[8].first.IsNull()) {
+      if (!parts[8].shape.IsNull()) {
         gp_Trsf rot;
         rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
 
@@ -1612,9 +1638,9 @@ void OCCTWidget::buildFullBridgeFromParts(
         trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0));
 
         gp_Trsf girderTrsf = trans * rot;
-        BRepBuilderAPI_Transform xform(parts[8].first, girderTrsf, true);
-        displayShape(xform.Shape(), Graphic3d_NOM_PLASTIC, Quantity_NOC_GRAY75,
-                     false);
+        BRepBuilderAPI_Transform xform(parts[8].shape, girderTrsf, true);
+        displayShape(xform.Shape(), parts[8].material, Quantity_NOC_GRAY75,
+                     false, parts[8].metadata);
       }
     }
   }
@@ -1622,69 +1648,47 @@ void OCCTWidget::buildFullBridgeFromParts(
   fitAll();
 }
 
-void OCCTWidget::buildFullBridgeFromShapes(const QList<TopoDS_Shape> &shapes,
-                                           Graphic3d_NameOfMaterial material) {
-
-  qDebug() << "buildFullBridgeFromShapes: Received " << shapes.size()
+void OCCTWidget::buildFullBridgeFromBatch(
+    const QList<OCCTWidget::AssemblyPart> &parts) {
+  qDebug() << "buildFullBridgeFromBatch: Received " << parts.size()
            << " shapes.";
 
-  if (shapes.isEmpty() || m_context.IsNull()) {
-    qWarning() << "buildFullBridgeFromShapes aborting: Shapes empty or "
+  if (parts.isEmpty() || m_context.IsNull()) {
+    qWarning() << "buildFullBridgeFromBatch aborting: Parts empty or "
                   "context null.";
     return;
   }
 
-  Quantity_Color finalColor;
-  switch (material) {
-  case Graphic3d_NOM_GOLD:
-    finalColor = Quantity_NOC_GOLD1;
-    break;
-  case Graphic3d_NOM_BRASS:
-    finalColor = Quantity_NOC_DARKKHAKI;
-    break;
-  case Graphic3d_NOM_BRONZE:
-    finalColor = Quantity_NOC_CHOCOLATE1;
-    break;
-  case Graphic3d_NOM_CHROME:
-  case Graphic3d_NOM_STEEL:
-  case Graphic3d_NOM_ALUMINIUM:
-    finalColor = Quantity_NOC_GRAY30;
-    break;
-  case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_GRAY75; // 将默认塑料材质映射为混凝土灰
-    break;
-  case Graphic3d_NOM_STONE:
-    finalColor = Quantity_NOC_GRAY80; // 备用混凝土灰
-    break;
-  case Graphic3d_NOM_GLASS:
-    finalColor = Quantity_NOC_LIGHTBLUE;
-    break;
-  default:
-    finalColor = Quantity_NOC_GRAY75;
-    break;
-  }
+  for (const auto &part : parts) {
+    if (part.shape.IsNull())
+      continue;
 
-  qDebug() << "buildFullBridgeFromShapes: Processing individual shape AIS "
-              "assignment. Count: "
-           << shapes.size();
-
-  int processed = 0;
-  for (const TopoDS_Shape &shape : shapes) {
-    if (!shape.IsNull()) {
-      // 先生成网格再显示能够显著提升渲染稳定性和速度
-      Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
-      m_context->SetDisplayMode(aisShape, 1, false);
-      m_context->SetMaterial(aisShape, material, false);
-      m_context->SetColor(aisShape, finalColor, false);
-      m_context->Display(aisShape, false);
-      m_lines.push_back(aisShape);
-      processed++;
+    Quantity_Color finalColor = Quantity_NOC_GRAY75;
+    switch (part.material) {
+    case Graphic3d_NOM_GOLD:
+      finalColor = Quantity_NOC_GOLD1;
+      break;
+    case Graphic3d_NOM_BRASS:
+      finalColor = Quantity_NOC_DARKKHAKI;
+      break;
+    case Graphic3d_NOM_BRONZE:
+      finalColor = Quantity_NOC_CHOCOLATE1;
+      break;
+    case Graphic3d_NOM_CHROME:
+    case Graphic3d_NOM_STEEL:
+    case Graphic3d_NOM_ALUMINIUM:
+      finalColor = Quantity_NOC_GRAY30;
+      break;
+    case Graphic3d_NOM_STONE:
+      finalColor = Quantity_NOC_GRAY80;
+      break;
+    default:
+      finalColor = Quantity_NOC_GRAY75;
+      break;
     }
+
+    displayShape(part.shape, part.material, finalColor, false, part.metadata);
   }
 
-  qDebug() << "buildFullBridgeFromShapes: Pushed " << processed
-           << " AIS_Shapes.";
-
-  // 最后调用一次 fitAll 更新视图
   fitAll();
 }

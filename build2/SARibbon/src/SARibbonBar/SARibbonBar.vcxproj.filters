@@ -1,0 +1,322 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Debug\qrc_SARibbonResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Release\qrc_SARibbonResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_MinSizeRel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_MinSizeRel\qrc_SARibbonResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_RelWithDebInfo\qrc_SARibbonResource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\ee9a0ca2c5487c9359e04b37f14abda6\SARibbon_zh_CN.ts.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\b073a12f41cc6549b1106e0c8b672638\SARibbon_zh_CN.qm.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\ee9a0ca2c5487c9359e04b37f14abda6\SARibbon_en_US.ts.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\b073a12f41cc6549b1106e0c8b672638\SARibbon_en_US.qm.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\91b29c6d18bc991cfa808d51705fd4a4\qrc_SARibbonResource.cpp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc" />
+    <None Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm" />
+    <None Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{8FD5D73E-D591-3FF8-9082-80F9537B0CBF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{797F9286-A5FD-3DA1-87AC-400C2961E335}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{F43B26B7-A594-306E-BB78-C5DF2D5A4EC0}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

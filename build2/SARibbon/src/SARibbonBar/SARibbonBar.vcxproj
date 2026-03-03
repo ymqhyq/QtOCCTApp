@@ -1,0 +1,881 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D3F04A84-D8E3-3802-834F-3CF92E13D1BD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <Platform>x64</Platform>
+    <ProjectName>SARibbonBar</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">SARibbonBar.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">SARibbonBard</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\bin\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">SARibbonBar.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">SARibbonBar</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\bin\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">SARibbonBar.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">SARibbonBar</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\bin\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">SARibbonBar.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">SARibbonBar</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.dll</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Debug;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtCore" /external:I "D:/Qt/6.10.1/msvc2022_64/include" /external:I "D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtGui" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtWidgets" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="Debug";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"Debug\";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Debug;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Debug;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PreBuildEvent>
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message>Automatic MOC and UIC for target SARibbonBar</Message>
+      <Command>setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autogen D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenInfo.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PreBuildEvent>
+    <Link>
+      <AdditionalDependencies>D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgetsd.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Guid.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Cored.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>D:/QtOCCTApp/build2/Debug/SARibbonBard.lib</ImportLibrary>
+      <ProgramDataBaseFile>D:/QtOCCTApp/build2/Debug/SARibbonBard.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Release;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtCore" /external:I "D:/Qt/6.10.1/msvc2022_64/include" /external:I "D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtGui" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtWidgets" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="Release";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"Release\";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Release;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_Release;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PreBuildEvent>
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message>Automatic MOC and UIC for target SARibbonBar</Message>
+      <Command>setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autogen D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenInfo.json Release
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PreBuildEvent>
+    <Link>
+      <AdditionalDependencies>D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>D:/QtOCCTApp/build2/lib/Release/SARibbonBar.lib</ImportLibrary>
+      <ProgramDataBaseFile>D:/QtOCCTApp/build2/bin/Release/SARibbonBar.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_MinSizeRel;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtCore" /external:I "D:/Qt/6.10.1/msvc2022_64/include" /external:I "D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtGui" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtWidgets" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ConformanceMode>true</ConformanceMode>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="MinSizeRel";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"MinSizeRel\";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_MinSizeRel;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_MinSizeRel;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PreBuildEvent>
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message>Automatic MOC and UIC for target SARibbonBar</Message>
+      <Command>setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autogen D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenInfo.json MinSizeRel
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PreBuildEvent>
+    <Link>
+      <AdditionalDependencies>D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>D:/QtOCCTApp/build2/lib/MinSizeRel/SARibbonBar.lib</ImportLibrary>
+      <ProgramDataBaseFile>D:/QtOCCTApp/build2/bin/MinSizeRel/SARibbonBar.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_RelWithDebInfo;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtCore" /external:I "D:/Qt/6.10.1/msvc2022_64/include" /external:I "D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtGui" /external:I "D:/Qt/6.10.1/msvc2022_64/include/QtWidgets" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <ConformanceMode>true</ConformanceMode>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4819</DisableSpecificWarnings>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MinimalRebuild></MinimalRebuild>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <SupportJustMyCode></SupportJustMyCode>
+      <UseFullPaths>false</UseFullPaths>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR="RelWithDebInfo";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;SA_RIBBON_BAR_MAKE_LIB;SA_COLOR_WIDGETS_MAKE_LIB;SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0;NOMINMAX;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_GUI_LIB;QT_WIDGETS_LIB;CMAKE_INTDIR=\"RelWithDebInfo\";SARibbonBar_EXPORTS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_RelWithDebInfo;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\include_RelWithDebInfo;D:\Qt\6.10.1\msvc2022_64\include\QtCore;D:\Qt\6.10.1\msvc2022_64\include;D:\Qt\6.10.1\msvc2022_64\mkspecs\win32-msvc;D:\Qt\6.10.1\msvc2022_64\include\QtGui;D:\Qt\6.10.1\msvc2022_64\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PreBuildEvent>
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message>Automatic MOC and UIC for target SARibbonBar</Message>
+      <Command>setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autogen D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenInfo.json RelWithDebInfo
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+    </PreBuildEvent>
+    <Link>
+      <AdditionalDependencies>D:\Qt\6.10.1\msvc2022_64\lib\Qt6Widgets.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Gui.lib;D:\Qt\6.10.1\msvc2022_64\lib\Qt6Core.lib;mpr.lib;userenv.lib;d3d11.lib;dxgi.lib;dxguid.lib;d3d12.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>D:/QtOCCTApp/build2/lib/RelWithDebInfo/SARibbonBar.lib</ImportLibrary>
+      <ProgramDataBaseFile>D:/QtOCCTApp/build2/bin/RelWithDebInfo/SARibbonBar.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\ee9a0ca2c5487c9359e04b37f14abda6\SARibbon_zh_CN.ts.stamp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating .lupdate/i18n/SARibbon_zh_CN.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_zh_CN.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_zh_CN.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating .lupdate/i18n/SARibbon_zh_CN.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_zh_CN.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_zh_CN.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Generating .lupdate/i18n/SARibbon_zh_CN.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_zh_CN.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_zh_CN.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Generating .lupdate/i18n/SARibbon_zh_CN.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_zh_CN.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_zh_CN.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\b073a12f41cc6549b1106e0c8b672638\SARibbon_zh_CN.qm.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating SARibbon_zh_CN.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_zh_CN.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating SARibbon_zh_CN.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_zh_CN.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Generating SARibbon_zh_CN.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_zh_CN.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Generating SARibbon_zh_CN.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_zh_CN.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_zh_CN.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\ee9a0ca2c5487c9359e04b37f14abda6\SARibbon_en_US.ts.stamp.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating .lupdate/i18n/SARibbon_en_US.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_en_US.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_en_US.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating .lupdate/i18n/SARibbon_en_US.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_en_US.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_en_US.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Generating .lupdate/i18n/SARibbon_en_US.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_en_US.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_en_US.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Generating .lupdate/i18n/SARibbon_en_US.ts.stamp</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_en_US.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_en_US.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\b073a12f41cc6549b1106e0c8b672638\SARibbon_en_US.qm.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Generating SARibbon_en_US.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_en_US.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Generating SARibbon_en_US.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_en_US.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Generating SARibbon_en_US.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_en_US.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Generating SARibbon_en_US.qm</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_en_US.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\.lupdate\i18n\SARibbon_en_US.ts.stamp;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\QtOCCTApp\build2\CMakeFiles\91b29c6d18bc991cfa808d51705fd4a4\qrc_SARibbonResource.cpp.rule">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Automatic RCC for SARibbonResource.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutoRcc_SARibbonResource_EWIEGA46WW_Info.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\SARibbonBar_autogen.dir\AutoRcc_SARibbonResource_EWIEGA46WW_Info.json;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowMore.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowUp.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowDown.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Shade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\define-color.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Unshade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ribbonPanelOptionButton.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark2.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2016-blue.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-win7.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2013.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2021-blue.qss;D:\Qt\6.10.1\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Debug\qrc_SARibbonResource.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Automatic RCC for SARibbonResource.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutoRcc_SARibbonResource_EWIEGA46WW_Info.json Release
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\SARibbonBar_autogen.dir\AutoRcc_SARibbonResource_EWIEGA46WW_Info.json;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowMore.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowUp.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowDown.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Shade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\define-color.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Unshade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ribbonPanelOptionButton.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark2.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2016-blue.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-win7.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2013.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2021-blue.qss;D:\Qt\6.10.1\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Release\qrc_SARibbonResource.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Automatic RCC for SARibbonResource.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutoRcc_SARibbonResource_EWIEGA46WW_Info.json MinSizeRel
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\SARibbonBar_autogen.dir\AutoRcc_SARibbonResource_EWIEGA46WW_Info.json;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowMore.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowUp.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowDown.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Shade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\define-color.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Unshade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ribbonPanelOptionButton.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark2.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2016-blue.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-win7.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2013.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2021-blue.qss;D:\Qt\6.10.1\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_MinSizeRel\qrc_SARibbonResource.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</BuildInParallel>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Automatic RCC for SARibbonResource.qrc</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutoRcc_SARibbonResource_EWIEGA46WW_Info.json RelWithDebInfo
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\SARibbonBar_autogen.dir\AutoRcc_SARibbonResource_EWIEGA46WW_Info.json;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowMore.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowUp.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ArrowDown.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Shade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\define-color.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Unshade.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\ribbonPanelOptionButton.png;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Min.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Normal_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Close.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\Titlebar_Max_Hover.svg;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark2.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2016-blue.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-win7.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-dark.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2013.qss;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\resource\theme-office2021-blue.qss;D:\Qt\6.10.1\msvc2022_64\bin\rcc.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_RelWithDebInfo\qrc_SARibbonResource.cpp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\CMakeLists.txt">
+      <UseUtf8Encoding>Always</UseUtf8Encoding>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeFindDependencyMacro.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeParseArguments.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarConfig.cmake.in;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsAdditionalTargetInfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfig.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersion.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersionImpl.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsDependencies.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsMacros.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-debug.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-relwithdebinfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsVersionlessTargets.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeFindDependencyMacro.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeParseArguments.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarConfig.cmake.in;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsAdditionalTargetInfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfig.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersion.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersionImpl.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsDependencies.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsMacros.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-debug.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-relwithdebinfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsVersionlessTargets.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeFindDependencyMacro.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeParseArguments.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarConfig.cmake.in;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsAdditionalTargetInfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfig.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersion.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersionImpl.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsDependencies.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsMacros.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-debug.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-relwithdebinfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsVersionlessTargets.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-4.0\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeFindDependencyMacro.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\CMakeParseArguments.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.0\Modules\WriteBasicConfigVersionFile.cmake;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarConfig.cmake.in;D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsAdditionalTargetInfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfig.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersion.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsConfigVersionImpl.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsDependencies.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsMacros.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-debug.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets-relwithdebinfo.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsTargets.cmake;D:\Qt\6.10.1\msvc2022_64\lib\cmake\Qt6LinguistTools\Qt6LinguistToolsVersionlessTargets.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_Debug.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarVersionInfo.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGlobal.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQt5Compat.hpp" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.h" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonUtil.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SAFramelessHelper.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonActionsManager.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBarLayout.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonBar.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeData.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeDialog.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCustomizeWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMainWindow.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSystemButtonBar.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationButton.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTabBar.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategory.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonContextCategory.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanel.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelLayout.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelItem.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonPanelOptionButton.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonToolButton.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonMenu.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonSeparatorWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCategoryLayout.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGallery.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryGroup.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonGalleryItem.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementFactory.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonElementManager.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonButtonGroupWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonStackedWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonQuickAccessBar.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonCtrlContainer.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonLineWidgetContainer.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonColorToolButton.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonApplicationWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonTitleIconWidget.cpp" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorWidgetsGlobal.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.h" />
+    <ClInclude Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.h" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorToolButton.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorGridWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorPaletteGridWidget.cpp" />
+    <ClCompile Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\colorWidgets\SAColorMenu.cpp" />
+    <None Include="D:\GitHub_Ymqhyq\SARibbon\src\SARibbonBar\SARibbonResource.qrc">
+    </None>
+    <None Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_zh_CN.qm">
+    </None>
+    <None Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbon_en_US.qm">
+    </None>
+    <ResourceCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar.rc" />
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Debug\qrc_SARibbonResource.cpp">
+      <ObjectFileName>$(IntDir)/SARibbonBar_autogen/EWIEGA46WW_Debug/qrc_SARibbonResource.cpp.obj</ObjectFileName>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_Release.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_Release\qrc_SARibbonResource.cpp">
+      <ObjectFileName>$(IntDir)/SARibbonBar_autogen/EWIEGA46WW_Release/qrc_SARibbonResource.cpp.obj</ObjectFileName>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_MinSizeRel.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_MinSizeRel\qrc_SARibbonResource.cpp">
+      <ObjectFileName>$(IntDir)/SARibbonBar_autogen/EWIEGA46WW_MinSizeRel/qrc_SARibbonResource.cpp.obj</ObjectFileName>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar\SARibbonBar_autogen\EWIEGA46WW_RelWithDebInfo\qrc_SARibbonResource.cpp">
+      <ObjectFileName>$(IntDir)/SARibbonBar_autogen/EWIEGA46WW_RelWithDebInfo/qrc_SARibbonResource.cpp.obj</ObjectFileName>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="D:\QtOCCTApp\build2\ZERO_CHECK.vcxproj">
+      <Project>{02C42D70-152A-3EF5-91F7-041447331F27}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -7,6 +7,8 @@
 *****************************************************************************/
 
 #include "../../../../include/MainWindow.h"
+#include <QtNetwork/QSslError>
+#include <QtGui/qtextcursor.h>
 #include <QtCore/qmetatype.h>
 
 #include <QtCore/qtmochelpers.h>
@@ -44,11 +46,22 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "onDrawLineClicked",
         "onAddShxText",
         "onDrawBridgePier",
+        "onDrawFullBridgePier",
         "onAnnotateBridgePierFooting",
+        "onDrawFoundation",
+        "onDrawBedStone",
+        "onDrawBearing",
         "onMousePositionChanged",
         "x",
         "y",
-        "z"
+        "z",
+        "onObjectSelected",
+        "QVariantMap",
+        "metadata",
+        "onCqNetworkReply",
+        "QNetworkReply*",
+        "reply",
+        "assemblyIndex"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -60,11 +73,27 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onDrawBridgePier'
         QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'onAnnotateBridgePierFooting'
+        // Slot 'onDrawFullBridgePier'
         QtMocHelpers::SlotData<void()>(6, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onAnnotateBridgePierFooting'
+        QtMocHelpers::SlotData<void()>(7, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onDrawFoundation'
+        QtMocHelpers::SlotData<void()>(8, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onDrawBedStone'
+        QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onDrawBearing'
+        QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onMousePositionChanged'
-        QtMocHelpers::SlotData<void(double, double, double)>(7, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Double, 8 }, { QMetaType::Double, 9 }, { QMetaType::Double, 10 },
+        QtMocHelpers::SlotData<void(double, double, double)>(11, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Double, 12 }, { QMetaType::Double, 13 }, { QMetaType::Double, 14 },
+        }}),
+        // Slot 'onObjectSelected'
+        QtMocHelpers::SlotData<void(const QVariantMap &)>(15, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 16, 17 },
+        }}),
+        // Slot 'onCqNetworkReply'
+        QtMocHelpers::SlotData<void(QNetworkReply *, int)>(18, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 19, 20 }, { QMetaType::Int, 21 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -75,7 +104,7 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
             qt_methods, qt_properties, qt_enums);
 }
 Q_CONSTINIT const QMetaObject MainWindow::staticMetaObject = { {
-    QMetaObject::SuperData::link<QMainWindow::staticMetaObject>(),
+    QMetaObject::SuperData::link<SARibbonMainWindow::staticMetaObject>(),
     qt_staticMetaObjectStaticContent<qt_meta_tag_ZN10MainWindowE_t>.stringdata,
     qt_staticMetaObjectStaticContent<qt_meta_tag_ZN10MainWindowE_t>.data,
     qt_static_metacall,
@@ -93,9 +122,27 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 1: _t->onDrawLineClicked(); break;
         case 2: _t->onAddShxText(); break;
         case 3: _t->onDrawBridgePier(); break;
-        case 4: _t->onAnnotateBridgePierFooting(); break;
-        case 5: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 4: _t->onDrawFullBridgePier(); break;
+        case 5: _t->onAnnotateBridgePierFooting(); break;
+        case 6: _t->onDrawFoundation(); break;
+        case 7: _t->onDrawBedStone(); break;
+        case 8: _t->onDrawBearing(); break;
+        case 9: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 10: _t->onObjectSelected((*reinterpret_cast<std::add_pointer_t<QVariantMap>>(_a[1]))); break;
+        case 11: _t->onCqNetworkReply((*reinterpret_cast<std::add_pointer_t<QNetworkReply*>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
         default: ;
+        }
+    }
+    if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
+        switch (_id) {
+        default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
+        case 11:
+            switch (*reinterpret_cast<int*>(_a[1])) {
+            default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
+            case 0:
+                *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QNetworkReply* >(); break;
+            }
+            break;
         }
     }
 }
@@ -110,23 +157,23 @@ void *MainWindow::qt_metacast(const char *_clname)
     if (!_clname) return nullptr;
     if (!strcmp(_clname, qt_staticMetaObjectStaticContent<qt_meta_tag_ZN10MainWindowE_t>.strings))
         return static_cast<void*>(this);
-    return QMainWindow::qt_metacast(_clname);
+    return SARibbonMainWindow::qt_metacast(_clname);
 }
 
 int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
 {
-    _id = QMainWindow::qt_metacall(_c, _id, _a);
+    _id = SARibbonMainWindow::qt_metacall(_c, _id, _a);
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 6)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 6;
+        _id -= 12;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 6)
-            *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 6;
+        if (_id < 12)
+            qt_static_metacall(this, _c, _id, _a);
+        _id -= 12;
     }
     return _id;
 }

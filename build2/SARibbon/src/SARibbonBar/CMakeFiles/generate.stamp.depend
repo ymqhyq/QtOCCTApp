@@ -1,0 +1,20 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.0/Modules/BasicConfigVersion-SameMajorVersion.cmake.in
+C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeFindDependencyMacro.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/CMakePackageConfigHelpers.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeParseArguments.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/GNUInstallDirs.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/WriteBasicConfigVersionFile.cmake
+D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt
+D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarConfig.cmake.in
+D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonResource.qrc
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsAdditionalTargetInfo.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfig.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfigVersion.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfigVersionImpl.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsDependencies.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsMacros.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets-debug.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets-relwithdebinfo.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsVersionlessTargets.cmake

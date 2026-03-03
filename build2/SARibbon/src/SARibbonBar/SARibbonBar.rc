@@ -1,0 +1,43 @@
+#include <winres.h>
+
+#define TARGET_NAME "SARibbonBar"
+#define FILE_VERSION_C 2,5,7,0
+#define FILE_VERSION_S "2.5.7.0"
+#ifdef _DEBUG
+#define FILE_NAME "SARibbonBard.dll"
+#else
+#define FILE_NAME "SARibbonBar.dll"
+#endif
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION FILE_VERSION_C
+ PRODUCTVERSION FILE_VERSION_C
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040704b0"
+        BEGIN
+            VALUE "CompanyName", "https://github.com/czyt1988/SARibbon"
+            VALUE "FileDescription", "Ribbon control library for Qt"
+            VALUE "FileVersion", FILE_VERSION_S
+            VALUE "InternalName", FILE_NAME
+            VALUE "LegalCopyright", "Copyright (C) 2020 by czyt1988"
+            VALUE "OriginalFilename", FILE_NAME
+            VALUE "ProductName", TARGET_NAME
+            VALUE "ProductVersion", FILE_VERSION_S
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x407, 1200
+    END
+END

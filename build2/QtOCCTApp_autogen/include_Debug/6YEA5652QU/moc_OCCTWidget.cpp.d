@@ -66,6 +66,8 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Geom_Geometry.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Geom_Line.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Geom_Point.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Geom_UndefinedDerivative.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Geom_UndefinedValue.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_AlphaMode.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_AspectFillArea3d.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Graphic3d_AspectLine3d.hxx \
@@ -184,6 +186,7 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_IndexedDataMap.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_IndexedIterator.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_IndexedMap.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_ItemsView.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Iterator.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Lerp.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_List.hxx \
@@ -193,6 +196,9 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Mat3.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Mat4.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_OccAllocator.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_PackedMap.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_PackedMapAlgo.hxx \
+  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Primes.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Sequence.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_Shared.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/NCollection_StlIterator.hxx \
@@ -298,7 +304,6 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_OutOfMemory.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_OutOfRange.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_PCharacter.hxx \
-  D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_PExtCharacter.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_ProgramError.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_RangeError.hxx \
   D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc/Standard_Real.hxx \
@@ -425,6 +430,7 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_IndexedDataMap.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_IndexedIterator.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_IndexedMap.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_ItemsView.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Iterator.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Lerp.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_List.hxx \
@@ -434,6 +440,9 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Mat3.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Mat4.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_OccAllocator.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_PackedMap.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_PackedMapAlgo.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Primes.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Sequence.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_Shared.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/NCollection/NCollection_StlIterator.hxx \
@@ -483,7 +492,6 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_OutOfMemory.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_OutOfRange.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_PCharacter.hxx \
-  D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_PExtCharacter.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_ProgramError.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_RangeError.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/FoundationClasses/TKernel/Standard/Standard_Real.hxx \
@@ -510,6 +518,8 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/Geom/Geom_Geometry.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/Geom/Geom_Line.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/Geom/Geom_Point.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/Geom/Geom_UndefinedDerivative.hxx \
+  D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/Geom/Geom_UndefinedValue.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs_Orientation.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/ModelingData/TKG3d/TopAbs/TopAbs_ShapeEnum.hxx \
@@ -728,11 +738,12 @@ D:/QtOCCTApp/build2/QtOCCTApp_autogen/include_Debug/6YEA5652QU/moc_OCCTWidget.cp
   D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKV3d/V3d/V3d_View.hxx \
   D:/GitHub_Ymqhyq/OCCT/src/Visualization/TKV3d/V3d/V3d_Viewer.hxx \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QList \
+  D:/Qt/6.10.1/msvc2022_64/include/QtCore/QMap \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QObject \
-  D:/Qt/6.10.1/msvc2022_64/include/QtCore/QPair \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QRect \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSize \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/QSizeF \
+  D:/Qt/6.10.1/msvc2022_64/include/QtCore/QVariant \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q17memory.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20functional.h \
   D:/Qt/6.10.1/msvc2022_64/include/QtCore/q20iterator.h \

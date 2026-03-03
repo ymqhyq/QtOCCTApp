@@ -1,0 +1,45 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeFindDependencyMacro.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/CheckCXXCompilerFlag.cmake
+D:/GitHub_Ymqhyq/SARibbon/CMakeLists.txt
+D:/GitHub_Ymqhyq/SARibbon/cmake/WinResource.cmake
+D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarVersionInfo.h.in
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6Config.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6ConfigExtras.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6ConfigVersion.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6ConfigVersionImpl.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6Dependencies.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6Targets.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/Qt6VersionlessAliasTargets.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtFeature.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtFeatureCommon.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtInstallPaths.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicAndroidHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicAppleHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicCMakeEarlyPolicyHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicCMakeHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicCMakeVersionHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicDependencyHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicExternalProjectHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicFinalizerHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicFindPackageHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicGitHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicPluginHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicPluginHelpers_v2.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomAttributionHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomCpeHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomDepHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomFileHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomGenerationHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomLicenseHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomOpsHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomPurlHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomPythonHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomQtEntityHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicSbomSystemDepHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicTargetHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicTestHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicToolHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicWalkLibsHelpers.cmake
+D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6/QtPublicWindowsHelpers.cmake

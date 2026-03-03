@@ -44,7 +44,10 @@ template <> constexpr inline auto OCCTWidget::qt_create_metaobjectdata<qt_meta_t
         "mousePositionChanged",
         "x",
         "y",
-        "z"
+        "z",
+        "objectSelected",
+        "QVariantMap",
+        "metadata"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -53,6 +56,10 @@ template <> constexpr inline auto OCCTWidget::qt_create_metaobjectdata<qt_meta_t
         // Signal 'mousePositionChanged'
         QtMocHelpers::SignalData<void(double, double, double)>(3, 2, QMC::AccessPublic, QMetaType::Void, {{
             { QMetaType::Double, 4 }, { QMetaType::Double, 5 }, { QMetaType::Double, 6 },
+        }}),
+        // Signal 'objectSelected'
+        QtMocHelpers::SignalData<void(const QVariantMap &)>(7, 2, QMC::AccessPublic, QMetaType::Void, {{
+            { 0x80000000 | 8, 9 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -79,6 +86,7 @@ void OCCTWidget::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         switch (_id) {
         case 0: _t->lineSelected(); break;
         case 1: _t->mousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 2: _t->objectSelected((*reinterpret_cast<std::add_pointer_t<QVariantMap>>(_a[1]))); break;
         default: ;
         }
     }
@@ -86,6 +94,8 @@ void OCCTWidget::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         if (QtMocHelpers::indexOfMethod<void (OCCTWidget::*)()>(_a, &OCCTWidget::lineSelected, 0))
             return;
         if (QtMocHelpers::indexOfMethod<void (OCCTWidget::*)(double , double , double )>(_a, &OCCTWidget::mousePositionChanged, 1))
+            return;
+        if (QtMocHelpers::indexOfMethod<void (OCCTWidget::*)(const QVariantMap & )>(_a, &OCCTWidget::objectSelected, 2))
             return;
     }
 }
@@ -109,14 +119,14 @@ int OCCTWidget::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 2)
+        if (_id < 3)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 2;
+        _id -= 3;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 2)
+        if (_id < 3)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 2;
+        _id -= 3;
     }
     return _id;
 }
@@ -131,5 +141,11 @@ void OCCTWidget::lineSelected()
 void OCCTWidget::mousePositionChanged(double _t1, double _t2, double _t3)
 {
     QMetaObject::activate<void>(this, &staticMetaObject, 1, nullptr, _t1, _t2, _t3);
+}
+
+// SIGNAL 2
+void OCCTWidget::objectSelected(const QVariantMap & _t1)
+{
+    QMetaObject::activate<void>(this, &staticMetaObject, 2, nullptr, _t1);
 }
 QT_WARNING_POP

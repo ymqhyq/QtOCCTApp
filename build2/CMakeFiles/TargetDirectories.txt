@@ -12,3 +12,9 @@ D:/QtOCCTApp/build2/libs/shxparser/CMakeFiles/ascii_diag.dir
 D:/QtOCCTApp/build2/libs/shxparser/CMakeFiles/shx_test.dir
 D:/QtOCCTApp/build2/libs/shxparser/CMakeFiles/INSTALL.dir
 D:/QtOCCTApp/build2/libs/shxparser/CMakeFiles/ALL_BUILD.dir
+D:/QtOCCTApp/build2/SARibbon/CMakeFiles/INSTALL.dir
+D:/QtOCCTApp/build2/SARibbon/CMakeFiles/ALL_BUILD.dir
+D:/QtOCCTApp/build2/SARibbon/src/CMakeFiles/INSTALL.dir
+D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar.dir
+D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/INSTALL.dir
+D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/ALL_BUILD.dir

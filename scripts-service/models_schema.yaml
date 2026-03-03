@@ -1,0 +1,52 @@
+girder:
+  name: "预制箱梁"
+  type: { type: enum, label: "类型", options: ["单箱单室", "单箱双室"], default: "单箱单室" }
+  length: { type: float, label: "长度", default: 31500.0, unit: "mm" }
+  width: { type: float, label: "宽度", default: 12600.0, unit: "mm" }
+  height: { type: float, label: "高度", default: 3000.0, unit: "mm" }
+
+Dunshen:
+  name: "圆端型桥墩/墩身"
+  type: { type: enum, label: "类型", options: ["圆端型", "矩型"], default: "圆端型" }
+  height: { type: float, label: "高度", default: 12000.0, min: 2000 }
+
+bed_stone:
+  name: "支承垫石"
+  length: { type: float, label: "长度", default: 1200.0 }
+  width: { type: float, label: "宽度", default: 1200.0 }
+  height: { type: float, label: "高度", default: 300.0 }
+  concreteGrade: { type: enum, label: "混凝土型号", options: ["C35", "C40", "C50"], default: "C50" }
+
+bearing:
+  name: "盆式橡胶支座"
+  type: { type: enum, label: "类型", options: ["固定支座", "活动支座"], default: "固定支座" }
+  height: { type: float, label: "高度", default: 200.0 }
+
+TuopanDingmao:
+  name: "托盘与顶帽"
+  height: { type: float, label: "高度", default: 2750.0 }
+  concreteGrade: { type: enum, label: "混凝土型号", options: ["C40", "C50"], default: "C50" }
+
+Chengtai:
+  name: "钢筋混凝土承台"
+  layers: { type: int, label: "层数", default: 2, min: 1, max: 2 }
+  L1: { type: float, label: "长度1", default: 7682.0 }
+  W1: { type: float, label: "宽度1", default: 4444.0 }
+  H1: { type: float, label: "高度1", default: 1000.0 }
+  L2: { type: float, label: "长度2", default: 8959.0 }
+  W2: { type: float, label: "宽度2", default: 5905.0 }
+  H2: { type: float, label: "高度2", default: 1000.0 }
+  totalH: { type: float, label: "总高度", default: 2000.0 }
+
+Pile:
+  name: "钻孔灌注桩"
+  diameter: { type: float, label: "桩径", default: 1000.0 }
+  length: { type: float, label: "桩长", default: 15000.0 }
+  layout: { type: enum, label: "布局", options: ["2x3", "3x3", "4x4"], default: "2x3" }
+  hSpacing: { type: float, label: "横向间距", default: 2500.0 }
+  vSpacing: { type: float, label: "纵向间距", default: 3000.0 }
+
+BridgePier2:
+  name: "标准铁路桥墩(完整版)"
+  pierHeight: { type: float, label: "墩高", default: 12000.0, unit: "mm" }
+  concreteGrade: { type: enum, label: "混凝土型号", options: ["C35", "C40", "C50"], default: "C50" }

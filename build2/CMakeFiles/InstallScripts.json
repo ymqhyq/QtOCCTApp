@@ -2,7 +2,10 @@
 	"InstallScripts" : 
 	[
 		"D:/QtOCCTApp/build2/cmake_install.cmake",
-		"D:/QtOCCTApp/build2/libs/shxparser/cmake_install.cmake"
+		"D:/QtOCCTApp/build2/libs/shxparser/cmake_install.cmake",
+		"D:/QtOCCTApp/build2/SARibbon/cmake_install.cmake",
+		"D:/QtOCCTApp/build2/SARibbon/src/cmake_install.cmake",
+		"D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

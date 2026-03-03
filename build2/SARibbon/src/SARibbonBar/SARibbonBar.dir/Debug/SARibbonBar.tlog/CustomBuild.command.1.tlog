@@ -1,0 +1,68 @@
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\EE9A0CA2C5487C9359E04B37F14ABDA6\SARIBBON_ZH_CN.TS.STAMP.RULE
+setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_zh_CN.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_zh_CN.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\B073A12F41CC6549B1106E0C8B672638\SARIBBON_ZH_CN.QM.RULE
+setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_zh_CN.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_zh_CN.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\EE9A0CA2C5487C9359E04B37F14ABDA6\SARIBBON_EN_US.TS.STAMP.RULE
+setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lupdate.exe @D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbon_en_US.ts_lst_file -ts D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E touch D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/.lupdate/i18n/SARibbon_en_US.ts.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\B073A12F41CC6549B1106E0C8B672638\SARIBBON_EN_US.QM.RULE
+setlocal
+D:\Qt\6.10.1\msvc2022_64\bin\lrelease.exe D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/i18n/SARibbon_en_US.ts -qm D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbon_en_US.qm
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\QTOCCTAPP\BUILD2\CMAKEFILES\91B29C6D18BC991CFA808D51705FD4A4\QRC_SARIBBONRESOURCE.CPP.RULE
+setlocal
+cd D:\QtOCCTApp\build2\SARibbon\src\SARibbonBar
+if %errorlevel% neq 0 goto :cmEnd
+D:
+if %errorlevel% neq 0 goto :cmEnd
+"C:\Program Files\CMake\bin\cmake.exe" -E cmake_autorcc D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutoRcc_SARibbonResource_EWIEGA46WW_Info.json Debug
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\GITHUB_YMQHYQ\SARIBBON\SRC\SARIBBONBAR\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/QtOCCTApp -BD:/QtOCCTApp/build2 --check-stamp-file D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

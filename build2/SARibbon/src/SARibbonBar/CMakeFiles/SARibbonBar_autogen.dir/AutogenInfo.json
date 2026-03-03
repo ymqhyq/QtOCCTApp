@@ -1,0 +1,680 @@
+{
+	"AUTOGEN_COMMAND_LINE_LENGTH_MAX" : 32000,
+	"BUILD_DIR" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen",
+	"CMAKE_BINARY_DIR" : "D:/QtOCCTApp/build2",
+	"CMAKE_CURRENT_BINARY_DIR" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar",
+	"CMAKE_CURRENT_SOURCE_DIR" : "D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar",
+	"CMAKE_EXECUTABLE" : "C:/Program Files/CMake/bin/cmake.exe",
+	"CMAKE_LIST_FILES" : 
+	[
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/CMakeLists.txt",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/GNUInstallDirs.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfigVersion.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfigVersionImpl.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsConfig.cmake",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeFindDependencyMacro.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsDependencies.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets-debug.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsTargets-relwithdebinfo.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsAdditionalTargetInfo.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsVersionlessTargets.cmake",
+		"D:/Qt/6.10.1/msvc2022_64/lib/cmake/Qt6LinguistTools/Qt6LinguistToolsMacros.cmake",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/CMakeParseArguments.cmake",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/CMakePackageConfigHelpers.cmake",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/WriteBasicConfigVersionFile.cmake",
+		"C:/Program Files/CMake/share/cmake-4.0/Modules/BasicConfigVersion-SameMajorVersion.cmake.in",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarConfig.cmake.in",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonResource.qrc"
+	],
+	"CMAKE_SOURCE_DIR" : "D:/QtOCCTApp",
+	"CROSS_CONFIG" : false,
+	"DEP_FILE" : "",
+	"DEP_FILE_RULE_NAME" : "",
+	"HEADERS" : 
+	[
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SAFramelessHelper.h",
+			"MU",
+			"EWIEGA46WW/moc_SAFramelessHelper.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonActionsManager.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonActionsManager.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonApplicationButton.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonApplicationButton.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonApplicationWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonApplicationWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBar.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonBar.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarLayout.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonBarLayout.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarVersionInfo.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonBarVersionInfo.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonButtonGroupWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonButtonGroupWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCategory.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCategory.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCategoryLayout.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCategoryLayout.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonColorToolButton.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonColorToolButton.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonContextCategory.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonContextCategory.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCtrlContainer.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCtrlContainer.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeData.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCustomizeData.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeDialog.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCustomizeDialog.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonCustomizeWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonElementFactory.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonElementFactory.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonElementManager.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonElementManager.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGallery.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonGallery.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGalleryGroup.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonGalleryGroup.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGalleryItem.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonGalleryItem.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGlobal.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonGlobal.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonLineWidgetContainer.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonLineWidgetContainer.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonMainWindow.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonMainWindow.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonMenu.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonMenu.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanel.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonPanel.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelItem.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonPanelItem.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelLayout.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonPanelLayout.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelOptionButton.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonPanelOptionButton.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonQt5Compat.hpp",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonQt5Compat.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonQuickAccessBar.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonQuickAccessBar.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonSeparatorWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonSeparatorWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonStackedWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonStackedWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonSystemButtonBar.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonSystemButtonBar.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonTabBar.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonTabBar.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonTitleIconWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonTitleIconWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonToolButton.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonToolButton.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonUtil.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonUtil.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonWidget.h",
+			"MU",
+			"EWIEGA46WW/moc_SARibbonWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorGridWidget.h",
+			"MU",
+			"6GGJV7J7W6/moc_SAColorGridWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorMenu.h",
+			"MU",
+			"6GGJV7J7W6/moc_SAColorMenu.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorPaletteGridWidget.h",
+			"MU",
+			"6GGJV7J7W6/moc_SAColorPaletteGridWidget.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorToolButton.h",
+			"MU",
+			"6GGJV7J7W6/moc_SAColorToolButton.cpp",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorWidgetsGlobal.h",
+			"MU",
+			"6GGJV7J7W6/moc_SAColorWidgetsGlobal.cpp",
+			null
+		]
+	],
+	"HEADER_EXTENSIONS" : [ "h", "hh", "h++", "hm", "hpp", "hxx", "in", "txx" ],
+	"INCLUDE_DIR" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/include",
+	"INCLUDE_DIR_Debug" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/include_Debug",
+	"INCLUDE_DIR_MinSizeRel" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/include_MinSizeRel",
+	"INCLUDE_DIR_RelWithDebInfo" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/include_RelWithDebInfo",
+	"INCLUDE_DIR_Release" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/include_Release",
+	"MOC_COMPILATION_FILE" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/mocs_compilation.cpp",
+	"MOC_COMPILATION_FILE_Debug" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/mocs_compilation_Debug.cpp",
+	"MOC_COMPILATION_FILE_MinSizeRel" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/mocs_compilation_MinSizeRel.cpp",
+	"MOC_COMPILATION_FILE_RelWithDebInfo" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/mocs_compilation_RelWithDebInfo.cpp",
+	"MOC_COMPILATION_FILE_Release" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/SARibbonBar_autogen/mocs_compilation_Release.cpp",
+	"MOC_DEFINITIONS" : [],
+	"MOC_DEFINITIONS_Debug" : 
+	[
+		"NOMINMAX",
+		"QT_CORE_LIB",
+		"QT_GUI_LIB",
+		"QT_WIDGETS_LIB",
+		"SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0",
+		"SARibbonBar_EXPORTS",
+		"SA_COLOR_WIDGETS_MAKE_LIB",
+		"SA_RIBBON_BAR_MAKE_LIB",
+		"UNICODE",
+		"WIN32",
+		"WIN64",
+		"_ENABLE_EXTENDED_ALIGNED_STORAGE",
+		"_UNICODE",
+		"_WIN64"
+	],
+	"MOC_DEFINITIONS_MinSizeRel" : 
+	[
+		"NOMINMAX",
+		"QT_CORE_LIB",
+		"QT_GUI_LIB",
+		"QT_NO_DEBUG",
+		"QT_WIDGETS_LIB",
+		"SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0",
+		"SARibbonBar_EXPORTS",
+		"SA_COLOR_WIDGETS_MAKE_LIB",
+		"SA_RIBBON_BAR_MAKE_LIB",
+		"UNICODE",
+		"WIN32",
+		"WIN64",
+		"_ENABLE_EXTENDED_ALIGNED_STORAGE",
+		"_UNICODE",
+		"_WIN64"
+	],
+	"MOC_DEFINITIONS_RelWithDebInfo" : 
+	[
+		"NOMINMAX",
+		"QT_CORE_LIB",
+		"QT_GUI_LIB",
+		"QT_NO_DEBUG",
+		"QT_WIDGETS_LIB",
+		"SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0",
+		"SARibbonBar_EXPORTS",
+		"SA_COLOR_WIDGETS_MAKE_LIB",
+		"SA_RIBBON_BAR_MAKE_LIB",
+		"UNICODE",
+		"WIN32",
+		"WIN64",
+		"_ENABLE_EXTENDED_ALIGNED_STORAGE",
+		"_UNICODE",
+		"_WIN64"
+	],
+	"MOC_DEFINITIONS_Release" : 
+	[
+		"NOMINMAX",
+		"QT_CORE_LIB",
+		"QT_GUI_LIB",
+		"QT_NO_DEBUG",
+		"QT_WIDGETS_LIB",
+		"SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0",
+		"SARibbonBar_EXPORTS",
+		"SA_COLOR_WIDGETS_MAKE_LIB",
+		"SA_RIBBON_BAR_MAKE_LIB",
+		"UNICODE",
+		"WIN32",
+		"WIN64",
+		"_ENABLE_EXTENDED_ALIGNED_STORAGE",
+		"_UNICODE",
+		"_WIN64"
+	],
+	"MOC_DEPEND_FILTERS" : 
+	[
+		[
+			"Q_PLUGIN_METADATA",
+			"[\n][ \t]*Q_PLUGIN_METADATA[ \t]*\\([^\\)]*FILE[ \t]*\"([^\"]+)\""
+		]
+	],
+	"MOC_INCLUDES" : [],
+	"MOC_INCLUDES_Debug" : 
+	[
+		"D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtCore",
+		"D:/Qt/6.10.1/msvc2022_64/include",
+		"D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtGui",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtWidgets"
+	],
+	"MOC_INCLUDES_MinSizeRel" : 
+	[
+		"D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtCore",
+		"D:/Qt/6.10.1/msvc2022_64/include",
+		"D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtGui",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtWidgets"
+	],
+	"MOC_INCLUDES_RelWithDebInfo" : 
+	[
+		"D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtCore",
+		"D:/Qt/6.10.1/msvc2022_64/include",
+		"D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtGui",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtWidgets"
+	],
+	"MOC_INCLUDES_Release" : 
+	[
+		"D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar",
+		"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtCore",
+		"D:/Qt/6.10.1/msvc2022_64/include",
+		"D:/Qt/6.10.1/msvc2022_64/mkspecs/win32-msvc",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtGui",
+		"D:/Qt/6.10.1/msvc2022_64/include/QtWidgets"
+	],
+	"MOC_MACRO_NAMES" : 
+	[
+		"Q_OBJECT",
+		"Q_GADGET",
+		"Q_NAMESPACE",
+		"Q_NAMESPACE_EXPORT",
+		"Q_GADGET_EXPORT",
+		"Q_ENUM_NS"
+	],
+	"MOC_OPTIONS" : [],
+	"MOC_PATH_PREFIX" : false,
+	"MOC_PREDEFS_CMD" : [],
+	"MOC_PREDEFS_FILE" : "",
+	"MOC_RELAXED_MODE" : false,
+	"MOC_SKIP" : [],
+	"MULTI_CONFIG" : true,
+	"PARALLEL" : 10,
+	"PARSE_CACHE_FILE" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/ParseCache.txt",
+	"PARSE_CACHE_FILE_Debug" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/ParseCache_Debug.txt",
+	"PARSE_CACHE_FILE_MinSizeRel" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/ParseCache_MinSizeRel.txt",
+	"PARSE_CACHE_FILE_RelWithDebInfo" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/ParseCache_RelWithDebInfo.txt",
+	"PARSE_CACHE_FILE_Release" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/ParseCache_Release.txt",
+	"QT_MOC_EXECUTABLE" : "",
+	"QT_MOC_EXECUTABLE_Debug" : "D:/Qt/6.10.1/msvc2022_64/bin/moc.exe",
+	"QT_MOC_EXECUTABLE_MinSizeRel" : "D:/Qt/6.10.1/msvc2022_64/bin/moc.exe",
+	"QT_MOC_EXECUTABLE_RelWithDebInfo" : "D:/Qt/6.10.1/msvc2022_64/bin/moc.exe",
+	"QT_MOC_EXECUTABLE_Release" : "D:/Qt/6.10.1/msvc2022_64/bin/moc.exe",
+	"QT_UIC_EXECUTABLE" : "",
+	"QT_UIC_EXECUTABLE_Debug" : "D:/Qt/6.10.1/msvc2022_64/bin/uic.exe",
+	"QT_UIC_EXECUTABLE_MinSizeRel" : "D:/Qt/6.10.1/msvc2022_64/bin/uic.exe",
+	"QT_UIC_EXECUTABLE_RelWithDebInfo" : "D:/Qt/6.10.1/msvc2022_64/bin/uic.exe",
+	"QT_UIC_EXECUTABLE_Release" : "D:/Qt/6.10.1/msvc2022_64/bin/uic.exe",
+	"QT_VERSION_MAJOR" : 6,
+	"QT_VERSION_MINOR" : 10,
+	"SETTINGS_FILE" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenUsed.txt",
+	"SETTINGS_FILE_Debug" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenUsed_Debug.txt",
+	"SETTINGS_FILE_MinSizeRel" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenUsed_MinSizeRel.txt",
+	"SETTINGS_FILE_RelWithDebInfo" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenUsed_RelWithDebInfo.txt",
+	"SETTINGS_FILE_Release" : "D:/QtOCCTApp/build2/SARibbon/src/SARibbonBar/CMakeFiles/SARibbonBar_autogen.dir/AutogenUsed_Release.txt",
+	"SOURCES" : 
+	[
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SAFramelessHelper.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonActionsManager.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonApplicationButton.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonApplicationWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBar.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonBarLayout.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonButtonGroupWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCategory.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCategoryLayout.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonColorToolButton.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonContextCategory.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCtrlContainer.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeData.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeDialog.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonCustomizeWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonElementFactory.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonElementManager.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGallery.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGalleryGroup.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonGalleryItem.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonLineWidgetContainer.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonMainWindow.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonMenu.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanel.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelItem.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelLayout.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonPanelOptionButton.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonQuickAccessBar.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonSeparatorWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonStackedWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonSystemButtonBar.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonTabBar.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonTitleIconWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonToolButton.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonUtil.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/SARibbonWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorGridWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorMenu.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorPaletteGridWidget.cpp",
+			"MU",
+			null
+		],
+		[
+			"D:/GitHub_Ymqhyq/SARibbon/src/SARibbonBar/colorWidgets/SAColorToolButton.cpp",
+			"MU",
+			null
+		]
+	],
+	"UIC_OPTIONS" : [],
+	"UIC_SEARCH_PATHS" : [],
+	"UIC_SKIP" : [],
+	"UIC_UI_FILES" : [],
+	"USE_BETTER_GRAPH" : true,
+	"VERBOSITY" : 0
+}

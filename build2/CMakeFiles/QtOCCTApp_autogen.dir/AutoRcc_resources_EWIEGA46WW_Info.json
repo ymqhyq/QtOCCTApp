@@ -14,9 +14,12 @@
 	"INPUTS" : [],
 	"INPUTS_Debug" : 
 	[
+		"D:/QtOCCTApp/resources/icons/bed_stone.svg",
 		"D:/QtOCCTApp/resources/icons/girder.svg",
 		"D:/QtOCCTApp/resources/icons/dimension.svg",
+		"D:/QtOCCTApp/resources/icons/bearing.svg",
 		"D:/QtOCCTApp/resources/icons/dunshen.svg",
+		"D:/QtOCCTApp/resources/icons/foundation.svg",
 		"D:/QtOCCTApp/resources/icons/chengtai.svg",
 		"D:/QtOCCTApp/resources/icons/random.svg",
 		"D:/QtOCCTApp/resources/icons/fast_assembly.svg",
@@ -31,9 +34,12 @@
 	],
 	"INPUTS_MinSizeRel" : 
 	[
+		"D:/QtOCCTApp/resources/icons/bed_stone.svg",
 		"D:/QtOCCTApp/resources/icons/girder.svg",
 		"D:/QtOCCTApp/resources/icons/dimension.svg",
+		"D:/QtOCCTApp/resources/icons/bearing.svg",
 		"D:/QtOCCTApp/resources/icons/dunshen.svg",
+		"D:/QtOCCTApp/resources/icons/foundation.svg",
 		"D:/QtOCCTApp/resources/icons/chengtai.svg",
 		"D:/QtOCCTApp/resources/icons/random.svg",
 		"D:/QtOCCTApp/resources/icons/fast_assembly.svg",
@@ -48,9 +54,12 @@
 	],
 	"INPUTS_RelWithDebInfo" : 
 	[
+		"D:/QtOCCTApp/resources/icons/bed_stone.svg",
 		"D:/QtOCCTApp/resources/icons/girder.svg",
 		"D:/QtOCCTApp/resources/icons/dimension.svg",
+		"D:/QtOCCTApp/resources/icons/bearing.svg",
 		"D:/QtOCCTApp/resources/icons/dunshen.svg",
+		"D:/QtOCCTApp/resources/icons/foundation.svg",
 		"D:/QtOCCTApp/resources/icons/chengtai.svg",
 		"D:/QtOCCTApp/resources/icons/random.svg",
 		"D:/QtOCCTApp/resources/icons/fast_assembly.svg",
@@ -65,9 +74,12 @@
 	],
 	"INPUTS_Release" : 
 	[
+		"D:/QtOCCTApp/resources/icons/bed_stone.svg",
 		"D:/QtOCCTApp/resources/icons/girder.svg",
 		"D:/QtOCCTApp/resources/icons/dimension.svg",
+		"D:/QtOCCTApp/resources/icons/bearing.svg",
 		"D:/QtOCCTApp/resources/icons/dunshen.svg",
+		"D:/QtOCCTApp/resources/icons/foundation.svg",
 		"D:/QtOCCTApp/resources/icons/chengtai.svg",
 		"D:/QtOCCTApp/resources/icons/random.svg",
 		"D:/QtOCCTApp/resources/icons/fast_assembly.svg",

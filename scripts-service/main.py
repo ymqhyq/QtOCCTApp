@@ -1,75 +1,228 @@
+"""
+OCCT 建模微服务 - 非阻塞并发版
+使用预热常驻工作进程池，消除重复 import cadquery 的开销。
+"""
 import os
 import sys
 import uuid
-import traceback
-import subprocess
 import json
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+import asyncio
+import logging
+import struct
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("ModelingService")
 
 app = FastAPI(title="OCCT Modeling Service")
 
 WORKSPACE = os.path.abspath(os.path.join(os.path.dirname(__file__), "workspace"))
 os.makedirs(WORKSPACE, exist_ok=True)
 
+POOL_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pool_worker.py")
+FALLBACK_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker.py")
+
+# 工作进程池大小（建议 CPU 核心数的 50-75%）
+POOL_SIZE = 8
+
 class ScriptRequest(BaseModel):
     code: str
     args: Dict[str, Any] = {}
+    model_type: Optional[str] = None
 
-def execute_cq_script(code: str, args: Dict[str, Any], output_path: str):
-    """" 
-    在隔离的外部进程中执行 CadQuery 脚本并导出结果，防止底层共享内存状态引发服务端崩溃。
-    """
-    worker_script = os.path.join(os.path.dirname(__file__), "worker.py")
-    task_id = os.path.basename(output_path).replace('.brep', '')
-    
-    code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
-    args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
-    
-    with open(code_file, "w", encoding="utf-8") as f:
-        f.write(code)
-    with open(args_file, "w", encoding="utf-8") as f:
-        json.dump(args, f)
-        
+
+def _get_worker_env():
+    """构建子进程环境变量"""
     env = os.environ.copy()
     python_dir = os.path.dirname(sys.executable)
     lib_bin = os.path.join(python_dir, "Library", "bin")
     if os.path.exists(lib_bin) and lib_bin.lower() not in env.get("PATH", "").lower():
         env["PATH"] = lib_bin + os.pathsep + env.get("PATH", "")
+    return env
 
-    try:
-        result = subprocess.run(
-            [sys.executable, worker_script, code_file, args_file, output_path],
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env
+_WORKER_ENV = _get_worker_env()
+
+
+class WorkerPool:
+    """
+    预热的常驻工作进程池。
+    每个工作进程在启动时完成 cadquery 的导入（约1-2秒），
+    之后通过 stdin 管道持续接收任务，无需重复导入。
+    """
+    
+    def __init__(self, size: int = POOL_SIZE):
+        self.size = size
+        self.available: asyncio.Queue = asyncio.Queue()
+        self._all_workers = []
+        self._lock = asyncio.Lock()
+    
+    async def start(self):
+        """启动所有工作进程并等待预热完成"""
+        logger.info(f"正在预热 {self.size} 个工作进程（导入 cadquery）...")
+        tasks = [self._spawn_worker(i) for i in range(self.size)]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        ready_count = 0
+        for i, result in enumerate(results):
+            if isinstance(result, asyncio.subprocess.Process):
+                self._all_workers.append(result)
+                await self.available.put(result)
+                ready_count += 1
+            else:
+                logger.warning(f"工作进程 {i} 启动失败: {result}")
+        
+        logger.info(f"工作进程池就绪: {ready_count}/{self.size} 个进程已预热")
+    
+    async def _spawn_worker(self, worker_id: int = 0):
+        """启动一个工作进程并等待其发出 READY 信号"""
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, POOL_WORKER_SCRIPT,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=_WORKER_ENV
         )
-        if result.returncode != 0:
-            error_file = output_path + ".err"
-            if not os.path.exists(error_file):
-                with open(error_file, "w", encoding="utf-8") as f:
-                    f.write(f"内部执行进程异常退出 (退出码 {result.returncode}):\n{result.stderr}")
-    finally:
-        if os.path.exists(code_file):
-            os.remove(code_file)
-        if os.path.exists(args_file):
-            os.remove(args_file)
+        
+        try:
+            # 等待 READY 信号（最多等 30 秒）
+            line = await asyncio.wait_for(proc.stdout.readline(), timeout=30.0)
+            if b"READY" in line:
+                logger.info(f"工作进程 #{worker_id} (PID {proc.pid}) 预热完成")
+                return proc
+            else:
+                logger.warning(f"工作进程 #{worker_id} 返回异常信号: {line}")
+                proc.kill()
+                return None
+        except asyncio.TimeoutError:
+            logger.warning(f"工作进程 #{worker_id} 预热超时")
+            proc.kill()
+            return None
+    
+    async def execute(self, code_file: str, args_file: str, output_path: str) -> bool:
+        """向空闲工作进程分发一个任务"""
+        worker = await self.available.get()
+        
+        try:
+            # 检查进程是否还活着
+            if worker.returncode is not None:
+                raise RuntimeError("工作进程已退出")
+            
+            task = json.dumps({
+                "code_file": code_file,
+                "args_file": args_file,
+                "output_path": output_path
+            })
+            worker.stdin.write((task + "\n").encode())
+            await worker.stdin.drain()
+            
+            # 等待结果（最多 120 秒）
+            line = await asyncio.wait_for(worker.stdout.readline(), timeout=120.0)
+            result = line.decode().strip()
+            
+            if result == "OK":
+                await self.available.put(worker)
+                return True
+            elif result == "ERR":
+                await self.available.put(worker)
+                return False
+            else:
+                # 异常输出，进程可能已损坏
+                raise RuntimeError(f"工作进程异常输出: {result}")
+                
+        except Exception as e:
+            logger.warning(f"工作进程 PID {worker.pid} 异常: {e}，正在替换...")
+            try:
+                worker.kill()
+            except Exception:
+                pass
+            
+            # 启动替换进程
+            replacement = await self._spawn_worker()
+            if replacement:
+                await self.available.put(replacement)
+            
+            return False
+    
+    async def shutdown(self):
+        """关闭所有工作进程"""
+        for worker in self._all_workers:
+            try:
+                if worker.returncode is None:
+                    worker.stdin.write(b"EXIT\n")
+                    await worker.stdin.drain()
+                    await asyncio.wait_for(worker.wait(), timeout=5.0)
+            except Exception:
+                try:
+                    worker.kill()
+                except Exception:
+                    pass
+
+
+# 全局工作进程池
+worker_pool = WorkerPool(POOL_SIZE)
+
+# 加载 Schema 定义 (如果有 YAML 库用 YAML，这里暂时先预留加载逻辑)
+MODELS_SCHEMA = {}
+SCHEMA_FILE = os.path.join(os.path.dirname(__file__), "models_schema.yaml")
+
+def load_schemas():
+    global MODELS_SCHEMA
+    if not os.path.exists(SCHEMA_FILE):
+        return
+    try:
+        # 如果没有 yaml 库，我们尝试探测它
+        import yaml
+        with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
+            MODELS_SCHEMA = yaml.safe_load(f)
+    except ImportError:
+        logger.warning("未找到 PyYAML 库，Schema 渲染可能受限。建议安装: pip install PyYAML")
+        # 极简解析器，仅支持简单键值对 (fallback)
+        pass
+    except Exception as e:
+        logger.error(f"加载 Schema 失败: {e}")
+
+load_schemas()
+
+
+@app.on_event("startup")
+async def startup_event():
+    """服务启动时预热工作进程池"""
+    await worker_pool.start()
+
+
+@app.on_event("shutdown") 
+async def shutdown_event():
+    """服务关闭时清理工作进程"""
+    await worker_pool.shutdown()
+
 
 @app.post("/api/v1/model/generate")
-async def generate_model(request: ScriptRequest, background_tasks: BackgroundTasks):
+async def generate_model(request: ScriptRequest):
+    load_schemas() # 调试期间确保 Schema 始终最新
     task_id = str(uuid.uuid4())
     output_path = os.path.join(WORKSPACE, f"{task_id}.brep")
     
-    # 在这个简单版本中我们暂时以同步方式执行脚本。
-    # 对于长时间运行的重型模型生成任务，未来可改用 background_tasks 或 Celery 避免阻塞工作进程。
+    code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
+    args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
     
     try:
-        execute_cq_script(request.code, request.args, output_path)
+        with open(code_file, "w", encoding="utf-8") as f:
+            f.write(request.code)
+        with open(args_file, "w", encoding="utf-8") as f:
+            json.dump(request.args, f)
+        
+        # 分发到预热的工作进程池（非阻塞）
+        success = await worker_pool.execute(code_file, args_file, output_path)
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # 清理临时文件
+        for f in [code_file, args_file]:
+            if os.path.exists(f):
+                os.remove(f)
         
     error_file = output_path + ".err"
     if os.path.exists(error_file):
@@ -80,9 +233,32 @@ async def generate_model(request: ScriptRequest, background_tasks: BackgroundTas
     if not os.path.exists(output_path):
         raise HTTPException(status_code=500, detail="脚本执行结束但未生成任何输出文件。")
 
-    # 直接返回 BREP 文件二进制内容，而不是下载链接的 JSON
-    # 这样 C++ 客户端的 reply->readAll() 拿到的就是真正的 BREP 数据
-    return FileResponse(path=output_path, filename=f"{task_id}.brep", media_type="application/octet-stream")
+    # JHB (JSON-Header + Binary-Body) 封装
+    # 构造元数据
+    metadata = {
+        "args": request.args,
+        "modelType": request.model_type,
+        "schema": MODELS_SCHEMA.get(request.model_type, {}) if request.model_type else {}
+    }
+    
+    try:
+        json_bytes = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+        
+        with open(output_path, "rb") as f:
+            brep_bytes = f.read()
+            
+        # 格式: [4字节长度 L][L字节 JSON][原始 BREP]
+        # 使用小端序 (Little-endian) 以匹配 Windows/Qt 环境
+        header = struct.pack("<I", len(json_bytes))
+        full_package = header + json_bytes + brep_bytes
+        
+        return Response(
+            content=full_package,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f"attachment; filename={task_id}.jhb"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"封装 JHB 失败: {e}")
 
 
 @app.get("/api/v1/model/download/{task_id}")
@@ -91,6 +267,7 @@ async def download_model(task_id: str):
     if os.path.exists(file_path):
         return FileResponse(path=file_path, filename=f"{task_id}.brep", media_type="application/octet-stream")
     raise HTTPException(status_code=404, detail="文件未找到")
+
 
 if __name__ == "__main__":
     import uvicorn 
