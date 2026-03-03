@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <link rel="shortcut icon" href="lamp.ico" type="image/x-icon" />
+    <title>OCCT WebGL Viewer - ActiCAD</title>
+    <style>
+        :root {
+            --primary-bg: #1e1e1e;
+            --panel-bg: #2d2d30;
+            --text-color: #d4d4d4;
+            --border-color: #3e3e42;
+            --accent-color: #007acc;
+            --accent-hover: #005f9e;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        /* 左侧模型列表 */
+        .sidebar-left {
+            width: 250px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #252526;
+        }
+
+        .model-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .model-item {
+            padding: 12px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s;
+        }
+
+        .model-item:hover {
+            background-color: #3a3a3d;
+        }
+
+        .model-item.active {
+            background-color: #094771;
+            border-left: 3px solid var(--accent-color);
+        }
+
+        /* 中部画布区域 */
+        .main-content {
+            flex: 1;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        canvas#occViewerCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border: 0 none;
+            background-color: #000;
+        }
+
+        #occlogo {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            z-index: 2;
+            opacity: 0.8;
+            pointer-events: none;
+        }
+
+        .toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+
+        .toolbar button {
+            background-color: rgba(45, 45, 48, 0.8);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .toolbar button:hover {
+            background-color: var(--accent-color);
+        }
+
+        /* 右侧参数面板 */
+        .sidebar-right {
+            width: 300px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .property-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-group label {
+            flex: 0 0 100px;
+            font-size: 13px;
+        }
+
+        .form-group input {
+            flex: 1;
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 3px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .panel-footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .btn-generate {
+            width: 100%;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .btn-generate:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-generate:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        /* Loading遮罩 */
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            color: white;
+            font-size: 18px;
+        }
+
+        /* 性能统计信息置于右上角 */
+        #viewerStats {
+            left: auto !important;
+            right: 15px !important;
+            top: 15px !important;
+            text-align: right !important;
+            pointer-events: none;
+            background-color: transparent !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 左侧模型列表 -->
+    <div class="sidebar-left">
+        <div class="sidebar-header">模型组件 (Models)</div>
+        <ul class="model-list" id="modelList">
+            <!-- 动态生成列表 -->
+            <li class="model-item" style="text-align:center;color:#888;">正在加载...</li>
+        </ul>
+    </div>
+
+    <!-- 中部 3D 视图 -->
+    <div class="main-content" id="mainContent">
+        <div class="toolbar">
+            <button onclick="OccViewerModule.fitAllObjects(true)">全部适应 (Fit All)</button>
+            <button onclick="OccViewerModule.removeAllObjects()">清空 (Clear)</button>
+        </div>
+        <canvas id="occViewerCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+        <img id="occlogo" src="OCC_logo.png" width="120" />
+        <div id="loading-overlay">正在生成模型中...</div>
+    </div>
+
+    <!-- 右侧参数面板 -->
+    <div class="sidebar-right">
+        <div class="sidebar-header">属性参数 (Properties) <span id="currentModelName"
+                style="color:var(--accent-color);font-size:12px;margin-left:5px;"></span></div>
+        <div class="property-container" id="propertyPanel">
+            <!-- 动态生成表单 -->
+            <div style="text-align:center; color:#888; margin-top:20px;">请在左侧选择模型</div>
+        </div>
+        <div class="panel-footer">
+            <button class="btn-generate" id="btnGenerate" disabled>生成预览 (Generate)</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const modelListEl = document.getElementById('modelList');
+        const propertyPanelEl = document.getElementById('propertyPanel');
+        const currentModelNameEl = document.getElementById('currentModelName');
+        const btnGenerate = document.getElementById('btnGenerate');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const occCanvas = document.getElementById('occViewerCanvas');
+        const mainContent = document.getElementById('mainContent');
+
+        // State
+        let schemas = {};
+        let currentModelKey = null;
+
+        // 初始化画布大小 (必须与参考范例逻辑相似，否则渲染会错位)
+        function updateCanvasSize() {
+            var aSizeX = mainContent.clientWidth;
+            var aSizeY = mainContent.clientHeight;
+            occCanvas.style.width = aSizeX + "px";
+            occCanvas.style.height = aSizeY + "px";
+
+            var aDevicePixelRatio = window.devicePixelRatio || 1;
+            occCanvas.width = aSizeX * aDevicePixelRatio;
+            occCanvas.height = aSizeY * aDevicePixelRatio;
+        }
+        window.onresize = updateCanvasSize;
+        updateCanvasSize();
+
+        // API 基础路径
+        const API_BASE = window.location.origin; // e.g. http://127.0.0.1:8000
+
+        // 1. 获取所有 Schema
+        async function fetchSchemas() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/schemas`);
+                schemas = await response.json();
+                renderModelList();
+            } catch (error) {
+                console.error("加载 Schema 失败:", error);
+                modelListEl.innerHTML = `<li class="model-item" style="color:red">加载失败</li>`;
+            }
+        }
+
+        // 2. 渲染左侧列表
+        function renderModelList() {
+            modelListEl.innerHTML = '';
+            for (const [key, schema] of Object.entries(schemas)) {
+                if (key === 'name' || typeof schema !== 'object') continue;
+
+                const li = document.createElement('li');
+                li.className = 'model-item';
+                li.textContent = schema.name || key;
+                li.onclick = () => selectModel(key, li);
+                modelListEl.appendChild(li);
+            }
+        }
+
+        // 3. 选择模型，渲染右侧表单
+        function selectModel(modelKey, listElement) {
+            // Update UI Selection
+            document.querySelectorAll('.model-item').forEach(el => el.classList.remove('active'));
+            if (listElement) listElement.classList.add('active');
+
+            currentModelKey = modelKey;
+            const schema = schemas[modelKey];
+            currentModelNameEl.textContent = `[${schema.name || modelKey}]`;
+
+            // Render Form
+            propertyPanelEl.innerHTML = '';
+            btnGenerate.disabled = false;
+
+            for (const [propKey, propMeta] of Object.entries(schema)) {
+                if (propKey === 'name') continue;
+
+                const group = document.createElement('div');
+                group.className = 'form-group';
+
+                const label = document.createElement('label');
+                label.textContent = propMeta.name || propKey;
+                label.title = propKey;
+
+                const input = document.createElement('input');
+                input.id = `input_${propKey}`;
+                input.type = 'text';
+                // 默认值
+                input.value = propMeta.value !== undefined ? propMeta.value : '';
+                input.dataset.key = propKey;
+
+                // 判断类型：在 YAML 中 value 的类型决定了它的推断类型
+                if (typeof propMeta.value === 'number') {
+                    input.dataset.type = Number.isInteger(propMeta.value) ? 'int' : 'float';
+                } else if (propMeta.type) {
+                    input.dataset.type = propMeta.type;
+                } else {
+                    input.dataset.type = 'float'; // 默认视为 float
+                }
+
+                group.appendChild(label);
+                group.appendChild(input);
+                propertyPanelEl.appendChild(group);
+            }
+        }
+
+        // 4. 点击生成模型
+        btnGenerate.addEventListener('click', async () => {
+            if (!currentModelKey) return;
+
+            // 收集参数
+            const args = {};
+            const inputs = propertyPanelEl.querySelectorAll('input');
+            inputs.forEach(input => {
+                const key = input.dataset.key;
+                const type = input.dataset.type;
+                let val = input.value;
+                if (type === 'float') val = parseFloat(val);
+                else if (type === 'int') val = parseInt(val, 10);
+                args[key] = val;
+            });
+
+            // 发起请求
+            loadingOverlay.style.display = 'flex';
+            try {
+                // 如果传入 code="" 并且 model_type=xxx，后端会自动读取脚本
+                const requestPayload = {
+                    code: "",
+                    model_type: currentModelKey,
+                    args: args
+                };
+
+                // console.log("发送请求参数:", requestPayload);
+
+                const response = await fetch(`${API_BASE}/api/v1/model/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestPayload)
+                });
+
+                if (!response.ok) {
+                    let errMsg = await response.text();
+                    try {
+                        const parsed = JSON.parse(errMsg);
+                        errMsg = parsed.detail || errMsg;
+                    } catch (e) { }
+                    throw new Error(errMsg);
+                }
+
+                // 接收返回的二进制数据 JHB (JSON Header + Binary Body)
+                const arrayBuffer = await response.arrayBuffer();
+                const view = new DataView(arrayBuffer);
+
+                // 解析 JHB 
+                // 1. 读取前4个字节作为 JSON 长度 (无符号32位小端序)
+                const jsonLength = view.getUint32(0, true);
+
+                // 2. 提取 BREP 二进制部分 (偏移量 = 4 + jsonLength)
+                const brepOffset = 4 + jsonLength;
+
+                // 截取剩余的数据作为 BREP
+                const brepData = new Uint8Array(arrayBuffer, brepOffset);
+
+                // 传递给 WASM 渲染
+                renderBrep(brepData);
+
+            } catch (error) {
+                console.error("生成模型失败:", error);
+                alert("生成模型失败:\n" + error.message);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 5. 调用 WebAssembly 渲染 BREP
+        function renderBrep(brepUint8Array) {
+            OccViewerModule.removeAllObjects();
+
+            // 分配内存
+            const aDataBuffer = OccViewerModule._malloc(brepUint8Array.length);
+            OccViewerModule.HEAPU8.set(brepUint8Array, aDataBuffer);
+
+            // 读取到 OCCT 中并显示 true=实心渲染
+            OccViewerModule.openFromMemory("temp.brep", aDataBuffer, brepUint8Array.length, true);
+
+            OccViewerModule.displayGround(true);
+        }
+
+        // 首次加载完 WASM 后，启动数据获取
+        window.addEventListener('load', () => {
+            fetchSchemas();
+        });
+
+    </script>
+
+    <!-- 加载由 Emscripten 编译生成的 WebAssembly Viewer 入口脚本 -->
+    <script type="text/javascript" src="occt-webgl-sample.js" charset="utf-8"></script>
+</body>
+
+</html>

@@ -15,13 +15,18 @@ def draw(wp, xr, yr, px, nmy, ney, iy):
             .threePointArc((-129, -nmy), (-200, -yr))
             .close())
 
+height = 2750.0
+length = 3900.0
+width = 2400.0
+concreteGrade = "C50"
+
 w = cq.Workplane('XY')
 w = draw(w, 1600, 1400, 3000, 1374, 1300, 1200)
 w = draw(w.workplane(offset=1375), 1788, 1409.5, 3190.5, 1380, 1310, 1210)
 w = draw(w.workplane(offset=1375), 2400, 1500, 3900, 1471, 1400, 1300)
 tuopan = w.loft()
 
-w = cq.Workplane('XY').workplane(offset=2750)
+w = cq.Workplane('XY').workplane(offset=height)
 w = draw(w, 2400, 1500, 3900, 1471, 1400, 1300)
 w = draw(w.workplane(offset=250), 2400, 1500, 3900, 1471, 1400, 1300)
 dingmao = w.loft()

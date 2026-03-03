@@ -10,6 +10,8 @@ import asyncio
 import logging
 import struct
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 
@@ -18,8 +20,18 @@ logger = logging.getLogger("ModelingService")
 
 app = FastAPI(title="OCCT Modeling Service")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 WORKSPACE = os.path.abspath(os.path.join(os.path.dirname(__file__), "workspace"))
+WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 os.makedirs(WORKSPACE, exist_ok=True)
+os.makedirs(WEB_DIR, exist_ok=True)
 
 POOL_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pool_worker.py")
 FALLBACK_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker.py")
@@ -201,6 +213,12 @@ async def startup_event():
     """服务启动时预热工作进程池"""
     await worker_pool.start()
 
+@app.get("/api/v1/schemas")
+async def get_schemas():
+    """获取所有模型的 Schema 定义"""
+    load_schemas()
+    return MODELS_SCHEMA
+
 
 @app.on_event("shutdown") 
 async def shutdown_event():
@@ -218,8 +236,18 @@ async def generate_model(request: ScriptRequest):
     args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
     
     try:
+        code = request.code
+        # 如果代码为空但提供了模型类型，则尝试读取同名脚本文件
+        if not code and request.model_type:
+            script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cq_script", f"{request.model_type}.py"))
+            if os.path.exists(script_path):
+                with open(script_path, "r", encoding="utf-8") as sf:
+                    code = sf.read()
+            else:
+                raise HTTPException(status_code=400, detail=f"未找到脚本: {script_path}")
+        
         with open(code_file, "w", encoding="utf-8") as f:
-            f.write(request.code)
+            f.write(code)
         with open(args_file, "w", encoding="utf-8") as f:
             json.dump(request.args, f)
         
@@ -297,6 +325,9 @@ async def download_model(task_id: str):
         return FileResponse(path=file_path, filename=f"{task_id}.brep", media_type="application/octet-stream")
     raise HTTPException(status_code=404, detail="文件未找到")
 
+
+# Mount UI after other routes so it doesn't mask API routes
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 if __name__ == "__main__":
     import uvicorn 

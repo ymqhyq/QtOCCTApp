@@ -61,6 +61,27 @@ z7 = L
 # === 1. 创建外壳实体 ===
 outer_solid = cq.Workplane("YZ").polyline(outer_pts).close().extrude(L)
 
+class OuterR300Selector(cq.Selector):
+    def filter(self, objectList):
+        res = []
+        for e in objectList:
+            c = e.Center()
+            length_x = e.BoundingBox().xlen
+            if length_x < L * 0.9: continue
+            # 底部外角: Y 约等于 +-2700, Z 约等于 0
+            if abs(c.z) < 10 and abs(abs(c.y) - 2700) < 10: 
+                res.append(e)
+                continue
+            # 悬臂下方角: Y 约等于 +-3329, Z 约等于 2515
+            if abs(c.z - 2515) < 10 and abs(abs(c.y) - 3329) < 10: 
+                res.append(e)
+                continue
+        return res
+
+outer_edges = outer_solid.edges(OuterR300Selector())
+if len(outer_edges.vals()) > 0:
+    outer_solid = outer_edges.fillet(300)
+
 # === 2. 创建贯通内腔 (采用相对偏移构建工作平面，提高放样稳定性) ===
 # 初始站点的坐标是 x = -10.0 (为了布尔减完全切通)
 stations_rel = [
@@ -84,6 +105,22 @@ for pts, rel_dist in stations_rel:
 
 # 调用 loft(ruled=True) 生成贯通内腔实体
 cavity_solid = cavity_wp.loft(ruled=True)
+
+class InnerR50Selector(cq.Selector):
+    def filter(self, objectList):
+        res = []
+        for e in objectList:
+            c = e.Center()
+            length_x = e.BoundingBox().xlen
+            if length_x < 1.0: continue
+            # 顶部内拐角 (R50): 位于两侧，Y的绝对值在 1000~2000 之间，Z 高于 2400
+            if c.z > 2400 and 1000 < abs(c.y) < 2000: 
+                res.append(e)
+        return res
+
+cavity_edges = cavity_solid.edges(InnerR50Selector())
+if len(cavity_edges.vals()) > 0:
+    cavity_solid = cavity_edges.fillet(50)
 
 # === 3. 布尔减：从外壳中挖去内腔 ===
 result = outer_solid.cut(cavity_solid)

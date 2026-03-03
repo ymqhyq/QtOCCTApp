@@ -6,7 +6,13 @@ import cadquery as cq
 # 纵向布置: 梁端1300mm恒定III -> 854mm过渡到II -> 1646mm过渡到I
 # ============================================================
 
-L = 31500.0  # 梁总长
+# === 参数处理 ===
+type = globals().get('type', "单箱单室")
+length = globals().get('length', 31500.0)  # 梁总长 (inout)
+width = 12600.0   # 顶板全宽 (out)
+height = 3032.0   # 梁高 (out)
+
+L = length
 
 # === 外轮廓 (所有截面恒定不变) ===
 outer_pts = [
