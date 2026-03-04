@@ -1,4 +1,4 @@
-import { Engine, Scene, Vector3, HemisphericLight, ArcRotateCamera, Color4 } from "@babylonjs/core";
+import { Engine, Scene, Vector3, HemisphericLight, DirectionalLight, ArcRotateCamera, Color4, Color3 } from "@babylonjs/core";
 import { BitByBitBase } from "@bitbybit-dev/babylonjs";
 // Import worker URLs or create workers (vite can bundle workers)
 import OCCTWorker from "@bitbybit-dev/occt-worker/lib/occ-worker/occ-worker.js?worker";
@@ -25,8 +25,16 @@ export class BitbybitService {
         // 2. Setup Camera and Light
         const camera = new ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.5, 50, Vector3.Zero(), scene);
         camera.attachControl(canvas, true);
-        const light = new HemisphericLight("light", new Vector3(0, 1, 0), scene);
-        light.intensity = 0.7;
+
+        // Hemispheric light for basic ambient illumination
+        const hemiLight = new HemisphericLight("hemiLight", new Vector3(0, 1, 0), scene);
+        hemiLight.intensity = 0.6;
+        hemiLight.specular = new Color3(0.1, 0.1, 0.1);
+
+        // Directional light to simulate a primary light source (like the sun or a strong studio light)
+        const dirLight = new DirectionalLight("dirLight", new Vector3(-1, -2, -1), scene);
+        dirLight.position = new Vector3(20, 40, 20);
+        dirLight.intensity = 0.8;
 
         // 3. Start render loop
         engine.runRenderLoop(() => {
