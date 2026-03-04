@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="lamp.ico" type="image/x-icon" />
+    <title>OCCT WebGL Viewer - ActiCAD</title>
+    <style>
+        :root {
+            --primary-color: #4a9eff;
+            --background-color: #1a1a1b;
+            --panel-bg: #252526;
+            --control-bg: #3c3c3c;
+            --border-color: #3e3e42;
+            --text-main: #cccccc;
+            --text-dim: #858585;
+            --header-height: 44px;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            background-color: var(--background-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 紧凑型顶部工具栏 */
+        .top-bar {
+            height: var(--header-height);
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            gap: 15px;
+            flex-shrink: 0;
+            z-index: 100;
+        }
+
+        .app-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-right: 15px;
+            white-space: nowrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-right: 1px solid var(--border-color);
+            padding-right: 10px;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+        }
+
+        .btn-tool {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-main);
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-tool:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: var(--border-color);
+        }
+
+        .btn-tool.primary {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .btn-tool.primary:hover {
+            background-color: #357ecc;
+        }
+
+        .btn-tool:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 主容器布局 */
+        main.content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 200px;
+            min-width: 0;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .sidebar.collapsed {
+            width: 0 !important;
+            border-right: none;
+            /* 不能使用 overflow:hidden，否则会裁剪掉 toggle 按钮 */
+        }
+
+        .sidebar-right {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .sidebar-right.collapsed {
+            border-left: none;
+        }
+
+        .sidebar-header {
+            padding: 10px 15px;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--text-dim);
+            background-color: rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            text-transform: uppercase;
+            overflow: hidden;
+            /* 防止文字溢出 */
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            /* 稍微增加宽度，便于点击 */
+            height: 48px;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            /* 确保在最顶层 */
+            transition: all 0.2s;
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .sidebar.collapsed .sidebar-header,
+        .sidebar.collapsed .scroll-area {
+            display: none;
+            /* 侧边栏折叠时隐藏内容，但不使用 overflow:hidden 隐藏 toggle */
+        }
+
+        .sidebar-toggle:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .sidebar-left .sidebar-toggle {
+            right: -16px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .sidebar-right .sidebar-toggle {
+            left: -16px;
+            border-radius: 4px 0 0 4px;
+        }
+
+        /* 侧边栏调整手柄 */
+        .resize-handle {
+            width: 4px;
+            cursor: col-resize;
+            background: transparent;
+            flex-shrink: 0;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+
+        .resize-handle:hover,
+        .resize-handle.dragging {
+            background: var(--primary-color);
+        }
+
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* 画布容器 */
+        .viewport-container {
+            flex: 1;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+        }
+
+        canvas#occViewerCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 属性表单样式 */
+        .property-container {
+            padding: 15px 2px 15px 15px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .form-group input {
+            width: 100%;
+            box-sizing: border-box;
+            background: var(--control-bg);
+            border: 1px solid var(--border-color);
+            color: #eee;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* 性能统计信息置于右上角 */
+        #viewerStats {
+            left: auto !important;
+            right: 20px !important;
+            top: 20px !important;
+            text-align: right !important;
+            pointer-events: none;
+            background-color: transparent !important;
+            z-index: 1000;
+        }
+
+
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            font-size: 14px;
+            color: white;
+        }
+
+        .model-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .model-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 13px;
+        }
+
+        .model-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .model-item.active {
+            background: rgba(74, 158, 255, 0.1);
+            color: var(--primary-color);
+        }
+
+        /* 全屏模式：仅 3D 视图容器全屏，类似视频播放器效果 */
+        .viewport-container:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+        }
+
+        .viewport-container:fullscreen canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 紧凑型顶部栏 -->
+    <header class="top-bar">
+        <div class="app-title">ActiCAD Web 建模服务</div>
+
+        <div class="toolbar-group">
+            <button class="btn-tool primary" id="btnGenerate" disabled title="执行建模脚本">
+                <span>🔨</span> 生成预览
+            </button>
+            <button class="btn-tool" onclick="location.reload()" title="重置页面">
+                <span>🔄</span> 重置
+            </button>
+        </div>
+
+        <div class="toolbar-group">
+            <button class="btn-tool" onclick="OccViewerModule.fitAllObjects(true)" title="缩放以适应屏幕">
+                <span>📺</span> 全部适应
+            </button>
+            <button class="btn-tool" onclick="OccViewerModule.removeAllObjects()" title="清空场景">
+                <span>🗑️</span> 清空
+            </button>
+        </div>
+
+        <div class="toolbar-group" style="margin-left:auto;">
+            <button class="btn-tool" id="btnStats" title="显示/隐藏性能信息" onclick="toggleStats()">
+                <span>📊</span> 性能
+            </button>
+            <button class="btn-tool" id="btnFullscreen" title="全屏显示" onclick="toggleFullscreen()">
+                <span>🖥️</span> 全屏
+            </button>
+        </div>
+    </header>
+
+    <!-- 主工作区 -->
+    <main class="content">
+        <!-- 模型库侧边栏 -->
+        <aside class="sidebar sidebar-left" id="sidebarLeft">
+            <div class="sidebar-header">模型组件库</div>
+            <div class="scroll-area">
+                <ul class="model-list" id="modelList">
+                    <li style="padding:20px; color:#666; font-size:12px;">加载中...</li>
+                </ul>
+            </div>
+            <div class="sidebar-toggle" onclick="toggleSidebar('Left')" title="收起/展开列表">‹</div>
+        </aside>
+        <div class="resize-handle" id="resizeLeft"></div>
+
+        <!-- 3D 视图容器 -->
+        <section class="viewport-container" id="mainContent">
+            <canvas id="occViewerCanvas" oncontextmenu="event.preventDefault()" tabindex="-1"></canvas>
+            <div id="viewerStats"></div>
+            <div id="loading-overlay">正在执行建模算法...</div>
+        </section>
+        <div class="resize-handle" id="resizeRight"></div>
+
+        <!-- 参数面板侧边栏 -->
+        <aside class="sidebar sidebar-right" id="sidebarRight">
+            <div class="sidebar-header">对象属性 <span id="currentModelName" style="color:var(--primary-color)"></span>
+            </div>
+            <div class="scroll-area">
+                <div class="property-container" id="propertyPanel">
+                    <div style="text-align:center; color:#666; margin-top:40px; font-size:12px;">选择模型后编辑参数</div>
+                </div>
+            </div>
+            <div class="sidebar-toggle" onclick="toggleSidebar('Right')" title="收起/展开属性">›</div>
+        </aside>
+    </main>
+
+    <footer
+        style="height:24px; background:#1a1a1b; border-top:1px solid #3e3e42; display:flex; align-items:center; padding:0 10px; font-size:11px; color:#666;">
+        <div id="statusInfo">准备就绪</div>
+        <div style="margin-left:auto;">ActiCAD Engine | OCCT WASM | powered by Google Antigravity</div>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const modelListEl = document.getElementById('modelList');
+        const propertyPanelEl = document.getElementById('propertyPanel');
+        const currentModelNameEl = document.getElementById('currentModelName');
+        const btnGenerate = document.getElementById('btnGenerate');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const occCanvas = document.getElementById('occViewerCanvas');
+        const mainContent = document.getElementById('mainContent');
+
+        // === 侧边栏折叠/展开 ===
+        function toggleSidebar(side) {
+            const sidebar = document.getElementById('sidebar' + side);
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            const toggle = sidebar.querySelector('.sidebar-toggle');
+
+            if (side === 'Left') {
+                toggle.textContent = isCollapsed ? '›' : '‹';
+            } else {
+                toggle.textContent = isCollapsed ? '‹' : '›';
+            }
+
+            // 等待 CSS transition 完成后触发 resize
+            setTimeout(function () {
+                window.dispatchEvent(new Event('resize'));
+            }, 350);
+        }
+
+        // === 性能信息开关（需要重新编译 WASM 模块才能生效） ===
+        var statsVisible = true;
+        function toggleStats() {
+            statsVisible = !statsVisible;
+            var btn = document.getElementById('btnStats');
+            // 尝试调用 OCCT 的 displayStats（需要在 WasmOcctView.cxx 中添加 Embind 绑定）
+            if (typeof OccViewerModule !== 'undefined') {
+                if (typeof OccViewerModule.displayStats === 'function') {
+                    OccViewerModule.displayStats(statsVisible);
+                } else {
+                    console.warn('[Stats] OccViewerModule.displayStats 方法不存在，需要重新编译 WASM 模块。');
+                }
+            }
+            if (btn) {
+                btn.style.opacity = statsVisible ? '1' : '0.5';
+            }
+        }
+
+        // === 全屏切换（仅 3D 视图全屏，类似视频播放器） ===
+        function toggleFullscreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+                return;
+            }
+            // 将 3D 视图容器单独全屏，而不是整个页面
+            mainContent.requestFullscreen().then(function () {
+                var btn = document.getElementById('btnFullscreen');
+                if (btn) btn.innerHTML = '<span>🗗</span> 退出全屏';
+            }).catch(function (err) {
+                console.warn('全屏请求失败:', err.message);
+            });
+        }
+
+        // 监听全屏变化
+        document.addEventListener('fullscreenchange', function () {
+            var btn = document.getElementById('btnFullscreen');
+            if (!document.fullscreenElement) {
+                btn.innerHTML = '<span>🖥️</span> 全屏';
+            }
+            setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 100);
+        });
+        document.addEventListener('webkitfullscreenchange', function () {
+            var btn = document.getElementById('btnFullscreen');
+            if (!document.webkitFullscreenElement) {
+                btn.innerHTML = '<span>🖥️</span> 全屏';
+            }
+            setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 100);
+        });
+
+        // State
+        let schemas = {};
+        let currentModelKey = null;
+
+        // 初始化画布大小 (使用 addEventListener 避免覆盖 Emscripten 的 onresize)
+        function updateCanvasSize() {
+            var aSizeX = mainContent.clientWidth;
+            var aSizeY = mainContent.clientHeight;
+            if (aSizeX > 0 && aSizeY > 0) {
+                occCanvas.style.width = aSizeX + "px";
+                occCanvas.style.height = aSizeY + "px";
+
+                var aDevicePixelRatio = window.devicePixelRatio || 1;
+                occCanvas.width = aSizeX * aDevicePixelRatio;
+                occCanvas.height = aSizeY * aDevicePixelRatio;
+            }
+        }
+        window.addEventListener('resize', updateCanvasSize);
+        updateCanvasSize();
+
+        const API_BASE = window.location.origin;
+
+        // 1. 获取所有 Schema
+        async function fetchSchemas() {
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/schemas`);
+                schemas = await response.json();
+                renderModelList();
+            } catch (error) {
+                console.error("加载 Schema 失败:", error);
+                modelListEl.innerHTML = `<li class="model-item" style="color:red">加载失败</li>`;
+            }
+        }
+
+        // 2. 渲染左侧列表
+        function renderModelList() {
+            modelListEl.innerHTML = '';
+            for (const [key, schema] of Object.entries(schemas)) {
+                if (key === 'name' || typeof schema !== 'object') continue;
+
+                const li = document.createElement('li');
+                li.className = 'model-item';
+                li.textContent = schema.name || key;
+                li.onclick = () => selectModel(key, li);
+                modelListEl.appendChild(li);
+            }
+        }
+
+        // 3. 选择模型
+        function selectModel(modelKey, listElement) {
+            document.querySelectorAll('.model-item').forEach(el => el.classList.remove('active'));
+            if (listElement) listElement.classList.add('active');
+
+            currentModelKey = modelKey;
+            const schema = schemas[modelKey];
+            currentModelNameEl.textContent = `[${schema.name || modelKey}]`;
+
+            propertyPanelEl.innerHTML = '';
+            btnGenerate.disabled = false;
+
+            for (const [propKey, propMeta] of Object.entries(schema)) {
+                if (propKey === 'name') continue;
+
+                const group = document.createElement('div');
+                group.className = 'form-group';
+
+                const label = document.createElement('label');
+                label.textContent = propMeta.name || propKey;
+
+                const input = document.createElement('input');
+                input.id = `input_${propKey}`;
+                input.type = 'text';
+                input.value = propMeta.value !== undefined ? propMeta.value : '';
+                input.dataset.key = propKey;
+
+                if (typeof propMeta.value === 'number') {
+                    input.dataset.type = Number.isInteger(propMeta.value) ? 'int' : 'float';
+                } else if (propMeta.type) {
+                    input.dataset.type = propMeta.type;
+                } else {
+                    input.dataset.type = 'float';
+                }
+
+                group.appendChild(label);
+                group.appendChild(input);
+                propertyPanelEl.appendChild(group);
+            }
+        }
+
+        // 4. 点击生成模型
+        btnGenerate.addEventListener('click', async () => {
+            if (!currentModelKey) return;
+
+            const args = {};
+            const inputs = propertyPanelEl.querySelectorAll('input');
+            inputs.forEach(input => {
+                const key = input.dataset.key;
+                const type = input.dataset.type;
+                let val = input.value;
+                if (type === 'float') val = parseFloat(val);
+                else if (type === 'int') val = parseInt(val, 10);
+                args[key] = val;
+            });
+
+            loadingOverlay.style.display = 'flex';
+            try {
+                const requestPayload = {
+                    code: "",
+                    model_type: currentModelKey,
+                    args: args
+                };
+
+                const response = await fetch(`${API_BASE}/api/v1/model/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestPayload)
+                });
+
+                if (!response.ok) {
+                    let errMsg = await response.text();
+                    try {
+                        const parsed = JSON.parse(errMsg);
+                        errMsg = parsed.detail || errMsg;
+                    } catch (e) { }
+                    throw new Error(errMsg);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                const view = new DataView(arrayBuffer);
+                const jsonLength = view.getUint32(0, true);
+                const brepOffset = 4 + jsonLength;
+                const brepData = new Uint8Array(arrayBuffer, brepOffset);
+
+                renderBrep(brepData);
+            } catch (error) {
+                console.error("生成模型失败:", error);
+                alert("生成模型失败:\n" + error.message);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // 5. 渲染 BREP
+        function renderBrep(brepUint8Array) {
+            OccViewerModule.removeAllObjects();
+            const aDataBuffer = OccViewerModule._malloc(brepUint8Array.length);
+            OccViewerModule.HEAPU8.set(brepUint8Array, aDataBuffer);
+            OccViewerModule.openFromMemory("temp.brep", aDataBuffer, brepUint8Array.length, true);
+            OccViewerModule.displayGround(true);
+        }
+
+        window.addEventListener('load', () => {
+            fetchSchemas();
+
+            // === 侧边栏拖拽调整宽度 ===
+            function initResize(handleId, sidebarId, direction) {
+                var handle = document.getElementById(handleId);
+                var sidebar = document.getElementById(sidebarId);
+                if (!handle || !sidebar) return;
+
+                var startX, startWidth;
+
+                handle.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    startX = e.clientX;
+                    startWidth = sidebar.offsetWidth;
+                    handle.classList.add('dragging');
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+
+                    function onMouseMove(e) {
+                        var delta = e.clientX - startX;
+                        var newWidth;
+                        if (direction === 'left') {
+                            newWidth = startWidth + delta; // 向右拖 = 增宽
+                        } else {
+                            newWidth = startWidth - delta; // 向左拖 = 增宽
+                        }
+                        newWidth = Math.max(120, Math.min(400, newWidth));
+                        sidebar.style.width = newWidth + 'px';
+                    }
+
+                    function onMouseUp() {
+                        handle.classList.remove('dragging');
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        window.dispatchEvent(new Event('resize'));
+                    }
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+            }
+
+            initResize('resizeLeft', 'sidebarLeft', 'left');
+            initResize('resizeRight', 'sidebarRight', 'right');
+        });
+    </script>
+    <script type="text/javascript" src="occt-webgl-sample.js" charset="utf-8"></script>
+</body>
+
+</html>
