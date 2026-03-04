@@ -55,9 +55,17 @@ export class BitbybitService {
         // Optional: Configure scene settings
         this.bitbybit.babylon.scene.backgroundColour({ colour: "#1a1a1b" });
 
-        // Use native BabylonJS to test rendering
-        import("@babylonjs/core").then(({ MeshBuilder }) => {
-            MeshBuilder.CreateBox("testBox", { size: 10 }, scene);
+        // Draw a test box using OCCT worker to verify CAD modeling integration
+        this.bitbybit.occt.shapes.solid.createBox({
+            width: 15,
+            length: 15,
+            height: 15,
+            center: [0, 0, 0]
+        }).then(async (boxSolid) => {
+            // Draw the generated solid mesh into the scene
+            await this.bitbybit.draw.drawAnyAsync({ entity: boxSolid });
+        }).catch(err => {
+            console.error("Failed to render OCCT box:", err);
         });
 
         return bitbybit;
