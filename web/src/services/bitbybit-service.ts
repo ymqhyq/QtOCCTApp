@@ -30,6 +30,7 @@ export class BitbybitService {
         const hemiLight = new HemisphericLight("hemiLight", new Vector3(0, 1, 0), scene);
         hemiLight.intensity = 0.6;
         hemiLight.specular = new Color3(0.1, 0.1, 0.1);
+        hemiLight.groundColor = new Color3(0.3, 0.3, 0.3); // 补充来自底部的环境反射光
 
         // Directional light to simulate a primary light source (like the sun or a strong studio light)
         const dirLight = new DirectionalLight("dirLight", new Vector3(-1, -2, -1), scene);
