@@ -6,12 +6,13 @@
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
-#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
 #include <Graphic3d_Camera.hxx>
+#include <IFSelect_ReturnStatus.hxx>
 #include <IntAna_Quadric.hxx>
+#include <Interface_Static.hxx>
 #include <Prs3d_DimensionAspect.hxx>
 #include <Prs3d_LineAspect.hxx>
 #include <Prs3d_TextAspect.hxx>
@@ -19,11 +20,16 @@
 #include <QAction>
 #include <QApplication>
 #include <QDebug>
+#include <QFileDialog>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QShowEvent>
+#include <QTemporaryFile>
 #include <Quantity_Color.hxx>
+#include <STEPControl_Reader.hxx>
+#include <STEPControl_Writer.hxx>
 #include <TopExp_Explorer.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Compound.hxx>
@@ -31,6 +37,7 @@
 #include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Trsf.hxx>
+
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
@@ -976,12 +983,7 @@ void OCCTWidget::clearAll() {
   if (m_context.IsNull())
     return;
 
-  // Remove all shapes stored in m_lines
-  for (const auto &aisShape : m_lines) {
-    if (!aisShape.IsNull()) {
-      m_context->Remove(aisShape, false); // false to defer update
-    }
-  }
+  m_context->RemoveAll(true);
   m_lines.clear();
   m_objectMetadata.clear();
 
@@ -999,6 +1001,46 @@ void OCCTWidget::clearAll() {
   }
 
   m_context->UpdateCurrentViewer();
+}
+
+void OCCTWidget::exportToSTEP(const QString &filename) {
+  if (m_context.IsNull())
+    return;
+
+  STEPControl_Writer writer;
+  Interface_Static::SetCVal("write.step.schema", "AP214");
+
+  // Iterate over all displayed objects and add their shapes to the writer
+  NCollection_List<Handle(AIS_InteractiveObject)> displayedObjects;
+  m_context->DisplayedObjects(displayedObjects);
+
+  int shapeCount = 0;
+  for (NCollection_List<Handle(AIS_InteractiveObject)>::Iterator it(
+           displayedObjects);
+       it.More(); it.Next()) {
+    Handle(AIS_InteractiveObject) obj = it.Value();
+    Handle(AIS_Shape) shapeObj = Handle(AIS_Shape)::DownCast(obj);
+    if (!shapeObj.IsNull()) {
+      IFSelect_ReturnStatus status =
+          writer.Transfer(shapeObj->Shape(), STEPControl_AsIs);
+      if (status == IFSelect_RetDone) {
+        shapeCount++;
+      }
+    }
+  }
+
+  if (shapeCount > 0) {
+    IFSelect_ReturnStatus status = writer.Write(filename.toUtf8().constData());
+    if (status == IFSelect_RetDone) {
+      QMessageBox::information(
+          this, "导出成功",
+          QString("成功导出 %1 个几何体到 %2").arg(shapeCount).arg(filename));
+    } else {
+      QMessageBox::critical(this, "错误", "无法写入 STEP 文件。");
+    }
+  } else {
+    QMessageBox::warning(this, "警告", "没有找到可导出的几何体。");
+  }
 }
 
 void OCCTWidget::annotateBridgePierFooting() {
@@ -1508,16 +1550,51 @@ TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
 }
 
 TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
-  TopoDS_Shape shape;
-  BRep_Builder builder;
-  std::stringstream ss(std::string(data.constData(), data.length()));
-  BRepTools::Read(shape, ss, builder);
-  if (shape.IsNull()) {
-    qWarning()
-        << "BRepTools::Read failed to parse shape from memory! Data size: "
-        << data.length();
+  if (data.isEmpty())
+    return TopoDS_Shape();
+
+  // 格式检测
+  std::string dataStr(data.constData(), data.length());
+  bool isStep = (dataStr.find("ISO-10303-21") != std::string::npos);
+
+  if (isStep) {
+    QTemporaryFile tempFile;
+    if (tempFile.open()) {
+      tempFile.write(data);
+      QString fileName = tempFile.fileName();
+      tempFile.close();
+
+      STEPControl_Reader reader;
+      IFSelect_ReturnStatus status =
+          reader.ReadFile(fileName.toStdString().c_str());
+      if (status == IFSelect_RetDone) {
+        reader.TransferRoots();
+        if (reader.NbShapes() > 0) {
+          return reader.OneShape();
+        }
+      }
+      qWarning()
+          << "STEPControl_Reader failed to parse STEP from temp file! Status:"
+          << (int)status;
+    } else {
+      qWarning() << "Failed to create temporary file for STEP parsing!";
+    }
+    return TopoDS_Shape();
+  } else {
+    // 尝试作为 BREP 解析
+    TopoDS_Shape shape;
+    BRep_Builder builder;
+    std::stringstream ss(dataStr);
+    BRepTools::Read(shape, ss, builder);
+    if (shape.IsNull()) {
+      qWarning()
+          << "BRepTools::Read failed to parse shape from memory! Data size:"
+          << data.length();
+      // 调试: 打印前 50 个字符
+      qWarning() << "Data prefix:" << data.left(50);
+    }
+    return shape;
   }
-  return shape;
 }
 
 void OCCTWidget::displayShape(const TopoDS_Shape &shape,

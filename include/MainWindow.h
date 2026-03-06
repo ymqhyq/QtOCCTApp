@@ -49,6 +49,7 @@ private slots:
   void onDrawFoundation();            // 绘制避雷针基础
   void onDrawBedStone();              // 绘制垫石
   void onDrawBearing();               // 绘制支座
+  void onExportStepClicked();         // 导出为STEP
   void onMousePositionChanged(double x, double y, double z);
   void onObjectSelected(const QVariantMap &metadata);
 

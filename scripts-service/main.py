@@ -43,6 +43,7 @@ class ScriptRequest(BaseModel):
     code: str
     args: Dict[str, Any] = {}
     model_type: Optional[str] = None
+    format: Optional[str] = "step" # Default to 'step' but can be 'brep'
 
 
 def _get_worker_env():
@@ -114,7 +115,9 @@ class WorkerPool:
     
     async def execute(self, code_file: str, args_file: str, output_path: str) -> tuple[bool, dict]:
         """向空闲工作进程分发一个任务"""
+        logger.info(f"等待空闲工作进程... (当前队列大小: {self.available.qsize()})")
         worker = await self.available.get()
+        logger.info(f"获取工作进程 PID {worker.pid}")
         updated_args = {}
         
         try:
@@ -132,10 +135,14 @@ class WorkerPool:
             
             # 等待结果（最多 120 秒）
             line = await asyncio.wait_for(worker.stdout.readline(), timeout=120.0)
-            result = line.decode().strip()
+            try:
+                result = line.decode('utf-8').strip()
+            except UnicodeDecodeError:
+                result = line.decode('gbk', errors='ignore').strip()
             
             if result == "OK":
                 await self.available.put(worker)
+                logger.info(f"工作进程 PID {worker.pid} 任务完成 (OK)")
                 # 尝试读取导出的参数
                 out_args_path = args_file + ".out"
                 if os.path.exists(out_args_path):
@@ -148,6 +155,7 @@ class WorkerPool:
                 return True, updated_args
             elif result == "ERR":
                 await self.available.put(worker)
+                logger.info(f"工作进程 PID {worker.pid} 任务失败 (ERR)")
                 return False, {}
             else:
                 # 异常输出，进程可能已损坏
@@ -165,7 +173,7 @@ class WorkerPool:
             if replacement:
                 await self.available.put(replacement)
             
-            return False
+            return False, {}
     
     async def shutdown(self):
         """关闭所有工作进程"""
@@ -230,7 +238,14 @@ async def shutdown_event():
 async def generate_model(request: ScriptRequest):
     load_schemas() # 调试期间确保 Schema 始终最新
     task_id = str(uuid.uuid4())
-    output_path = os.path.join(WORKSPACE, f"{task_id}.brep")
+    
+    # 根据请求指定格式（默认 step）
+    ext = (request.format or "step").lower()
+    if ext not in ["step", "brep", "iges", "stl"]:
+        ext = "step"
+        
+    output_path = os.path.join(WORKSPACE, f"{task_id}.{ext}")
+    logger.info(f"生成任务 {task_id}: 格式={ext}, 模型类型={request.model_type}")
     
     code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
     args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
@@ -241,8 +256,12 @@ async def generate_model(request: ScriptRequest):
         if not code and request.model_type:
             script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "cq_script", f"{request.model_type}.py"))
             if os.path.exists(script_path):
-                with open(script_path, "r", encoding="utf-8") as sf:
-                    code = sf.read()
+                try:
+                    with open(script_path, "r", encoding="utf-8") as sf:
+                        code = sf.read()
+                except UnicodeDecodeError:
+                    with open(script_path, "r", encoding="gbk") as sf:
+                        code = sf.read()
             else:
                 raise HTTPException(status_code=400, detail=f"未找到脚本: {script_path}")
         
@@ -319,10 +338,11 @@ async def generate_model(request: ScriptRequest):
 
 
 @app.get("/api/v1/model/download/{task_id}")
-async def download_model(task_id: str):
-    file_path = os.path.join(WORKSPACE, f"{task_id}.brep")
+async def download_model(task_id: str, ext: str = "step"):
+    file_path = os.path.join(WORKSPACE, f"{task_id}.{ext}")
     if os.path.exists(file_path):
-        return FileResponse(path=file_path, filename=f"{task_id}.brep", media_type="application/octet-stream")
+        from fastapi.responses import FileResponse
+        return FileResponse(path=file_path, filename=f"{task_id}.{ext}", media_type="application/octet-stream")
     raise HTTPException(status_code=404, detail="文件未找到")
 
 

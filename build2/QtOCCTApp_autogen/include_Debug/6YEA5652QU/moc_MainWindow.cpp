@@ -51,6 +51,7 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "onDrawFoundation",
         "onDrawBedStone",
         "onDrawBearing",
+        "onExportStepClicked",
         "onMousePositionChanged",
         "x",
         "y",
@@ -83,17 +84,19 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(9, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onDrawBearing'
         QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onExportStepClicked'
+        QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onMousePositionChanged'
-        QtMocHelpers::SlotData<void(double, double, double)>(11, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { QMetaType::Double, 12 }, { QMetaType::Double, 13 }, { QMetaType::Double, 14 },
+        QtMocHelpers::SlotData<void(double, double, double)>(12, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Double, 13 }, { QMetaType::Double, 14 }, { QMetaType::Double, 15 },
         }}),
         // Slot 'onObjectSelected'
-        QtMocHelpers::SlotData<void(const QVariantMap &)>(15, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 16, 17 },
+        QtMocHelpers::SlotData<void(const QVariantMap &)>(16, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 17, 18 },
         }}),
         // Slot 'onCqNetworkReply'
-        QtMocHelpers::SlotData<void(QNetworkReply *, int)>(18, 2, QMC::AccessPrivate, QMetaType::Void, {{
-            { 0x80000000 | 19, 20 }, { QMetaType::Int, 21 },
+        QtMocHelpers::SlotData<void(QNetworkReply *, int)>(19, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { 0x80000000 | 20, 21 }, { QMetaType::Int, 22 },
         }}),
     };
     QtMocHelpers::UintData qt_properties {
@@ -127,16 +130,17 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 6: _t->onDrawFoundation(); break;
         case 7: _t->onDrawBedStone(); break;
         case 8: _t->onDrawBearing(); break;
-        case 9: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
-        case 10: _t->onObjectSelected((*reinterpret_cast<std::add_pointer_t<QVariantMap>>(_a[1]))); break;
-        case 11: _t->onCqNetworkReply((*reinterpret_cast<std::add_pointer_t<QNetworkReply*>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
+        case 9: _t->onExportStepClicked(); break;
+        case 10: _t->onMousePositionChanged((*reinterpret_cast<std::add_pointer_t<double>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[2])),(*reinterpret_cast<std::add_pointer_t<double>>(_a[3]))); break;
+        case 11: _t->onObjectSelected((*reinterpret_cast<std::add_pointer_t<QVariantMap>>(_a[1]))); break;
+        case 12: _t->onCqNetworkReply((*reinterpret_cast<std::add_pointer_t<QNetworkReply*>>(_a[1])),(*reinterpret_cast<std::add_pointer_t<int>>(_a[2]))); break;
         default: ;
         }
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
         switch (_id) {
         default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
-        case 11:
+        case 12:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 0:
@@ -166,14 +170,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 12)
+        if (_id < 13)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 12;
+        _id -= 13;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 12)
+        if (_id < 13)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 12;
+        _id -= 13;
     }
     return _id;
 }

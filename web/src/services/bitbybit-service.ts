@@ -1,7 +1,7 @@
-import { Engine, Scene, Vector3, HemisphericLight, DirectionalLight, ArcRotateCamera, Color4, Color3 } from "@babylonjs/core";
-import { BitByBitBase } from "@bitbybit-dev/babylonjs";
-// Import worker URLs or create workers (vite can bundle workers)
-import OCCTWorker from "@bitbybit-dev/occt-worker/lib/occ-worker/occ-worker.js?worker";
+import { BitByBitBase, Inputs, initBitByBit, initBabylonJS, type InitBitByBitOptions } from "@bitbybit-dev/babylonjs";
+// Must import loaders to support GLB/GLTF loading
+import "@babylonjs/loaders";
+import * as BABYLON from "@babylonjs/core";
 
 export class BitbybitService {
     private static instance: BitbybitService;
@@ -17,63 +17,81 @@ export class BitbybitService {
     }
 
     public async init(canvas: HTMLCanvasElement) {
-        // 1. Initialize BabylonJS Engine and Scene
-        const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-        const scene = new Scene(engine);
-        scene.clearColor = new Color4(0.1, 0.1, 0.1, 1);
+        console.log("Starting BitbybitService.init matching official examples...");
 
-        // 2. Setup Camera and Light
-        const camera = new ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.5, 50, Vector3.Zero(), scene);
-        camera.attachControl(canvas, true);
+        // Ensure canvas has the ID expected by initBabylonJS
+        if (!canvas.id) {
+            canvas.id = "babylon-canvas";
+        }
 
-        // Hemispheric light for basic ambient illumination
-        const hemiLight = new HemisphericLight("hemiLight", new Vector3(0, 1, 0), scene);
-        hemiLight.intensity = 0.6;
-        hemiLight.specular = new Color3(0.1, 0.1, 0.1);
-        hemiLight.groundColor = new Color3(0.3, 0.3, 0.3); // 补充来自底部的环境反射光
+        // Match Official Example's InitBabylonJSDto settings
+        const babylonOptions = new Inputs.BabylonJSScene.InitBabylonJSDto();
+        babylonOptions.canvasId = canvas.id;
+        babylonOptions.sceneSize = 200;
+        babylonOptions.enableShadows = true;
+        babylonOptions.enableGround = false; // We might not want the ground for a CAD viewer initially
+        babylonOptions.groundColor = "#333333";
+        babylonOptions.groundCenter = [0, -75, 0];
+        // 提升官方初始化默认打光强度解决无光照死黑问题
+        babylonOptions.hemisphereLightIntensity = 2.5;
+        babylonOptions.directionalLightIntensity = 3.0;
 
-        // Directional light to simulate a primary light source (like the sun or a strong studio light)
-        const dirLight = new DirectionalLight("dirLight", new Vector3(-1, -2, -1), scene);
-        dirLight.position = new Vector3(20, 40, 20);
-        dirLight.intensity = 0.8;
-
-        // 3. Start render loop
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
-
-        // 4. Initialize BitByBit
+        // This will create Engine, Scene, and Default Lights just like the official example
+        const { scene, engine, hemisphericLight, directionalLight } = initBabylonJS(babylonOptions);
         const bitbybit = new BitByBitBase();
 
-        // Spawn OCCT worker using Vite's ?worker syntax
-        const occtWorker = new OCCTWorker();
+        // Use standard CDN workers by default, matching starter-template
+        const options: InitBitByBitOptions = {
+            enableOCCT: true,
+            enableJSCAD: false,
+            enableManifold: false,
+        };
 
-        bitbybit.init(scene as any, occtWorker);
+        try {
+            console.log("Calling initBitByBit...");
+            await initBitByBit(scene, bitbybit, options);
+            console.log("BitByBit kernel initialized successfully!");
+        } catch (initErr) {
+            console.error("Critical error during BitByBit core initialization:", initErr);
+            throw initErr;
+        }
 
         this.bitbybit = bitbybit;
 
+        // 对官方生成好的标准光源进行二次调优 (模拟 CAD 经典三点打光或全景打光环境)
+        if (hemisphericLight) {
+            hemisphericLight.direction = new BABYLON.Vector3(0, 1, 0);
+        }
+
+        if (directionalLight) {
+            // 将默认的方向光作为强的主侧光
+            directionalLight.direction = new BABYLON.Vector3(-1, -2, -1);
+        }
+
+        // 添加一个补光灯保证暗面也能被照亮
+        const fillLight = new BABYLON.DirectionalLight(
+            "fillLight",
+            new BABYLON.Vector3(1, 0.5, 1),
+            scene as any
+        );
+        fillLight.intensity = 2.0;
+
+        // Start render loop
+        engine.runRenderLoop(() => {
+            if (scene.activeCamera) {
+                scene.render();
+            }
+        });
+
         // Optional: Configure scene settings
         this.bitbybit.babylon.scene.backgroundColour({ colour: "#1a1a1b" });
-
-        // Draw a test box using OCCT worker to verify CAD modeling integration
-        this.bitbybit.occt.shapes.solid.createBox({
-            width: 15,
-            length: 15,
-            height: 15,
-            center: [0, 0, 0]
-        }).then(async (boxSolid) => {
-            // Draw the generated solid mesh into the scene
-            await this.bitbybit.draw.drawAnyAsync({ entity: boxSolid });
-        }).catch(err => {
-            console.error("Failed to render OCCT box:", err);
-        });
 
         return bitbybit;
     }
 
     public async clearScene() {
         if (this.bitbybit && this.bitbybit.context && this.bitbybit.context.scene) {
-            // Scene clear logic if needed, or loop meshes
+            // Scene clear logic if needed
         }
     }
 }

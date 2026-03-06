@@ -2,10 +2,13 @@
   --bg-primary: #1e1e1e;
   --bg-secondary: #252526;
   --bg-tertiary: #2d2d30;
-  --border-color: #3e3e42;
+  --border-primary: #3e3e42;
   --accent-color: #007acc;
-  --text-main: #cccccc;
+  --cad-blue: #4a9eff;
+  --text-primary: #cccccc;
+  --text-secondary: #858585;
   --text-bright: #ffffff;
+  --text-main: #e0e0e0;
   --header-height: 48px;
   --sidebar-width: 260px;
   --status-height: 24px;
@@ -46,11 +49,11 @@ body {
 .ribbon {
   grid-area: ribbon;
   background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-primary);
   display: flex;
   align-items: center;
   padding: 0 15px;
-  gap: 20px;
+  gap: 15px;
 }
 
 .ribbon-item {
@@ -69,10 +72,28 @@ body {
   color: white;
 }
 
+.btn-generate {
+  background-color: var(--cad-blue);
+  color: white;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 13px;
+  margin-left: 20px;
+  transition: opacity 0.2s;
+}
+
+.btn-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .sidebar {
   grid-area: sidebar;
   background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -85,6 +106,7 @@ body {
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .sidebar-content {
@@ -101,8 +123,9 @@ body {
 
 .status-bar {
   grid-area: status;
-  background-color: var(--accent-color);
-  color: white;
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border-primary);
+  color: var(--text-secondary);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -125,6 +148,17 @@ body {
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #444;
+.loading-overlay-app {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  z-index: 1000;
+  font-size: 14px;
 }

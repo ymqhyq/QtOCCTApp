@@ -9,8 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babylonjs/core": "^7.54.3",
-    "@babylonjs/materials": "^7.54.3",
+    "@babylonjs/core": "^8.49.6",
+    "@babylonjs/loaders": "^8.49.6",
+    "@babylonjs/materials": "^8.49.6",
     "@bitbybit-dev/babylonjs": "^1.0.0-rc.1",
     "@bitbybit-dev/occt": "^1.0.0-rc.1",
     "@bitbybit-dev/occt-worker": "^1.0.0-rc.1",
@@ -25,6 +26,6 @@
     "vite-plugin-node-polyfills": "^0.25.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0",
-    "vue-tsc": "^1.8.0"
+    "vue-tsc": "^3.2.5"
   }
 }

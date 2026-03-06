@@ -48,6 +48,7 @@ public:
   void loadBrepFile(const QString &filename,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
+  void exportToSTEP(const QString &filename);
   void drawBridgePier();            // 绘制流线型桥墩
   void drawFullBridgePier();        // 绘制完全体桥墩
   void annotateBridgePierFooting(); // 标注桥墩承台尺寸

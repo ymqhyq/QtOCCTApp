@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QDir>
 #include <QDockWidget>
+#include <QFileDialog>
 #include <QIcon>
 #include <QLabel>
 #include <QLineEdit>
@@ -93,6 +94,12 @@ void MainWindow::createRibbon() {
   connect(randLineAction, &QAction::triggered,
           [this]() { m_occtWidget->generateRandomLines(10000); });
   panelBasic->addLargeAction(randLineAction);
+
+  QAction *exportStepAction =
+      new QAction(QIcon(":/resources/icons/export.svg"), "Export STEP", this);
+  connect(exportStepAction, &QAction::triggered, this,
+          &MainWindow::onExportStepClicked);
+  panelBasic->addLargeAction(exportStepAction);
 
   // View Panel
   SARibbonPanel *panelView = categoryMain->addPanel("View");
@@ -797,9 +804,11 @@ void MainWindow::sendScriptToMicroservice(const QString &code,
   req["code"] = code;
   req["args"] = args;
   req["model_type"] = modelType;
+  req["format"] = "brep";
 
   QJsonDocument doc(req);
   QByteArray postData = doc.toJson();
+  qDebug() << "Sending request to microservice:" << postData;
 
   QNetworkRequest request(QUrl("http://127.0.0.1:8000/api/v1/model/generate"));
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
@@ -1117,4 +1126,13 @@ QString MainWindow::readScript(const QString &modelName) {
     return QString::fromUtf8(file.readAll());
   }
   return QString("# 找不到脚本文件: %1").arg(path);
+}
+
+void MainWindow::onExportStepClicked() {
+  QString filename = QFileDialog::getSaveFileName(
+      this, "导出为 STEP 文件", "", "STEP 文件 (*.step *.stp);;所有文件 (*.*)");
+
+  if (!filename.isEmpty()) {
+    m_occtWidget->exportToSTEP(filename);
+  }
 }
