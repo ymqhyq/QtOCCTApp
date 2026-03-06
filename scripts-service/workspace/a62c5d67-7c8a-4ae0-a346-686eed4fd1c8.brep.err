@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "D:\QtOCCTApp\scripts-service\pool_worker.py", line 70, in <module>
-    execute_task(code, args, output_path)
-    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\QtOCCTApp\scripts-service\pool_worker.py", line 43, in execute_task
-    if shape_to_export is None or shape_to_export.IsNull():
-                                  ^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'OCP.gp.gp_Vec' object has no attribute 'IsNull'

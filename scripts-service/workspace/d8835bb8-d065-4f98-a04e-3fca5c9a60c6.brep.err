@@ -1,9 +1,0 @@
-Traceback (most recent call last):
-  File "D:\QtOCCTApp\scripts-service\pool_worker.py", line 89, in <module>
-    execute_task(code, args, output_path, args_file)
-    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "D:\QtOCCTApp\scripts-service\pool_worker.py", line 21, in execute_task
-    exec(code, local_vars, local_vars)
-    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "<string>", line 11, in <module>
-TypeError: '>' not supported between instances of 'NoneType' and 'int'
