@@ -279,6 +279,9 @@ foreach(OCCT_LIB_NAME ${OCCT_LIBRARIES_NAMES})
     target_link_libraries(${PROJECT_NAME} ${OCCT_LIB_NAME})
 endforeach()
 
+# Link TKDEGLTF for GLTF support
+target_link_libraries(${PROJECT_NAME} "TKDEGLTF")
+
 # Set C++ properties for OCCT
 set_target_properties(${PROJECT_NAME} PROPERTIES
     CXX_STANDARD 17

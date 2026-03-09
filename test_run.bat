@@ -6,9 +6,9 @@ REM --- Attempt to find Miniforge/Anaconda Root ---
 set MINIFORGE_ROOT=""
 if exist "%USERPROFILE%\miniforge3\Scripts\activate.bat" (
     set MINIFORGE_ROOT=%USERPROFILE%\miniforge3
+) else if exist "D:\ProgramData\miniforge3\Scripts\activate.bat" (
+    set MINIFORGE_ROOT=D:\ProgramData\miniforge3
 ) else if exist "C:\ProgramData\miniforge3\Scripts\activate.bat" (
-    set MINIFORGE_ROOT=C:\ProgramData\miniforge3
-) else if exist "C:\miniforge3\Scripts\activate.bat" (
     set MINIFORGE_ROOT=C:\miniforge3
 ) else if exist "%USERPROFILE%\anaconda3\Scripts\activate.bat" (
     set MINIFORGE_ROOT=%USERPROFILE%\anaconda3
