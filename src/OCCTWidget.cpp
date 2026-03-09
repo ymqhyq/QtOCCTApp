@@ -38,12 +38,27 @@
 #include <gp_Pln.hxx>
 #include <gp_Trsf.hxx>
 
-
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
       m_graphicDriver(nullptr), m_aspectWindow(nullptr),
-      m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false) {
+      m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
+      m_frameCount(0), m_fps(0.0), m_shapeCount(0) {
   setFocusPolicy(Qt::StrongFocus);
+
+  // 初始化信息叠加标签
+  m_infoLabel = new QLabel(this);
+  m_infoLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+  m_infoLabel
+      ->winId(); // 强制创建原生窗口，以确保在 WA_PaintOnScreen 表面上可见
+  m_infoLabel->setStyleSheet(
+      "QLabel { background-color: rgba(0, 0, 0, 100); color: cyan; "
+      "font-weight: bold; border-radius: 5px; padding: 5px; }");
+  m_infoLabel->move(10, 10);
+  m_infoLabel->show();
+
+  // 启动定时刷新，确保 FPS 和信息每帧刷新
+  connect(&m_refreshTimer, &QTimer::timeout, this, [this]() { update(); });
+  m_refreshTimer.start(16); // 约 60 FPS
 
   // Set required attributes for OCCT integration
   setAttribute(Qt::WA_PaintOnScreen);
@@ -116,6 +131,35 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
   Q_UNUSED(event);
   if (!m_view.IsNull()) {
     m_view->Redraw();
+  }
+
+  // 计算 FPS
+  m_frameCount++;
+  if (!m_fpsTimer.isValid()) {
+    m_fpsTimer.start();
+  } else {
+    qint64 elapsed = m_fpsTimer.elapsed();
+    if (elapsed >= 1000) {
+      m_fps = m_frameCount * 1000.0 / elapsed;
+      m_frameCount = 0;
+      m_fpsTimer.restart();
+    }
+  }
+
+  // 统计模型数量
+  if (!m_context.IsNull()) {
+    NCollection_List<Handle(AIS_InteractiveObject)> displayed;
+    m_context->DisplayedObjects(displayed);
+    m_shapeCount = displayed.Extent();
+  }
+
+  // 更新信息叠加显示
+  if (m_infoLabel) {
+    m_infoLabel->raise(); // 确保标签始终在最顶层
+    QString info =
+        QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
+    m_infoLabel->setText(info);
+    m_infoLabel->adjustSize();
   }
 }
 
@@ -1041,6 +1085,82 @@ void OCCTWidget::exportToSTEP(const QString &filename) {
   } else {
     QMessageBox::warning(this, "警告", "没有找到可导出的几何体。");
   }
+}
+
+#if __has_include(<RWGltf_CafWriter.hxx>)
+#include <Message_ProgressRange.hxx>
+#include <RWGltf_CafWriter.hxx>
+#if __has_include(<TColStd_IndexedDataMapOfStringString.hxx>)
+#include <TColStd_IndexedDataMapOfStringString.hxx>
+#else
+#include <NCollection_IndexedDataMap.hxx>
+#include <TCollection_AsciiString.hxx>
+// In OCCT 8.0+, TColStd_IndexedDataMapOfStringString is deprecated and moved
+typedef NCollection_IndexedDataMap<TCollection_AsciiString,
+                                   TCollection_AsciiString>
+    TColStd_IndexedDataMapOfStringString;
+#endif
+#include <TDocStd_Document.hxx>
+#include <XCAFApp_Application.hxx>
+#include <XCAFDoc_ColorTool.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+
+#endif
+
+void OCCTWidget::exportToGLTF(const QString &filename) {
+  if (m_context.IsNull())
+    return;
+
+#if __has_include(<RWGltf_CafWriter.hxx>)
+  Handle(TDocStd_Document) doc;
+  Handle(TDocStd_Application) app = XCAFApp_Application::GetApplication();
+  app->NewDocument("BinXCAF", doc);
+  Handle(XCAFDoc_ShapeTool) shapeTool =
+      XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+  Handle(XCAFDoc_ColorTool) colorTool =
+      XCAFDoc_DocumentTool::ColorTool(doc->Main());
+
+  NCollection_List<Handle(AIS_InteractiveObject)> displayedObjects;
+  m_context->DisplayedObjects(displayedObjects);
+
+  int shapeCount = 0;
+  for (NCollection_List<Handle(AIS_InteractiveObject)>::Iterator it(
+           displayedObjects);
+       it.More(); it.Next()) {
+    Handle(AIS_InteractiveObject) obj = it.Value();
+    Handle(AIS_Shape) shapeObj = Handle(AIS_Shape)::DownCast(obj);
+    if (!shapeObj.IsNull()) {
+      TDF_Label label = shapeTool->AddShape(shapeObj->Shape(), false);
+      Quantity_Color color;
+      if (shapeObj->HasColor()) {
+        shapeObj->Color(color);
+        colorTool->SetColor(label, color, XCAFDoc_ColorGen);
+      }
+      shapeCount++;
+    }
+  }
+
+  if (shapeCount > 0) {
+    RWGltf_CafWriter writer(filename.toUtf8().constData(), true);
+    TColStd_IndexedDataMapOfStringString fileInfo;
+    Message_ProgressRange progress;
+    bool status = writer.Perform(doc, fileInfo, progress);
+    if (status) {
+      QMessageBox::information(
+          this, "导出成功",
+          QString("成功导出 %1 个几何体到 %2").arg(shapeCount).arg(filename));
+    } else {
+      QMessageBox::critical(this, "错误", "无法写入 GLTF 文件。");
+    }
+  } else {
+    QMessageBox::warning(this, "警告", "没有找到可导出的几何体。");
+  }
+#else
+  QMessageBox::critical(this, "错误",
+                        "当前 OCCT 版本/编译未包含 GLTF 导出支持 (需编译 "
+                        "TKDEGLTF 并包含 RWGltf_CafWriter.hxx)。");
+#endif
 }
 
 void OCCTWidget::annotateBridgePierFooting() {

@@ -101,6 +101,12 @@ void MainWindow::createRibbon() {
           &MainWindow::onExportStepClicked);
   panelBasic->addLargeAction(exportStepAction);
 
+  QAction *exportGltfAction =
+      new QAction(QIcon(":/resources/icons/export.svg"), "Export GLTF", this);
+  connect(exportGltfAction, &QAction::triggered, this,
+          &MainWindow::onExportGltfClicked);
+  panelBasic->addLargeAction(exportGltfAction);
+
   // View Panel
   SARibbonPanel *panelView = categoryMain->addPanel("View");
   QAction *fitAllAction =
@@ -202,7 +208,7 @@ void MainWindow::createRibbon() {
     m_occtWidget->clearAll();
     m_isAssembling = true;
     m_isBatchProcessing = false;
-    m_bridgePierCount = 100;
+    m_bridgePierCount = 300;
     m_bridgePierSpacing = 31600.0; // 31.6m spacing (31.5m girder + 10cm gap)
     m_completedTasks = 0;
     m_assemblyParts.clear();
@@ -1134,5 +1140,14 @@ void MainWindow::onExportStepClicked() {
 
   if (!filename.isEmpty()) {
     m_occtWidget->exportToSTEP(filename);
+  }
+}
+
+void MainWindow::onExportGltfClicked() {
+  QString filename = QFileDialog::getSaveFileName(
+      this, "导出为 GLTF 文件", "", "GLTF 文件 (*.gltf *.glb);;所有文件 (*.*)");
+
+  if (!filename.isEmpty()) {
+    m_occtWidget->exportToGLTF(filename);
   }
 }
