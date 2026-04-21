@@ -737,7 +737,7 @@ void MainWindow::setupCadQueryUi() {
         "ct2 = cq.Workplane('XY').workplane(offset=-(pierHeight + "
         "1500)).box(8959, 5905, 1000)\n"
         "# === Assembly 装配 (桩共享同一几何) ===\n"
-        "pile = cq.Workplane('XY').circle(500).extrude(6000)\n"
+        "pile = cq.Workplane('XY').circle(500).extrude(-6000)\n"
         "assy = cq.Assembly()\n"
         "assy.add(tuopan, name='tuopan')\n"
         "assy.add(dingmao, name='dingmao')\n"
@@ -747,7 +747,7 @@ void MainWindow::setupCadQueryUi() {
         "for xi in [-2500, 0, 2500]:\n"
         "    for yi in [-1500, 1500]:\n"
         "        assy.add(pile,\n"
-        "            loc=cq.Location((xi, yi, -(pierHeight + 8000))),\n"
+        "            loc=cq.Location((xi, yi, -(pierHeight + 2000))),\n"
         "            name=f'pile_{xi}_{yi}')\n"
         "result = assy.toCompound()\n"
         "material = 'plastic'\n");
@@ -816,7 +816,8 @@ void MainWindow::sendScriptToMicroservice(const QString &code,
   QByteArray postData = doc.toJson();
   qDebug() << "Sending request to microservice:" << postData;
 
-  QNetworkRequest request(QUrl("http://127.0.0.1:8000/api/v1/model/generate"));
+  QNetworkRequest request(QUrl(
+      "http://127.0.0.1:3500/v1.0/invoke/modeling-service/method/api/v1/model/generate"));
   request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 
   QNetworkReply *reply = m_networkManager->post(request, postData);

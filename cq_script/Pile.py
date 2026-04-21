@@ -7,7 +7,7 @@ layout = globals().get('layout', "2x3")
 hSpacing = globals().get('hSpacing', 2500.0)
 vSpacing = globals().get('vSpacing', 3000.0)
 
-pile = cq.Workplane('XY').circle(diameter / 2.0).extrude(length)
+pile = cq.Workplane('XY').circle(diameter / 2.0).extrude(-length)
 assy = cq.Assembly()
 
 if layout == "2x3":
@@ -25,7 +25,7 @@ else:
 
 for xi in xs:
     for yi in ys:
-        assy.add(pile, loc=cq.Location((xi, yi, -(pierHeight + 8000.0))))
+        assy.add(pile, loc=cq.Location((xi, yi, -(pierHeight + 2000.0))))
 
 result = assy.toCompound()
 material = 'brass'

@@ -43,7 +43,7 @@ dunshen = w.loft()
 
 ct1 = cq.Workplane('XY').workplane(offset=-(pierHeight + 500.0)).box(7682, 4444, 1000)
 ct2 = cq.Workplane('XY').workplane(offset=-(pierHeight + 1500.0)).box(8959, 5905, 1000)
-pile = cq.Workplane('XY').circle(500).extrude(6000)
+pile = cq.Workplane('XY').circle(500).extrude(-6000)
 
 assy = cq.Assembly()
 assy.add(tuopan)
@@ -53,7 +53,7 @@ assy.add(ct1)
 assy.add(ct2)
 for xi in [-2500, 0, 2500]:
     for yi in [-1500, 1500]:
-        assy.add(pile, loc=cq.Location((xi, yi, -(pierHeight + 8000.0))))
+        assy.add(pile, loc=cq.Location((xi, yi, -(pierHeight + 2000.0))))
 
 single = assy.toCompound()
 result = single.translate((0, yOffset_val, 0))

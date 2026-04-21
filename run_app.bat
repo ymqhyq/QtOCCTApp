@@ -24,7 +24,7 @@ set PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_3RD_FREETYE%;%OCCT_3RD_TBB%;%OCCT_3RD_FREEIMA
 
 echo Environment configured. > run_debug.log
 echo Starting QtOCCTApp...
-"d:\QtOCCTApp\build2\Debug\QtOCCTApp.exe"
+"d:\QtOCCTApp\build\Debug\QtOCCTApp.exe"
 if %ERRORLEVEL% NEQ 0 (
     echo Application exited with error code: %ERRORLEVEL%
     pause

@@ -13,8 +13,8 @@ echo   OCCT Modeling Microservice
 echo   http://127.0.0.1:8000
 echo ========================================
 echo.
-echo Starting service...
-"%MY_PYTHON_EXE%" "%~dp0scripts-service\main.py"
+echo Starting service with Dapr...
+dapr run --app-id modeling-service --app-port 8000 --dapr-http-port 3500 --max-body-size 32Mi -- "%MY_PYTHON_EXE%" "%~dp0scripts-service\main.py"
 
 if %ERRORLEVEL% NEQ 0 (
     echo Service exited with error code: %ERRORLEVEL%

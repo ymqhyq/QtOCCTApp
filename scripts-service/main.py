@@ -9,6 +9,10 @@ import json
 import asyncio
 import logging
 import struct
+import hashlib
+import base64
+import urllib.request
+import urllib.error
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,165 +37,98 @@ WEB_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "web"))
 os.makedirs(WORKSPACE, exist_ok=True)
 os.makedirs(WEB_DIR, exist_ok=True)
 
-POOL_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pool_worker.py")
-FALLBACK_WORKER_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker.py")
-
-# 工作进程池大小（建议 CPU 核心数的 50-75%）
-POOL_SIZE = 8
-
 class ScriptRequest(BaseModel):
     code: str
     args: Dict[str, Any] = {}
     model_type: Optional[str] = None
-    format: Optional[str] = "step" # Default to 'step' but can be 'brep'
+    format: Optional[str] = "step"
+
+import traceback
+import cadquery as cq
+from OCP.TopoDS import TopoDS_Shape
+from OCP.BRepTools import BRepTools
+
+# 全局锁：保证单进程内的 CadQuery（特别是 multimethod 分发字典）执行严格串行，防止多线程重入报错
+cq_lock = asyncio.Lock()
 
 
-def _get_worker_env():
-    """构建子进程环境变量"""
-    env = os.environ.copy()
-    python_dir = os.path.dirname(sys.executable)
-    lib_bin = os.path.join(python_dir, "Library", "bin")
-    if os.path.exists(lib_bin) and lib_bin.lower() not in env.get("PATH", "").lower():
-        env["PATH"] = lib_bin + os.pathsep + env.get("PATH", "")
-    return env
-
-_WORKER_ENV = _get_worker_env()
-
-
-class WorkerPool:
-    """
-    预热的常驻工作进程池。
-    每个工作进程在启动时完成 cadquery 的导入（约1-2秒），
-    之后通过 stdin 管道持续接收任务，无需重复导入。
-    """
+def execute_task(code, args, output_path):
+    """在当前进程中执行 CadQuery 脚本并导出"""
+    local_vars = {"cq": cq}
+    for k, v in args.items():
+        if isinstance(v, str):
+            v_stripped = v.strip()
+            if v_stripped == "": continue
+            try: v = float(v_stripped)
+            except ValueError: pass
+        local_vars[k] = v
     
-    def __init__(self, size: int = POOL_SIZE):
-        self.size = size
-        self.available: asyncio.Queue = asyncio.Queue()
-        self._all_workers = []
-        self._lock = asyncio.Lock()
+    exec(code, local_vars, local_vars)
     
-    async def start(self):
-        """启动所有工作进程并等待预热完成"""
-        logger.info(f"正在预热 {self.size} 个工作进程（导入 cadquery）...")
-        tasks = [self._spawn_worker(i) for i in range(self.size)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        ready_count = 0
-        for i, result in enumerate(results):
-            if isinstance(result, asyncio.subprocess.Process):
-                self._all_workers.append(result)
-                await self.available.put(result)
-                ready_count += 1
-            else:
-                logger.warning(f"工作进程 {i} 启动失败: {result}")
-        
-        logger.info(f"工作进程池就绪: {ready_count}/{self.size} 个进程已预热")
-    
-    async def _spawn_worker(self, worker_id: int = 0):
-        """启动一个工作进程并等待其发出 READY 信号"""
-        proc = await asyncio.create_subprocess_exec(
-            sys.executable, POOL_WORKER_SCRIPT,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=_WORKER_ENV
-        )
-        
-        try:
-            # 等待 READY 信号（最多等 30 秒）
-            line = await asyncio.wait_for(proc.stdout.readline(), timeout=30.0)
-            if b"READY" in line:
-                logger.info(f"工作进程 #{worker_id} (PID {proc.pid}) 预热完成")
-                return proc
-            else:
-                logger.warning(f"工作进程 #{worker_id} 返回异常信号: {line}")
-                proc.kill()
-                return None
-        except asyncio.TimeoutError:
-            logger.warning(f"工作进程 #{worker_id} 预热超时")
-            proc.kill()
-            return None
-    
-    async def execute(self, code_file: str, args_file: str, output_path: str) -> tuple[bool, dict]:
-        """向空闲工作进程分发一个任务"""
-        logger.info(f"等待空闲工作进程... (当前队列大小: {self.available.qsize()})")
-        worker = await self.available.get()
-        logger.info(f"获取工作进程 PID {worker.pid}")
-        updated_args = {}
-        
-        try:
-            # 检查进程是否还活着
-            if worker.returncode is not None:
-                raise RuntimeError("工作进程已退出")
-            
-            task = json.dumps({
-                "code_file": code_file,
-                "args_file": args_file,
-                "output_path": output_path
-            })
-            worker.stdin.write((task + "\n").encode())
-            await worker.stdin.drain()
-            
-            # 等待结果（最多 120 秒）
-            line = await asyncio.wait_for(worker.stdout.readline(), timeout=120.0)
-            try:
-                result = line.decode('utf-8').strip()
-            except UnicodeDecodeError:
-                result = line.decode('gbk', errors='ignore').strip()
-            
-            if result == "OK":
-                await self.available.put(worker)
-                logger.info(f"工作进程 PID {worker.pid} 任务完成 (OK)")
-                # 尝试读取导出的参数
-                out_args_path = args_file + ".out"
-                if os.path.exists(out_args_path):
-                    try:
-                        with open(out_args_path, "r", encoding="utf-8") as f:
-                            updated_args = json.load(f)
-                        os.remove(out_args_path)
-                    except Exception as e:
-                        logger.warning(f"读取导出的参数失败: {e}")
-                return True, updated_args
-            elif result == "ERR":
-                await self.available.put(worker)
-                logger.info(f"工作进程 PID {worker.pid} 任务失败 (ERR)")
-                return False, {}
-            else:
-                # 异常输出，进程可能已损坏
-                raise RuntimeError(f"工作进程异常输出: {result}")
+    updated_args = {}
+    for k, v in local_vars.items():
+        if not k.startswith('_') and k != 'cq' and k != 'result' and k != 'shape_to_export':
+            if isinstance(v, (int, float, str, bool)):
+                updated_args[k] = v
                 
-        except Exception as e:
-            logger.warning(f"工作进程 PID {worker.pid} 异常: {e}，正在替换...")
-            try:
-                worker.kill()
-            except Exception:
-                pass
-            
-            # 启动替换进程
-            replacement = await self._spawn_worker()
-            if replacement:
-                await self.available.put(replacement)
-            
-            return False, {}
-    
-    async def shutdown(self):
-        """关闭所有工作进程"""
-        for worker in self._all_workers:
-            try:
-                if worker.returncode is None:
-                    worker.stdin.write(b"EXIT\n")
-                    await worker.stdin.drain()
-                    await asyncio.wait_for(worker.wait(), timeout=5.0)
-            except Exception:
-                try:
-                    worker.kill()
-                except Exception:
-                    pass
+    if "result" not in local_vars:
+        raise KeyError("脚本没有输出包含 'result' 变量")
+        
+    result = local_vars["result"]
+    ext = os.path.splitext(output_path)[1].upper().replace(".", "")
+    if ext not in ["STEP", "IGES", "BREP", "STL"]:
+        ext = "STEP"
+        
+    if isinstance(result, cq.Assembly):
+        if ext == "BREP":
+            cq.exporters.export(result.toCompound(), output_path, ext)
+        else:
+            result.save(output_path, ext)
+    else:
+        cq.exporters.export(result, output_path, ext)
+        
+    return updated_args
 
+def compute_cache_key(request: ScriptRequest) -> str:
+    key_dict = {
+        "model_type": request.model_type,
+        "args": request.args,
+        "code": request.code,
+        "format": request.format
+    }
+    key_str = json.dumps(key_dict, sort_keys=True)
+    return hashlib.sha256(key_str.encode('utf-8')).hexdigest()
 
-# 全局工作进程池
-worker_pool = WorkerPool(POOL_SIZE)
+def dapr_get_state(key: str):
+    dapr_port = os.getenv("DAPR_HTTP_PORT", "3500")
+    url = f"http://127.0.0.1:{dapr_port}/v1.0/state/statestore/{key}"
+    try:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req) as response:
+            if response.status == 200:
+                data = response.read()
+                if data:
+                    return json.loads(data)
+    except urllib.error.HTTPError as e:
+        if e.code not in (204, 404):
+            logger.error(f"Dapr get state HTTP Error: {e}")
+    except Exception as e:
+        logger.error(f"Dapr get state exception: {e}")
+    return None
+
+def dapr_save_state(key: str, value: dict):
+    dapr_port = os.getenv("DAPR_HTTP_PORT", "3500")
+    url = f"http://127.0.0.1:{dapr_port}/v1.0/state/statestore"
+    payload = [{"key": key, "value": value}]
+    data = json.dumps(payload).encode('utf-8')
+    try:
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'}, method='POST')
+        with urllib.request.urlopen(req) as response:
+            pass
+    except Exception as e:
+        logger.error(f"Dapr save state exception: {e}")
+
+# WorkerPool 已被移除，改为直接利用 FastAPI 并发和 Dapr 多实例部署
 
 # 加载 Schema 定义 (如果有 YAML 库用 YAML，这里暂时先预留加载逻辑)
 MODELS_SCHEMA = {}
@@ -218,8 +155,8 @@ load_schemas()
 
 @app.on_event("startup")
 async def startup_event():
-    """服务启动时预热工作进程池"""
-    await worker_pool.start()
+    """服务启动事件"""
+    pass
 
 @app.get("/api/v1/schemas")
 async def get_schemas():
@@ -227,11 +164,10 @@ async def get_schemas():
     load_schemas()
     return MODELS_SCHEMA
 
-
 @app.on_event("shutdown") 
 async def shutdown_event():
-    """服务关闭时清理工作进程"""
-    await worker_pool.shutdown()
+    """服务关闭事件"""
+    pass
 
 
 @app.post("/api/v1/model/generate")
@@ -250,6 +186,25 @@ async def generate_model(request: ScriptRequest):
     code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
     args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
     
+    # 尝试从 Dapr 缓存中获取
+    cache_key = compute_cache_key(request)
+    try:
+        cached_data = await asyncio.to_thread(dapr_get_state, cache_key)
+        if cached_data and "brep_b64" in cached_data:
+            logger.info(f"命中 Dapr 缓存: {cache_key}")
+            brep_bytes = base64.b64decode(cached_data["brep_b64"])
+            metadata = cached_data["metadata"]
+            json_bytes = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+            header = struct.pack("<I", len(json_bytes))
+            full_package = header + json_bytes + brep_bytes
+            return Response(
+                content=full_package,
+                media_type="application/octet-stream",
+                headers={"Content-Disposition": f"attachment; filename={task_id}.jhb"}
+            )
+    except Exception as e:
+        logger.error(f"读取 Dapr 缓存失败: {e}")
+        
     try:
         code = request.code
         # 如果代码为空但提供了模型类型，则尝试读取同名脚本文件
@@ -265,30 +220,17 @@ async def generate_model(request: ScriptRequest):
             else:
                 raise HTTPException(status_code=400, detail=f"未找到脚本: {script_path}")
         
-        with open(code_file, "w", encoding="utf-8") as f:
-            f.write(code)
-        with open(args_file, "w", encoding="utf-8") as f:
-            json.dump(request.args, f)
+        # 直接利用 FastAPI 线程池执行，不依赖 WorkerPool
+        # 增加 asyncio.Lock() 以防单个实例内出现多线程重入导致的 CadQuery 内部字典迭代错误
+        async with cq_lock:
+            updated_args = await asyncio.to_thread(execute_task, code, request.args, output_path)
         
-        # 分发到预热的工作进程池（非阻塞）
-        success, updated_args = await worker_pool.execute(code_file, args_file, output_path)
-        
-        # 使用更新后的参数（包含脚本计算出的结果）进行返回
         effective_args = request.args.copy()
         effective_args.update(updated_args)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # 清理临时文件
-        for f in [code_file, args_file]:
-            if os.path.exists(f):
-                os.remove(f)
-        
-    error_file = output_path + ".err"
-    if os.path.exists(error_file):
-        with open(error_file, "r", encoding="utf-8") as f:
-            err_msg = f.read()
-        raise HTTPException(status_code=400, detail=f"脚本错误:\n{err_msg}")
+        err_msg = traceback.format_exc()
+        logger.error(f"脚本执行失败: {err_msg}")
+        raise HTTPException(status_code=500, detail=f"脚本错误:\n{err_msg}")
 
     if not os.path.exists(output_path):
         raise HTTPException(status_code=500, detail="脚本执行结束但未生成任何输出文件。")
@@ -327,6 +269,17 @@ async def generate_model(request: ScriptRequest):
         # 使用小端序 (Little-endian) 以匹配 Windows/Qt 环境
         header = struct.pack("<I", len(json_bytes))
         full_package = header + json_bytes + brep_bytes
+        
+        # 存入 Dapr 缓存
+        try:
+            cache_val = {
+                "metadata": metadata,
+                "brep_b64": base64.b64encode(brep_bytes).decode('utf-8')
+            }
+            await asyncio.to_thread(dapr_save_state, cache_key, cache_val)
+            logger.info(f"模型结果已存入 Dapr 缓存: {cache_key}")
+        except Exception as e:
+            logger.error(f"保存 Dapr 缓存时发生错误: {e}")
         
         return Response(
             content=full_package,
