@@ -950,7 +950,9 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
     if (m_completedTasks == 9) {
       m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount,
                                              m_bridgePierSpacing);
-      statusBar()->showMessage("全桥拼装完成", 5000);
+      statusBar()->showMessage(
+          QString("全桥建模完成，用时 %1 ms").arg(m_batchTimer.elapsed()),
+          10000);
       m_isAssembling = false;
       m_occtWidget->fitAll();
     } else {

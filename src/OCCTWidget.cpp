@@ -1811,16 +1811,23 @@ void OCCTWidget::buildFullBridgeFromParts(
 
       pierTrsf.SetTranslation(offset);
 
-      BRepBuilderAPI_Transform xform(parts[j].shape, pierTrsf, true);
-      TopoDS_Shape shape = xform.Shape();
-
+      Handle(AIS_Shape) aisShape = new AIS_Shape(parts[j].shape);
       Quantity_Color color = Quantity_NOC_GRAY75;
       if (j >= 4 && j <= 5)
         color = Quantity_NOC_WHITE; // 垫石白色
       else if (j >= 6 && j <= 7)
         color = Quantity_NOC_GRAY30; // 支座/钢材
 
-      displayShape(shape, parts[j].material, color, false, parts[j].metadata);
+      m_context->SetDisplayMode(aisShape, 1, false);
+      m_context->SetMaterial(aisShape, parts[j].material, false);
+      m_context->SetColor(aisShape, color, false);
+      aisShape->SetLocalTransformation(pierTrsf);
+      m_context->Display(aisShape, false);
+      m_lines.push_back(aisShape);
+      
+      if (!parts[j].metadata.isEmpty()) {
+        m_objectMetadata[aisShape] = parts[j].metadata;
+      }
     }
 
     // 绘制连接当前墩到下一墩的箱梁
@@ -1835,9 +1842,18 @@ void OCCTWidget::buildFullBridgeFromParts(
         trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0));
 
         gp_Trsf girderTrsf = trans * rot;
-        BRepBuilderAPI_Transform xform(parts[8].shape, girderTrsf, true);
-        displayShape(xform.Shape(), parts[8].material, Quantity_NOC_GRAY75,
-                     false, parts[8].metadata);
+        
+        Handle(AIS_Shape) aisGirder = new AIS_Shape(parts[8].shape);
+        m_context->SetDisplayMode(aisGirder, 1, false);
+        m_context->SetMaterial(aisGirder, parts[8].material, false);
+        m_context->SetColor(aisGirder, Quantity_NOC_GRAY75, false);
+        aisGirder->SetLocalTransformation(girderTrsf);
+        m_context->Display(aisGirder, false);
+        m_lines.push_back(aisGirder);
+        
+        if (!parts[8].metadata.isEmpty()) {
+          m_objectMetadata[aisGirder] = parts[8].metadata;
+        }
       }
     }
   }
