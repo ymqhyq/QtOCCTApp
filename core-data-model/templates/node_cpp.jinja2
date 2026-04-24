@@ -1,0 +1,71 @@
+#include "{{ class_name }}.h"
+
+{% for child_name, child in children.items() %}
+#include "{{ child.class_name }}.h"
+{% endfor %}
+
+// OCCT RTTI
+IMPLEMENT_STANDARD_RTTI_EXT({{ class_name }}, {{ parent_class if parent_class else "ActData_BaseNode" }})
+
+Handle({{ class_name }}) {{ class_name }}::Instance()
+{
+    return new {{ class_name }}();
+}
+
+void {{ class_name }}::Init()
+{
+    // Initialize parent
+    {{ parent_class if parent_class else "ActData_BaseNode" }}::Init();
+
+    // Initialize parameters
+    {% for attr_name, attr in attributes.items() %}
+    this->InitParameter(PID_{{ attr_name }}, "{{ attr.label }}");
+    {% endfor %}
+}
+
+{% for attr_name, attr in attributes.items() %}
+// --- {{ attr.label }} ---
+
+void {{ class_name }}::Set{{ attr_name }}(const {{ attr.cpp_type }}& value)
+{
+    ActData_ParameterFactory::As{{ attr.act_type }}(this->Parameter(PID_{{ attr_name }}))->{{ attr.set_method }}(value);
+}
+
+{{ attr.cpp_type }} {{ class_name }}::Get{{ attr_name }}() const
+{
+    return ActData_ParameterFactory::As{{ attr.act_type }}(this->Parameter(PID_{{ attr_name }}))->{{ attr.get_method }}();
+}
+{% endfor %}
+
+// --- Children management ---
+
+{% for child_name, child in children.items() %}
+{% if child.cardinality == "1" %}
+Handle({{ child.class_name }}) {{ class_name }}::Get{{ child_name }}() const
+{
+    // Implementation: Find child by type
+    return Handle({{ child.class_name }})::DownCast(this->GetChildByStandardType(STANDARD_TYPE({{ child.class_name }})));
+}
+
+void {{ class_name }}::Set{{ child_name }}(const Handle({{ child.class_name }})& node)
+{
+    this->AddChildNode(node);
+}
+{% else %}
+void {{ class_name }}::Add{{ child_name }}(const Handle({{ child.class_name }})& node)
+{
+    this->AddChildNode(node);
+}
+
+NCollection_Sequence<Handle({{ child.class_name }})> {{ class_name }}::Get{{ child_name }}List() const
+{
+    NCollection_Sequence<Handle({{ child.class_name }})> result;
+    // Implementation: Filter children by type
+    for (int i = 1; i <= this->GetNbChildren(); ++i) {
+        Handle({{ child.class_name }}) c = Handle({{ child.class_name }})::DownCast(this->GetChild(i));
+        if (!c.IsNull()) result.Append(c);
+    }
+    return result;
+}
+{% endif %}
+{% endfor %}

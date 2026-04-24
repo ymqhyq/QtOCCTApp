@@ -1,0 +1,29 @@
+#ifndef DataModel_HeaderFile
+#define DataModel_HeaderFile
+
+#include <ActData_BaseModel.h>
+{% for entity_name, entity_data in schema.items() %}
+#include "DataNode_{{ entity_name }}.h"
+{% endfor %}
+
+/**
+ * @brief Main Data Model for the Microservice
+ */
+class DataModel : public ActData_BaseModel
+{
+public:
+    DEFINE_STANDARD_RTTI_EXT(DataModel, ActData_BaseModel)
+
+public:
+    DataModel() : ActData_BaseModel() {}
+
+    // Factory methods to create nodes
+    {% for entity_name, entity_data in schema.items() %}
+    Handle(DataNode_{{ entity_name }}) Add{{ entity_name }}() {
+        // Implementation would involve creating a new label and attaching the node
+        return Handle(DataNode_{{ entity_name }})::DownCast(this->NewNode(DataNode_{{ entity_name }}::Instance()));
+    }
+    {% endfor %}
+};
+
+#endif
