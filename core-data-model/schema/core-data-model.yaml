@@ -1,0 +1,95 @@
+# --- 0. 数据类型定义 (Supported Data Types) ---
+DataTypes:
+  Real:      { description: "双精度浮点数", act_param: "ActData_RealParameter" }
+  Int:       { description: "整数", act_param: "ActData_IntParameter" }
+  String:    { description: "字符串", act_param: "ActData_StringParameter" }
+  Bool:      { description: "布尔值", act_param: "ActData_BoolParameter" }
+  Shape:     { description: "OCCT 几何外形", act_param: "ActData_ShapeParameter" }
+  RealArray: { description: "实数数组", act_param: "ActData_RealArrayParameter" }
+  Reference: { description: "节点引用 (OCAF Link)", act_param: "ActData_ReferenceParameter" }
+  GUID:      { description: "全局唯一标识符", act_param: "ActData_StringParameter" }
+  enum:      { description: "枚举类型", act_param: "ActData_StringParameter" }
+
+# --- 1. 元模型定义 (Node Types) ---
+
+# [新] 几何原型定义节点：存储在 Definitions 分区，用于复用
+GeometricDefinition:
+  name: "几何原型"
+  attributes:
+    MasterGeometry: { type: "Shape", label: "原型几何" }
+    Creator: { type: "String", default: "System", label: "创建者" }
+    Version: { type: "Int", default: 1, label: "版本号" }
+
+Property:
+  name: "属性单元"
+  attributes:
+    PropertyName: { type: "String", default: "", label: "属性键" }
+    PropertyValue: { type: "String", default: "", label: "属性值" }
+    ValueType: { type: "String", default: "String", label: "值类型" }
+
+PropertySet:
+  name: "属性集"
+  attributes:
+    SetName: { type: "String", default: "Pset_Unknown", label: "属性集名称" }
+  children:
+    Properties: { type: "Property", cardinality: "0..*" }
+
+# [增强] 核心业务对象：支持实例化引用
+ActiveObject:
+  name: "核心对象"
+  attributes:
+    # 核心标识
+    GlobalID: { type: "String", default: "", label: "唯一标识" }
+    Name: { type: "String", default: "New Object", label: "显示名称" }
+    ObjectType: { type: "String", default: "Component", label: "对象类型" }
+    BrEntityRef: { type: "GUID", default: "", label: "外部业务实体引用(GUID)" }
+    
+    # 几何实例化 (复用逻辑)
+    # 如果 Geometry 不为空，则为独有几何；如果 GeometryRef 不为空，则引用原型
+    Geometry: { type: "Shape", label: "实例独有几何(可选)" }
+    GeometryRef: { type: "Reference", label: "复用原型引用" }
+    Transformation: { type: "RealArray", label: "实例化变换矩阵" }
+    
+    # 可视化属性
+    MaterialType: { type: "Int", default: 0, label: "显示材质" }
+    Color: { type: "Int", default: 16777215, label: "颜色(RGB)" }
+    Transparency: { type: "Real", default: 0.0, label: "透明度" }
+    Visibility: { type: "Bool", default: true, label: "可见性" }
+  children:
+    PropertySets: { type: "PropertySet", cardinality: "0..*" }
+    SubObjects: { type: "ActiveObject", cardinality: "0..*" }
+
+# --- 2. 属性集定义池 (Property Set Definitions) ---
+PropertySetDefinitions:
+  # (此处保留之前的 Pset_BridgePier, Pset_MaterialConcrete 等定义...)
+  Pset_MaterialConcrete:
+    name: "混凝土材料属性"
+    attributes:
+      StrengthGrade: { type: "enum", options: ["C30", "C35", "C40", "C50"], default: "C30", label: "强度等级" }
+  
+  Pset_BridgePierGeometry:
+    name: "桥墩几何参数"
+    attributes:
+      Height: { type: "Real", default: 15.0, label: "高度" }
+      Width:  { type: "Real", default: 2.5,  label: "宽度" }
+
+# --- 3. 数据分区规划 (Partition Mapping) ---
+# 定义系统默认的分区 Label ID 偏移
+Partitions:
+  GeometryDefinitions: { id: 1, label: "几何与属性库" }
+  Topology:            { id: 2, label: "装配与结构树" }
+  Resources:           { id: 3, label: "材质与资源" }
+  Auxiliary:           { id: 4, label: "辅助参考" }
+  Results:             { id: 5, label: "分析结果" }
+
+# --- 4. 对象类型绑定 (Object Type Mapping) ---
+ObjectTypes:
+  BridgePier:
+    name: "桥墩"
+    default_partition: "Topology"
+    PropertySets: [Pset_BridgePierGeometry, Pset_MaterialConcrete]
+  
+  SinglePile:
+    name: "单桩"
+    default_partition: "Topology"
+    PropertySets: [Pset_MaterialConcrete]

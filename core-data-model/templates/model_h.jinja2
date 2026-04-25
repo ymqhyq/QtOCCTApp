@@ -2,12 +2,17 @@
 #define DataModel_HeaderFile
 
 #include <ActData_BaseModel.h>
+#include <ActData_BaseNode.h>
+#include <TDF_Label.h>
+
 {% for entity_name, entity_data in schema.items() %}
+  {% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
 #include "DataNode_{{ entity_name }}.h"
+  {% endif %}
 {% endfor %}
 
 /**
- * @brief Main Data Model for the Microservice
+ * @brief 自动生成的业务模型管理类
  */
 class DataModel : public ActData_BaseModel
 {
@@ -15,14 +20,40 @@ public:
     DEFINE_STANDARD_RTTI_EXT(DataModel, ActData_BaseModel)
 
 public:
+    // --- 数据分区 ID (基于 YAML 定义) ---
+    enum PartitionID {
+        {% for p_id, p_info in schema.Partitions.items() %}
+        PID_{{ p_id }} = {{ p_info.id }}, // {{ p_info.label }}
+        {% endfor %}
+    };
+
     DataModel() : ActData_BaseModel() {}
 
-    // Factory methods to create nodes
+    /**
+     * @brief 初始化物理分区
+     * 在根 Label 下创建各个分区的骨架
+     */
+    void InitPartitions() {
+        TDF_Label rootLab = this->GetRootNode()->GetLabel();
+        {% for p_id, p_info in schema.Partitions.items() %}
+        rootLab.FindChild(PID_{{ p_id }}, Standard_True).SetTag(PID_{{ p_id }});
+        {% endfor %}
+    }
+
+    /**
+     * @brief 获取指定分区的根 Label
+     */
+    TDF_Label GetPartitionLabel(PartitionID pid) const {
+        return this->GetRootNode()->GetLabel().FindChild(pid, Standard_False);
+    }
+
+    // --- 工厂辅助方法 (MDA Generated) ---
     {% for entity_name, entity_data in schema.items() %}
+    {% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
     Handle(DataNode_{{ entity_name }}) Add{{ entity_name }}() {
-        // Implementation would involve creating a new label and attaching the node
         return Handle(DataNode_{{ entity_name }})::DownCast(this->NewNode(DataNode_{{ entity_name }}::Instance()));
     }
+    {% endif %}
     {% endfor %}
 };
 
