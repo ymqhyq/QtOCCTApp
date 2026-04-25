@@ -1,11 +1,16 @@
 #include "DataFactory.h"
+#include "DataModel.h"
+#include <ActData_BasePartition.h>
 
-Handle(DataNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
                                                         const TCollection_AsciiString& typeName)
 {
-    Handle(DataNode_ActiveObject) obj = Handle(DataNode_ActiveObject)::DownCast(model->NewNode(DataNode_ActiveObject::Instance()));
+    Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
+    Handle(BrNode_ActiveObject) obj = dm->AddActiveObject();
+    if (obj.IsNull()) return nullptr;
+
     obj->SetObjectType(typeName);
-    obj->SetName(typeName); // 默认名称与类型一致
+    obj->SetName(typeName);
 
     {% for type_name, type_data in object_types.items() %}
     if (typeName == "{{ type_name }}") {
@@ -18,21 +23,26 @@ Handle(DataNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_Bas
     return obj;
 }
 
-Handle(DataNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
                                                      const TCollection_AsciiString& psetName)
 {
-    Handle(DataNode_PropertySet) pset = Handle(DataNode_PropertySet)::DownCast(model->NewNode(DataNode_PropertySet::Instance()));
+    Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
+    Handle(BrNode_PropertySet) pset = dm->AddPropertySet();
+    if (pset.IsNull()) return nullptr;
+
     pset->SetSetName(psetName);
 
     {% for pset_id, pset_def in pset_defs.items() %}
     if (psetName == "{{ pset_id }}") {
         {% for prop_name, prop_data in pset_def.attributes.items() %}
         {
-            Handle(DataNode_Property) prop = Handle(DataNode_Property)::DownCast(model->NewNode(DataNode_Property::Instance()));
-            prop->SetPropertyName("{{ prop_name }}");
-            prop->SetPropertyValue("{{ prop_data.default }}");
-            prop->SetValueType("{{ prop_data.type }}");
-            pset->AddProperties(prop);
+            Handle(BrNode_Property) prop = dm->AddProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("{{ prop_name }}");
+                prop->SetPropertyValue("{{ prop_data.default }}");
+                prop->SetValueType("{{ prop_data.type }}");
+                pset->AddProperties(prop);
+            }
         }
         {% endfor %}
     }

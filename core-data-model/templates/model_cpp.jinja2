@@ -1,0 +1,49 @@
+#include "DataModel.h"
+#include <ActData_BaseNode.h>
+#include <ActData_BasePartition.h>
+
+{% for entity_name, entity_data in schema.items() %}
+  {% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
+#include "BrNode_{{ entity_name }}.h"
+  {% endif %}
+{% endfor %}
+
+IMPLEMENT_STANDARD_RTTIEXT(DataModel, ActData_BaseModel)
+
+DataModel::DataModel() : ActData_BaseModel() {}
+
+void DataModel::InitPartitions() {
+    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
+    if ( rootNode.IsNull() ) return;
+    
+    TDF_Label rootLab = rootNode->RootLabel();
+    {% for p_id, p_info in schema.Partitions.items() %}
+    rootLab.FindChild({{ p_info.id }}, Standard_True);
+    {% endfor %}
+}
+
+TDF_Label DataModel::GetPartitionLabel(const PartitionID pid) const {
+    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
+    if ( rootNode.IsNull() ) return TDF_Label();
+    return rootNode->RootLabel().FindChild((Standard_Integer) pid, Standard_False);
+}
+
+{% for entity_name, entity_data in schema.items() %}
+{% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
+Handle(BrNode_{{ entity_name }}) DataModel::Add{{ entity_name }}() {
+    {% if entity_name == "GeometricDefinition" %}
+    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_GeometryDefinitions));
+    {% else %}
+    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_Topology));
+    {% endif %}
+    if ( part.IsNull() ) return nullptr;
+
+    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_{{ entity_name }}::Instance());
+    Handle(BrNode_{{ entity_name }}) resNode = Handle(BrNode_{{ entity_name }})::DownCast(this->FindNode(nodeId));
+    if (!resNode.IsNull()) {
+        resNode->InitNode();
+    }
+    return resNode;
+}
+{% endif %}
+{% endfor %}

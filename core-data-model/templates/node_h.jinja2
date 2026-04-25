@@ -1,60 +1,68 @@
 #ifndef {{ class_name }}_HeaderFile
 #define {{ class_name }}_HeaderFile
 
-// Active Data includes (No Qt!)
+// OCCT & Active Data includes
+#include <Standard_Boolean.hxx>
+#include <Standard_Handle.hxx>
+#include <Standard_Type.hxx>
 #include <ActData_BaseNode.h>
 #include <ActData_ParameterFactory.h>
-#include <ActData_RealParameter.h>
-#include <ActData_IntParameter.h>
-#include <ActData_StringParameter.h>
-#include <ActData_ShapeParameter.h>
-#include <ActData_RealArrayParameter.h>
-#include <TopoDS_Shape.h>
-#include <TColStd_HArray1OfReal.h>
+#include <TopoDS_Shape.hxx>
+#include <TColStd_HArray1OfReal.hxx>
 #include <NCollection_Sequence.hxx>
 
-{% for entity_name in all_entity_names %}
-class DataNode_{{ entity_name }};
+// Parameter specific includes
+{% set included_params = [] %}
+{% for attr_name, attr in attributes.items() %}
+  {% if attr.act_type not in included_params %}
+#include <ActData_{{ attr.act_type }}Parameter.h>
+    {% do included_params.append(attr.act_type) %}
+  {% endif %}
 {% endfor %}
 
-{% if parent_class %}
+{% if parent_class != "ActData_BaseNode" %}
 #include "{{ parent_class }}.h"
 {% endif %}
 
+{% for child_name, child in children.items() %}
+  {% if child.class_name != class_name %}
+#include "{{ child.class_name }}.h"
+  {% endif %}
+{% endfor %}
+
 /**
- * @brief MDA Generated Node for {{ name }}
- * This class is part of the portable data model for Docker-based microservices.
+ * @brief MDA Generated Node for {{ class_name }}
  */
 class {{ class_name }} : public {{ parent_class if parent_class else "ActData_BaseNode" }}
 {
 public:
     // OCCT RTTI
-    DEFINE_STANDARD_RTTI_EXT({{ class_name }}, {{ parent_class if parent_class else "ActData_BaseNode" }})
+    DEFINE_STANDARD_RTTIEXT({{ class_name }}, {{ parent_class if parent_class else "ActData_BaseNode" }})
 
 public:
     // Parameter IDs (Tags)
     enum ParamId
     {
-        PID_{{ attributes.keys() | first if attributes else "Dummy" }} = {{ parent_class }}::PID_Last,
-{%- set first_attr = true -%}
-{%- for attr_name in attributes.keys() -%}
-    {%- if not loop.first -%}
+        PID_FirstAttr = {{ parent_class if parent_class else "ActData_BaseNode" }}::UserParam_Last,
+        {% for attr_name in attributes.keys() %}
         PID_{{ attr_name }},
-    {%- endif -%}
-{%- endfor %}
+        {% endfor %}
         PID_Last
     };
 
 public:
     static Handle({{ class_name }}) Instance();
 
-    // Initialization
-    virtual void Init();
+    // Custom initialization
+    void InitNode();
+
+    // Mandatory overrides for ActData_BaseNode
+    virtual TCollection_ExtendedString GetName() override;
+    virtual void SetName(const TCollection_ExtendedString& theName) override;
 
 public:
     // Getters / Setters (MDA Generated)
     {% for attr_name, attr in attributes.items() %}
-    // {{ attr.label }}
     void Set{{ attr_name }}(const {{ attr.cpp_type }}& value);
     {{ attr.cpp_type }} Get{{ attr_name }}() const;
     {% endfor %}
@@ -62,7 +70,6 @@ public:
 public:
     // Children management (MDA Generated)
     {% for child_name, child in children.items() %}
-    // --- {{ child_name }} ({{ child.cardinality }}) ---
     {% if child.cardinality == "1" %}
     Handle({{ child.class_name }}) Get{{ child_name }}() const;
     void Set{{ child_name }}(const Handle({{ child.class_name }})& node);
@@ -73,7 +80,7 @@ public:
     {% endfor %}
 
 protected:
-    {{ class_name }}() : ActData_BaseNode() {}
+    {{ class_name }}() : {{ parent_class if parent_class else "ActData_BaseNode" }}() {}
 
 };
 

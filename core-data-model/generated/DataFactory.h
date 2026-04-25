@@ -1,30 +1,29 @@
-#ifndef DataFactory_HeaderFile
+﻿#ifndef DataFactory_HeaderFile
 #define DataFactory_HeaderFile
 
 #include <ActData_BaseModel.h>
-#include "DataNode_ActiveObject.h"
-#include "DataNode_PropertySet.h"
-#include "DataNode_Property.h"
+#include <TCollection_AsciiString.hxx>
+#include "BrNode_ActiveObject.h"
+#include "BrNode_PropertySet.h"
+#include "BrNode_Property.h"
 
 /**
- * @brief 自动生成的对象工厂类
- * 用于根据 YAML 模板实例化具备标准属性集结构的 ActiveObject
+ * @brief 自动生成的业务对象工厂类
  */
 class DataFactory
 {
 public:
     /**
-     * @brief 根据类型名称创建对象
-     * @param model 所在的模型文档
-     * @param typeName 对象类型 (如 "BridgePier", "PileFoundation")
+     * @brief 根据类型名称创建一个 ActiveObject 及其属性集
      */
-    static Handle(DataNode_ActiveObject) CreateObject(const Handle(ActData_BaseModel)& model, 
-                                                      const TCollection_AsciiString& typeName);
+    static Handle(BrNode_ActiveObject) CreateObject(const Handle(ActData_BaseModel)& model, 
+                                                    const TCollection_AsciiString& typeName);
 
-private:
-    // 内部辅助函数：创建并初始化属性集
-    static Handle(DataNode_PropertySet) CreatePset(const Handle(ActData_BaseModel)& model, 
-                                                   const TCollection_AsciiString& psetName);
+    /**
+     * @brief 创建指定的属性集及其属性单元
+     */
+    static Handle(BrNode_PropertySet) CreatePset(const Handle(ActData_BaseModel)& model, 
+                                                 const TCollection_AsciiString& psetName);
 };
 
 #endif

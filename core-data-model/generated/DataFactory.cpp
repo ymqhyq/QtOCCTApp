@@ -1,11 +1,16 @@
-#include "DataFactory.h"
+﻿#include "DataFactory.h"
+#include "DataModel.h"
+#include <ActData_BasePartition.h>
 
-Handle(DataNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
                                                         const TCollection_AsciiString& typeName)
 {
-    Handle(DataNode_ActiveObject) obj = Handle(DataNode_ActiveObject)::DownCast(model->NewNode(DataNode_ActiveObject::Instance()));
+    Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
+    Handle(BrNode_ActiveObject) obj = dm->AddActiveObject();
+    if (obj.IsNull()) return nullptr;
+
     obj->SetObjectType(typeName);
-    obj->SetName(typeName); // 默认名称与类型一致
+    obj->SetName(typeName);
 
     
     if (typeName == "BridgePier") {
@@ -26,21 +31,26 @@ Handle(DataNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_Bas
     return obj;
 }
 
-Handle(DataNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
                                                      const TCollection_AsciiString& psetName)
 {
-    Handle(DataNode_PropertySet) pset = Handle(DataNode_PropertySet)::DownCast(model->NewNode(DataNode_PropertySet::Instance()));
+    Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
+    Handle(BrNode_PropertySet) pset = dm->AddPropertySet();
+    if (pset.IsNull()) return nullptr;
+
     pset->SetSetName(psetName);
 
     
     if (psetName == "Pset_MaterialConcrete") {
         
         {
-            Handle(DataNode_Property) prop = Handle(DataNode_Property)::DownCast(model->NewNode(DataNode_Property::Instance()));
-            prop->SetPropertyName("StrengthGrade");
-            prop->SetPropertyValue("C30");
-            prop->SetValueType("enum");
-            pset->AddProperties(prop);
+            Handle(BrNode_Property) prop = dm->AddProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("StrengthGrade");
+                prop->SetPropertyValue("C30");
+                prop->SetValueType("enum");
+                pset->AddProperties(prop);
+            }
         }
         
     }
@@ -48,19 +58,23 @@ Handle(DataNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseMo
     if (psetName == "Pset_BridgePierGeometry") {
         
         {
-            Handle(DataNode_Property) prop = Handle(DataNode_Property)::DownCast(model->NewNode(DataNode_Property::Instance()));
-            prop->SetPropertyName("Height");
-            prop->SetPropertyValue("15.0");
-            prop->SetValueType("Real");
-            pset->AddProperties(prop);
+            Handle(BrNode_Property) prop = dm->AddProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("Height");
+                prop->SetPropertyValue("15.0");
+                prop->SetValueType("Real");
+                pset->AddProperties(prop);
+            }
         }
         
         {
-            Handle(DataNode_Property) prop = Handle(DataNode_Property)::DownCast(model->NewNode(DataNode_Property::Instance()));
-            prop->SetPropertyName("Width");
-            prop->SetPropertyValue("2.5");
-            prop->SetValueType("Real");
-            pset->AddProperties(prop);
+            Handle(BrNode_Property) prop = dm->AddProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("Width");
+                prop->SetPropertyValue("2.5");
+                prop->SetValueType("Real");
+                pset->AddProperties(prop);
+            }
         }
         
     }
