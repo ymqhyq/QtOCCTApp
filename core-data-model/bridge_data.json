@@ -1,0 +1,112 @@
+{
+  "bridge": {
+    "GlobalID": "B-001",
+    "Name": "特大桥-主桥",
+    "ObjectType": "Bridge",
+    "FunctionalType": "铁路桥",
+    "StructuralType": "梁桥",
+    "PropertySets": {
+      "Pset_Bridge": {}
+    },
+    "children": [
+      {
+        "Name": "0#桥台",
+        "ObjectType": "Abutment",
+        "FunctionalType": "端部支撑",
+        "StructuralType": "一字台"
+      },
+      {
+        "Name": "1#桥墩",
+        "ObjectType": "BridgePier",
+        "FunctionalType": "普通墩",
+        "StructuralType": "实体墩",
+        "PropertySets": {
+          "Pset_MaterialConcrete": { "StrengthGrade": "C35" }
+        },
+        "children": [
+          { 
+            "Name": "支座-1", "ObjectType": "Bearing", "StructuralType": "固定支座",
+            "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-FX-01" }}
+          },
+          { 
+            "Name": "支座-2", "ObjectType": "Bearing", "StructuralType": "活动支座",
+            "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-MV-01" }}
+          },
+          { 
+            "Name": "垫石-1", "ObjectType": "BedStone",
+            "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-01" }}
+          },
+          { 
+            "Name": "垫石-2", "ObjectType": "BedStone",
+            "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-01" }}
+          },
+          { 
+            "Name": "托盘", "ObjectType": "PierTray",
+            "PropertySets": { "Pset_PierTrayGeometry": { "ModelNumber": "TR-01" }}
+          },
+          { 
+            "Name": "墩身", "ObjectType": "PierBody",
+            "PropertySets": { "Pset_PierBodyGeometry": {
+              "ModelNumber": "PB-RECT-01",
+              "Height": 15000.0
+            }}
+          },
+          {
+            "Name": "桩基基础",
+            "ObjectType": "BridgeFoundation",
+            "StructuralType": "桩基础",
+            "children": [
+              { 
+                "Name": "承台", "ObjectType": "PileCap",
+                "PropertySets": { "Pset_PileCapGeometry": {
+                  "ModelNumber": "PC-01",
+                  "Layers": 2
+                }}
+              },
+              { 
+                "Name": "单桩组", "ObjectType": "SinglePile",
+                "PropertySets": { "Pset_SinglePileGeometry": {
+                  "ModelNumber": "PILE-1000",
+                  "Diameter": 1000.0,
+                  "Length": 15000.0,
+                  "Layout": "2x3",
+                  "HSpacing": 2500.0,
+                  "VSpacing": 3000.0
+                }}
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Name": "2#桥墩",
+        "ObjectType": "BridgePier",
+        "children": [
+          { "Name": "支座组", "ObjectType": "Bearing", "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-Default" } } },
+          { "Name": "垫石组", "ObjectType": "BedStone", "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-Default" } } },
+          { "Name": "托盘", "ObjectType": "PierTray", "PropertySets": { "Pset_PierTrayGeometry": { "ModelNumber": "TR-Default" } } },
+          { "Name": "墩身", "ObjectType": "PierBody", "PropertySets": { "Pset_PierBodyGeometry": { "Height": 12000.0 } } },
+          {
+            "Name": "桩基基础",
+            "ObjectType": "BridgeFoundation",
+            "children": [
+              { "Name": "承台", "ObjectType": "PileCap", "PropertySets": { "Pset_PileCapGeometry": { "Layers": 1 } } },
+              { "Name": "单桩", "ObjectType": "SinglePile", "PropertySets": { "Pset_SinglePileGeometry": { "Diameter": 800.0 } } }
+            ]
+          }
+        ]
+      },
+      {
+        "Name": "3#桥台",
+        "ObjectType": "Abutment",
+        "StructuralType": "T台"
+      },
+      { 
+        "Name": "1跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁",
+        "PropertySets": { "Pset_GirderGeometry": { "ModelNumber": "GIRD-32" }}
+      },
+      { "Name": "2跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁" },
+      { "Name": "3跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁" }
+    ]
+  }
+}

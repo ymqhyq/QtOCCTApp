@@ -1,128 +1,301 @@
 ﻿#include "DataModel.h"
 #include <ActData_BaseNode.h>
 #include <ActData_BasePartition.h>
+#include <ActData_NodeFactory.h>
+#include <ActData_ParameterFactory.h>
+#include <TDF_Tool.hxx>
+#include <TDF_TagSource.hxx>
+#include <iostream>
 
 
-  
 
-  
-#include "BrNode_GeometricDefinition.h"
-  
 
-  
-#include "BrNode_Property.h"
-  
-
-  
-#include "BrNode_PropertySet.h"
-  
-
-  
-#include "BrNode_ActiveObject.h"
-  
 
   
 
   
 
   
+#include "BrNode_adRoot.h"
+  
+
+  
+#include "BrNode_adModelRoot.h"
+  
+
+  
+#include "BrNode_adGeometricDef.h"
+  
+
+  
+#include "BrNode_adGeometry.h"
+  
+
+  
+#include "BrNode_adProperty.h"
+  
+
+  
+#include "BrNode_adPropertySet.h"
+  
+
+  
+#include "BrNode_adObject.h"
+  
+
+  
+
+  
 
 
-IMPLEMENT_STANDARD_RTTIEXT(DataModel, ActData_BaseModel)
+
+
+#include "BrNode_Partition.h"
 
 DataModel::DataModel() : ActData_BaseModel() {}
 
-void DataModel::InitPartitions() {
-    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
-    if ( rootNode.IsNull() ) return;
+void DataModel::initPartitions() {
+    this->OpenCommand();
     
-    TDF_Label rootLab = rootNode->RootLabel();
+    std::cout << "[DataModel] initPartitions started." << std::endl;
     
-    rootLab.FindChild(1, Standard_True);
+    // 1. Initialize Root node
+    m_root = BrNode_adModelRoot::Instance();
+    std::cout << "[DataModel] m_root instance created: " << m_root.get() << std::endl;
+    std::cout << "[DataModel] m_root DynamicType: " << m_root->DynamicType()->Name() << std::endl;
     
-    rootLab.FindChild(2, Standard_True);
+    std::cout << "[DataModel] Expanding m_root with Document()->Main()..." << std::endl;
+    TDF_Label mainLab = this->Document()->Main();
     
-    rootLab.FindChild(3, Standard_True);
+    // Use the accessor hack to call protected expandOn
+    BrNode_NodeAccessor::Expand(m_root, mainLab);
     
-    rootLab.FindChild(4, Standard_True);
+    std::cout << "[DataModel] m_root expanded." << std::endl;
+    if (m_root->RootLabel().IsNull()) {
+        std::cerr << "[DataModel] ERROR: m_root RootLabel is NULL after settle!" << std::endl;
+    } else {
+        TCollection_AsciiString entry;
+        TDF_Tool::Entry(m_root->RootLabel(), entry);
+        std::cout << "[DataModel] m_root RootLabel: " << entry.ToCString() << std::endl;
+    }
     
-    rootLab.FindChild(5, Standard_True);
+    std::cout << "[DataModel] Initializing m_root..." << std::endl;
+    m_root->InitNode();
+    m_root->SetName("ModelRoot");
+
+    // 2. Register partitions
     
+    {
+        std::cout << "[DataModel] Registering partition GeometryDefinitions (ID: 1)..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild(1, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition(1, part);
+    }
+    
+    {
+        std::cout << "[DataModel] Registering partition Topology (ID: 2)..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild(2, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition(2, part);
+    }
+    
+    {
+        std::cout << "[DataModel] Registering partition Resources (ID: 3)..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild(3, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition(3, part);
+    }
+    
+    {
+        std::cout << "[DataModel] Registering partition Auxiliary (ID: 4)..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild(4, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition(4, part);
+    }
+    
+    {
+        std::cout << "[DataModel] Registering partition Results (ID: 5)..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild(5, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition(5, part);
+    }
+    
+    
+    std::cout << "[DataModel] initPartitions finished." << std::endl;
+    this->CommitCommand();
 }
 
 TDF_Label DataModel::GetPartitionLabel(const PartitionID pid) const {
-    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
-    if ( rootNode.IsNull() ) return TDF_Label();
-    return rootNode->RootLabel().FindChild((Standard_Integer) pid, Standard_False);
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) pid);
+    if ( part.IsNull() ) return TDF_Label();
+    return part->RootLabel();
 }
 
 
 
 
 
-Handle(BrNode_GeometricDefinition) DataModel::AddGeometricDefinition() {
+
+
+Handle(BrNode_adRoot) DataModel::AddadRoot() {
+    // 自动分配分区
     
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_GeometryDefinitions));
     
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
     if ( part.IsNull() ) return nullptr;
-
-    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_GeometricDefinition::Instance());
-    Handle(BrNode_GeometricDefinition) resNode = Handle(BrNode_GeometricDefinition)::DownCast(this->FindNode(nodeId));
-    if (!resNode.IsNull()) {
-        resNode->InitNode();
-    }
-    return resNode;
+    
+    Handle(BrNode_adRoot) node = BrNode_adRoot::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
 }
 
 
 
-Handle(BrNode_Property) DataModel::AddProperty() {
+Handle(BrNode_adModelRoot) DataModel::AddadModelRoot() {
+    // 自动分配分区
     
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_Topology));
     
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
     if ( part.IsNull() ) return nullptr;
-
-    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_Property::Instance());
-    Handle(BrNode_Property) resNode = Handle(BrNode_Property)::DownCast(this->FindNode(nodeId));
-    if (!resNode.IsNull()) {
-        resNode->InitNode();
-    }
-    return resNode;
+    
+    Handle(BrNode_adModelRoot) node = BrNode_adModelRoot::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
 }
 
 
 
-Handle(BrNode_PropertySet) DataModel::AddPropertySet() {
+Handle(BrNode_adGeometricDef) DataModel::AddadGeometricDef() {
+    // 自动分配分区
     
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_Topology));
     
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_GeometryDefinitions);
     if ( part.IsNull() ) return nullptr;
-
-    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_PropertySet::Instance());
-    Handle(BrNode_PropertySet) resNode = Handle(BrNode_PropertySet)::DownCast(this->FindNode(nodeId));
-    if (!resNode.IsNull()) {
-        resNode->InitNode();
-    }
-    return resNode;
+    
+    Handle(BrNode_adGeometricDef) node = BrNode_adGeometricDef::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
 }
 
 
 
-Handle(BrNode_ActiveObject) DataModel::AddActiveObject() {
+Handle(BrNode_adGeometry) DataModel::AddadGeometry() {
+    // 自动分配分区
     
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_Topology));
     
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
     if ( part.IsNull() ) return nullptr;
-
-    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_ActiveObject::Instance());
-    Handle(BrNode_ActiveObject) resNode = Handle(BrNode_ActiveObject)::DownCast(this->FindNode(nodeId));
-    if (!resNode.IsNull()) {
-        resNode->InitNode();
-    }
-    return resNode;
+    
+    Handle(BrNode_adGeometry) node = BrNode_adGeometry::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
 }
 
 
+
+Handle(BrNode_adProperty) DataModel::AddadProperty() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adProperty) node = BrNode_adProperty::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adPropertySet) DataModel::AddadPropertySet() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adPropertySet) node = BrNode_adPropertySet::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adObject) DataModel::AddadObject() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adObject) node = BrNode_adObject::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
 
 
 
