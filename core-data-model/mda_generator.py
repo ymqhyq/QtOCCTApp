@@ -10,16 +10,16 @@ OUTPUT_DIR = os.path.join(SCRIPT_DIR, "generated")
 
 # Type Mapping
 TYPE_MAP = {
-    "Real":      {"cpp": "double", "act": "Real",      "set": "SetValue", "get": "GetValue"},
-    "Int":       {"cpp": "int",    "act": "Int",       "set": "SetValue", "get": "GetValue"},
-    "String":    {"cpp": "TCollection_AsciiString", "act": "AsciiString", "set": "SetValue", "get": "GetValue"},
-    "Bool":      {"cpp": "bool",   "act": "Bool",      "set": "SetValue", "get": "GetValue"},
-    "Shape":     {"cpp": "TopoDS_Shape", "act": "Shape", "set": "SetShape", "get": "GetShape"},
-    "RealArray": {"cpp": "Handle(TColStd_HArray1OfReal)", "act": "RealArray", "set": "SetArray", "get": "GetArray"},
-    "enum":      {"cpp": "TCollection_AsciiString", "act": "AsciiString", "set": "SetValue", "get": "GetValue"},
-    "Reference": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget"},
-    "BrEntityRef": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget"},
-    "GUID":      {"cpp": "TCollection_AsciiString", "act": "AsciiString", "set": "SetValue", "get": "GetValue"}
+    "Real":      {"cpp": "double", "act": "Real",      "set": "SetValue", "get": "GetValue", "id": "Parameter_Real"},
+    "Int":       {"cpp": "int",    "act": "Int",       "set": "SetValue", "get": "GetValue", "id": "Parameter_Int"},
+    "String":    {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"},
+    "Bool":      {"cpp": "bool",   "act": "Bool",      "set": "SetValue", "get": "GetValue", "id": "Parameter_Bool"},
+    "Shape":     {"cpp": "TopoDS_Shape", "act": "Shape", "set": "SetShape", "get": "GetShape", "id": "Parameter_Shape"},
+    "RealArray": {"cpp": "Handle(TColStd_HArray1OfReal)", "act": "RealArray", "set": "SetArray", "get": "GetArray", "id": "Parameter_RealArray"},
+    "enum":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"},
+    "Reference": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget", "id": "Parameter_Reference"},
+    "BrEntityRef": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget", "id": "Parameter_Reference"},
+    "GUID":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"}
 }
 
 def generate_code():
@@ -65,39 +65,55 @@ def generate_code():
         fcpp.write(factory_cpp_tmpl.render(schema=all_schemas, pset_defs=pset_defs, object_types=object_types))
 
     # 4. Render Node Classes
-    for entity_name, entity_data in all_schemas.items():
-        if entity_name in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"]:
-            continue
-            
+    meta_keys = ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions", "ClassificationDefinitions"]
+    entities_to_gen = {k: v for k, v in all_schemas.items() if k not in meta_keys}
+    
+    all_node_names = list(entities_to_gen.keys())
+    
+    for entity_name, entity_data in entities_to_gen.items():
         print(f"Generating code for: {entity_name}")
         
+        # Determine parent class: support 'base' or 'parent', default to ActData_BaseNode
+        parent_class = entity_data.get("base", entity_data.get("parent", "ActData_BaseNode"))
+        if parent_class in all_node_names:
+            parent_class = f"BrNode_{parent_class}"
+
         ctx = {
-            "name": entity_data.get("label", entity_name),
+            "name": entity_data.get("name", entity_name),
             "class_name": f"BrNode_{entity_name}",
-            "parent_class": entity_data.get("parent", "ActData_BaseNode"),
+            "parent_class": parent_class,
             "attributes": {},
             "children": {},
-            "all_entity_names": [e for e in all_schemas.keys() if e not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"]]
+            "all_entity_names": all_node_names
         }
         
         attrs = entity_data.get("attributes", {})
-        for attr_name, attr_info in attrs.items():
-            t_info = TYPE_MAP.get(attr_info["type"], TYPE_MAP["Real"])
-            ctx["attributes"][attr_name] = {
-                "cpp_type": t_info["cpp"],
-                "act_type": t_info["act"],
-                "set_method": t_info["set"],
-                "get_method": t_info["get"],
-                "label": attr_info.get("label", attr_name)
-            }
-        
+        if attrs:
+            for attr_name, attr_info in attrs.items():
+                attr_type = attr_info["type"]
+                # If type is another node class, treat it as a Reference
+                if attr_type in all_node_names:
+                    t_info = TYPE_MAP["Reference"].copy()
+                else:
+                    t_info = TYPE_MAP.get(attr_type, TYPE_MAP["Real"]).copy()
+                
+                ctx["attributes"][attr_name] = {
+                    "cpp_type": t_info["cpp"],
+                    "act_type": t_info["act"],
+                    "set_method": t_info["set"],
+                    "get_method": t_info["get"],
+                    "id": t_info["id"],
+                    "label": attr_info.get("label", attr_name)
+                }
+
         children = entity_data.get("children", {})
-        for child_name, child_info in children.items():
-            ctx["children"][child_name] = {
-                "type_name": child_info["type"],
-                "class_name": f"BrNode_{child_info['type']}",
-                "cardinality": child_info.get("cardinality", "1")
-            }
+        if children:
+            for child_name, child_info in children.items():
+                ctx["children"][child_name] = {
+                    "type_name": child_info["type"],
+                    "class_name": f"BrNode_{child_info['type']}",
+                    "cardinality": child_info.get("cardinality", "1")
+                }
         
         # Write files
         with open(os.path.join(OUTPUT_DIR, f"BrNode_{entity_name}.h"), "w", encoding="utf-8-sig") as hf:

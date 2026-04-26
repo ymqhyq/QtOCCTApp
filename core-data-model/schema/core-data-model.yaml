@@ -10,86 +10,229 @@ DataTypes:
   GUID:      { description: "全局唯一标识符", act_param: "ActData_StringParameter" }
   enum:      { description: "枚举类型", act_param: "ActData_StringParameter" }
 
-# --- 1. 元模型定义 (Node Types) ---
+# --- 2. 数据分区规划 (Partition Mapping) ---
+# 定义系统默认的分区 Label ID 偏移
+Partitions:
+  GeometryDefinitions: { id: 1, label: "几何分区" }
+  Topology:            { id: 2, label: "装配分区" }
+  Resources:           { id: 3, label: "资源分区" }
+  Auxiliary:           { id: 4, label: "辅助分区" }
+  Results:             { id: 5, label: "结果分区" }
 
-# [新] 几何原型定义节点：存储在 Definitions 分区，用于复用
-GeometricDefinition:
-  name: "几何原型"
-  attributes:
-    MasterGeometry: { type: "Shape", label: "原型几何" }
-    Creator: { type: "String", default: "System", label: "创建者" }
-    Version: { type: "Int", default: 1, label: "版本号" }
+# --- 3. 元模型定义 (Node Types) ---
 
-Property:
-  name: "属性单元"
+# [新] 基类定义：所有核心对象的根
+adRoot:
+  name: "根类"
   attributes:
-    PropertyName: { type: "String", default: "", label: "属性键" }
-    PropertyValue: { type: "String", default: "", label: "属性值" }
-    ValueType: { type: "String", default: "String", label: "值类型" }
-
-PropertySet:
-  name: "属性集"
-  attributes:
-    SetName: { type: "String", default: "Pset_Unknown", label: "属性集名称" }
-  children:
-    Properties: { type: "Property", cardinality: "0..*" }
-
-# [增强] 核心业务对象：支持实例化引用
-ActiveObject:
-  name: "核心对象"
-  attributes:
-    # 核心标识
-    GlobalID: { type: "String", default: "", label: "唯一标识" }
+    GlobalID: { type: "GUID", default: "", label: "唯一标识" }
     Name: { type: "String", default: "New Object", label: "显示名称" }
-    ObjectType: { type: "String", default: "Component", label: "对象类型" }
-    BrEntityRef: { type: "GUID", default: "", label: "外部业务实体引用(GUID)" }
-    
-    # 几何实例化 (复用逻辑)
-    # 如果 Geometry 不为空，则为独有几何；如果 GeometryRef 不为空，则引用原型
-    Geometry: { type: "Shape", label: "实例独有几何(可选)" }
-    GeometryRef: { type: "Reference", label: "复用原型引用" }
-    Transformation: { type: "RealArray", label: "实例化变换矩阵" }
-    
-    # 可视化属性
+    label: { type: "String", default: "", label: "标签" }
+
+# [新] 模型根节点：作为整个 OCAF 树的入口
+adModelRoot:
+  name: "模型根"
+  base: adRoot
+  children:
+    SubObjects: { type: "adObject", cardinality: "*" }
+
+# [新] 几何原型定义：存储在几何分区
+adGeometricDef:
+  name: "几何定义"
+  base: adRoot
+  attributes:
+    Shape: { type: "Shape", label: "几何外形" }
+  default_partition: "GeometryDefinitions"
+# [新] 几何与显示类：负责存储形状及视觉样式
+adGeometry:
+  name: "几何对象"
+  base: adRoot
+  attributes:
+    GeometryRef: { type: "adGeometricDef", label: "几何引用" }
+    Transformation: { type: "RealArray", label: "几何变换" }
     MaterialType: { type: "Int", default: 0, label: "显示材质" }
     Color: { type: "Int", default: 16777215, label: "颜色(RGB)" }
     Transparency: { type: "Real", default: 0.0, label: "透明度" }
     Visibility: { type: "Bool", default: true, label: "可见性" }
-  children:
-    PropertySets: { type: "PropertySet", cardinality: "0..*" }
-    SubObjects: { type: "ActiveObject", cardinality: "0..*" }
+  default_partition: "Topology"
+# 属性定义
+adProperty:
+  name: "属性单元"
+  base: adRoot
+  attributes:
+    PropertyName: { type: "String", default: "", label: "属性键" }
+    PropertyValue: { type: "String", default: "", label: "属性值" }
+    ValueType: { type: "String", default: "String", label: "值类型" }
+  default_partition: "Topology"
+# 属性集定义
+adPropertySet:
+  name: "属性集"
+  base: adRoot
+  attributes:
 
-# --- 2. 属性集定义池 (Property Set Definitions) ---
+  children:
+    Properties: { type: "adProperty", cardinality: "0..*" }
+  default_partition: "Topology"
+# [增强] 核心业务对象：继承自 adRoot，并引用 adGeometry
+adObject:
+  name: "核心对象"
+  base: adRoot
+  attributes:
+    ObjectType: { type: "String", default: "Component", label: "对象类型" }
+    FunctionalType: { type: "String", default: "", label: "功能类型" }
+    FunctionalSubType: { type: "String", default: "", label: "功能子类" }
+    StructuralType: { type: "String", default: "", label: "结构类型" }
+    StructuralSubType: { type: "String", default: "", label: "结构子类" }
+    BrEntityRef: { type: "GUID", default: "", label: "外部业务实体引用(GUID)" }
+    
+    # 几何引用与实例化
+    Geometry: { type: "adGeometry", label: "几何对象" }
+       
+  children:
+    PropertySets: { type: "adPropertySet", cardinality: "0..*" }
+    SubObjects: { type: "adObject", cardinality: "0..*" }
+  default_partition: "Topology"
+# --- 4. 属性集定义池 (Property Set Definitions) ---
 PropertySetDefinitions:
-  # (此处保留之前的 Pset_BridgePier, Pset_MaterialConcrete 等定义...)
   Pset_MaterialConcrete:
     name: "混凝土材料属性"
     attributes:
       StrengthGrade: { type: "enum", options: ["C30", "C35", "C40", "C50"], default: "C30", label: "强度等级" }
   
-  Pset_BridgePierGeometry:
-    name: "桥墩几何参数"
+  Pset_PierBodyGeometry:
+    name: "墩身几何参数"
     attributes:
-      Height: { type: "Real", default: 15.0, label: "高度" }
-      Width:  { type: "Real", default: 2.5,  label: "宽度" }
+      ModelNumber: { type: "String", default: "", label: "型号", access: "input"  }
+      Height: { type: "Real", default: 12000.0, label: "高度", access: "inout" }
 
-# --- 3. 数据分区规划 (Partition Mapping) ---
-# 定义系统默认的分区 Label ID 偏移
-Partitions:
-  GeometryDefinitions: { id: 1, label: "几何与属性库" }
-  Topology:            { id: 2, label: "装配与结构树" }
-  Resources:           { id: 3, label: "材质与资源" }
-  Auxiliary:           { id: 4, label: "辅助参考" }
-  Results:             { id: 5, label: "分析结果" }
+  Pset_PierTrayGeometry:
+    name: "托盘几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号" , access: "input" }
+      Length: { type: "Real", default: 200.0, label: "长度", access: "out" }
+      Width: { type: "Real", default: 200.0, label: "宽度", access: "out" }
+      Height: { type: "Real", default: 2750.0, label: "高度", access: "out" }
 
-# --- 4. 对象类型绑定 (Object Type Mapping) ---
+  Pset_GirderGeometry:
+    name: "箱梁几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号" , access: "input" }
+      Length: { type: "Real", default: 31500.0, label: "长度", access: "inout" }
+      Width: { type: "Real", default: 12600.0, label: "宽度", access: "out" }
+      Height: { type: "Real", default: 3000.0, label: "高度", access: "out" }
+
+  Pset_PileCapGeometry:
+    name: "承台几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号" , access: "input" }
+      Layers: { type: "Int", default: 2, label: "层数", access: "inout" }
+      TotalH: { type: "Real", default: 0.0, label: "总高度", access: "out" }
+
+  Pset_PileGeometry:
+    name: "桩基础几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号", access: "input"  }
+      Diameter: { type: "Real", default: 1000.0, label: "桩径", access: "input" }
+      Length: { type: "Real", default: 15000.0, label: "桩长", access: "input" }
+      Layout: { type: "String", default: "", label: "布局", access: "input" }
+      HSpacing: { type: "Real", default: 2500.0, label: "横向间距", access: "input" }
+      VSpacing: { type: "Real", default: 3000.0, label: "纵向间距", access: "input" }
+  Pset_BedStoneGeometry:
+    name: "垫石几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号" , access: "input" }
+      Length: { type: "Real", default: 1200.0, label: "长度", access: "out" }
+      Width: { type: "Real", default: 1200.0, label: "宽度", access: "out" }
+      Height: { type: "Real", default: 300.0, label: "高度", access: "out" }
+
+  Pset_BearingGeometry:
+    name: "支座几何参数"
+    attributes:
+      ModelNumber: { type: "String", default: "", label: "型号" , access: "input"}
+      Length: { type: "Real", default: 200.0, label: "长度", access: "out" }
+      Width: { type: "Real", default: 200.0, label: "宽度", access: "out" }
+      Height: { type: "Real", default: 200.0, label: "高度", access: "out" }
+
+     
+# --- 5. 对象类型绑定 (Object Type Mapping) ---
 ObjectTypes:
+  Bridge:
+    name: "桥梁"
+    ObjectTypes: ["特大桥", "中桥", "小桥"]
+    FunctionalTypes: ["铁路桥", "公路桥", "公铁两用桥"]
+    StructuralTypes: ["梁桥", "拱桥", "斜拉桥", "悬索桥"]
+    PropertySets: [Pset_Bridge]
+    # 条件属性集：当属性满足特定值时动态挂载
+    ConditionalSets:
+      - condition: { attribute: "StructuralType", value: "梁桥" }
+        sets: [Pset_GirderBridgeSpecific]
+      - condition: { attribute: "StructuralType", value: "拱桥" }
+        sets: [Pset_ArchBridgeSpecific]
+      - condition: { attribute: "StructuralType", value: "悬索桥" }
+        sets: [Pset_SuspensionBridgeSpecific]
+    
   BridgePier:
     name: "桥墩"
-    default_partition: "Topology"
-    PropertySets: [Pset_BridgePierGeometry, Pset_MaterialConcrete]
-  
-  SinglePile:
-    name: "单桩"
-    default_partition: "Topology"
-    PropertySets: [Pset_MaterialConcrete]
+    ObjectTypes: ["空心墩", "实体墩"]
+    FunctionalTypes: ["承重墩", "制动墩", "辅助墩"]
+    StructuralTypes: ["实体墩", "空心墩", "柱式墩", "框架墩"]
+    PropertySets: [Pset_Pier, Pset_MaterialConcrete]
+    ConditionalSets:
+      - condition: { attribute: "StructuralType", value: "空心墩" }
+        sets: [Pset_HollowPierSpecific]
+      - condition: { attribute: "StructuralType", value: "实体墩" }
+        sets: [Pset_SolidPierSpecific]
+    
+  PierBody:
+    name: "墩身"
+    ObjectTypes: ["流线型", "普通型"]
+    FunctionalTypes: ["主受力构件"]
+    StructuralTypes: ["圆端型", "矩型", "流线型"]
+    PropertySets: [Pset_PierBody, Pset_PierBodyGeometry, Pset_MaterialConcrete]
+    
+  PierTray:
+    name: "托盘"
+    FunctionalTypes: ["支撑构件"]
+    StructuralTypes: ["流线型托盘", "普通托盘"]
+    PropertySets: [Pset_PierTrayGeometry, Pset_MaterialConcrete]
+    
+  Abutment:
+    name: "桥台"
+    ObjectTypes: ["一字台", "T台"]
+    PropertySets: [Pset_Abutment, Pset_MaterialConcrete]
+    
+  Girder:
+    name: "梁"
+    ObjectTypes: ["简支梁", "连续梁"]
+    FunctionalTypes: ["承重构件"]
+    StructuralTypes: ["简支梁", "连续梁", "箱梁", "T梁"]
+    PropertySets: [Pset_Girder, Pset_GirderGeometry, Pset_MaterialConcrete]
+    
+  BridgeFoundation:
+    name: "桥基础"
+    ObjectTypes: ["桩基础", "扩大基础"]
+    FunctionalTypes: ["基础"]
+    StructuralTypes: ["桩基础", "扩大基础", "沉井基础"]
+    PropertySets: [Pset_Foundation, Pset_MaterialConcrete]
+
+   
+  PileCap:
+    name: "承台"
+    FunctionalTypes: ["传力构件"]
+    StructuralTypes: ["单层承台", "双层承台"]
+    PropertySets: [Pset_PileCapGeometry, Pset_MaterialConcrete]
+    
+  Pile:
+    name: "桩基础"
+    FunctionalTypes: ["混凝土桩","CFG桩","碎石桩","三轴搅拌桩","其它"]
+    StructuralTypes: ["钻孔桩", "打入桩", "挖孔桩"]
+    PropertySets: [Pset_SinglePileGeometry, Pset_MaterialConcrete]
+    
+  BedStone:
+    name: "支承垫石"
+    PropertySets: [Pset_BedStoneGeometry, Pset_MaterialConcrete]
+    
+  Bearing:
+    name: "盆式橡胶支座"
+    ObjectTypes: ["固定支座", "活动支座"]
+    PropertySets: [Pset_Bearing, Pset_BearingGeometry]

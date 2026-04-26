@@ -1,49 +1,98 @@
 #include "DataModel.h"
 #include <ActData_BaseNode.h>
 #include <ActData_BasePartition.h>
+#include <ActData_NodeFactory.h>
+#include <ActData_ParameterFactory.h>
+#include <TDF_Tool.hxx>
+#include <TDF_TagSource.hxx>
+#include <iostream>
+
+
+
 
 {% for entity_name, entity_data in schema.items() %}
-  {% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
+  {% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions", "ClassificationDefinitions"] %}
 #include "BrNode_{{ entity_name }}.h"
   {% endif %}
 {% endfor %}
 
-IMPLEMENT_STANDARD_RTTIEXT(DataModel, ActData_BaseModel)
+
+
+#include "BrNode_Partition.h"
 
 DataModel::DataModel() : ActData_BaseModel() {}
 
-void DataModel::InitPartitions() {
-    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
-    if ( rootNode.IsNull() ) return;
+void DataModel::initPartitions() {
+    this->OpenCommand();
     
-    TDF_Label rootLab = rootNode->RootLabel();
+    std::cout << "[DataModel] initPartitions started." << std::endl;
+    
+    // 1. Initialize Root node
+    m_root = BrNode_adModelRoot::Instance();
+    std::cout << "[DataModel] m_root instance created: " << m_root.get() << std::endl;
+    std::cout << "[DataModel] m_root DynamicType: " << m_root->DynamicType()->Name() << std::endl;
+    
+    std::cout << "[DataModel] Expanding m_root with Document()->Main()..." << std::endl;
+    TDF_Label mainLab = this->Document()->Main();
+    
+    // Use the accessor hack to call protected expandOn
+    BrNode_NodeAccessor::Expand(m_root, mainLab);
+    
+    std::cout << "[DataModel] m_root expanded." << std::endl;
+    if (m_root->RootLabel().IsNull()) {
+        std::cerr << "[DataModel] ERROR: m_root RootLabel is NULL after settle!" << std::endl;
+    } else {
+        TCollection_AsciiString entry;
+        TDF_Tool::Entry(m_root->RootLabel(), entry);
+        std::cout << "[DataModel] m_root RootLabel: " << entry.ToCString() << std::endl;
+    }
+    
+    std::cout << "[DataModel] Initializing m_root..." << std::endl;
+    m_root->InitNode();
+    m_root->SetName("ModelRoot");
+
+    // 2. Register partitions
     {% for p_id, p_info in schema.Partitions.items() %}
-    rootLab.FindChild({{ p_info.id }}, Standard_True);
+    {
+        std::cout << "[DataModel] Registering partition {{ p_id }} (ID: {{ p_info.id }})..." << std::endl;
+        TDF_Label partLab = m_root->RootLabel().FindChild({{ p_info.id }}, Standard_True);
+        Handle(BrNode_Partition) part = BrNode_Partition::Instance();
+        part->Settle(partLab);
+        this->RegisterPartition({{ p_info.id }}, part);
+    }
     {% endfor %}
+    
+    std::cout << "[DataModel] initPartitions finished." << std::endl;
+    this->CommitCommand();
 }
 
 TDF_Label DataModel::GetPartitionLabel(const PartitionID pid) const {
-    Handle(ActData_BaseNode) rootNode = Handle(ActData_BaseNode)::DownCast(this->GetRootNode());
-    if ( rootNode.IsNull() ) return TDF_Label();
-    return rootNode->RootLabel().FindChild((Standard_Integer) pid, Standard_False);
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) pid);
+    if ( part.IsNull() ) return TDF_Label();
+    return part->RootLabel();
 }
 
 {% for entity_name, entity_data in schema.items() %}
-{% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions"] %}
+{% if entity_name not in ["DataTypes", "PropertySetDefinitions", "ObjectTypes", "Partitions", "ClassificationDefinitions"] %}
 Handle(BrNode_{{ entity_name }}) DataModel::Add{{ entity_name }}() {
-    {% if entity_name == "GeometricDefinition" %}
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_GeometryDefinitions));
-    {% else %}
-    Handle(ActData_BasePartition) part = Handle(ActData_BasePartition)::DownCast(this->Partition((Standard_Integer) PID_Topology));
+    // 自动分配分区
+    {% set p_id = "PID_Topology" %}
+    {% if entity_data.default_partition %}
+    {% set p_id = "PID_" + entity_data.default_partition %}
     {% endif %}
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) {{ p_id }});
     if ( part.IsNull() ) return nullptr;
-
-    ActAPI_DataObjectId nodeId = part->AddNode(BrNode_{{ entity_name }}::Instance());
-    Handle(BrNode_{{ entity_name }}) resNode = Handle(BrNode_{{ entity_name }})::DownCast(this->FindNode(nodeId));
-    if (!resNode.IsNull()) {
-        resNode->InitNode();
-    }
-    return resNode;
+    
+    Handle(BrNode_{{ entity_name }}) node = BrNode_{{ entity_name }}::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
 }
 {% endif %}
 {% endfor %}

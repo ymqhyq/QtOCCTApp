@@ -1,21 +1,41 @@
 #include "DataFactory.h"
 #include "DataModel.h"
 #include <ActData_BasePartition.h>
+#include <TDF_Tool.hxx>
 
-Handle(BrNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_adObject) DataFactory::CreateObject(const Handle(ActData_BaseModel)& model, 
                                                         const TCollection_AsciiString& typeName)
 {
+    std::cout << "    DataFactory::CreateObject: " << typeName.ToCString() << std::endl;
     Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
-    Handle(BrNode_ActiveObject) obj = dm->AddActiveObject();
-    if (obj.IsNull()) return nullptr;
+    Handle(BrNode_adObject) obj = dm->AddadObject();
+    if (obj.IsNull()) {
+        std::cerr << "    FAILED dm->AddadObject()!" << std::endl;
+        return nullptr;
+    }
 
     obj->SetObjectType(typeName);
     obj->SetName(typeName);
+    std::cout << "    Object base created." << std::endl;
 
     {% for type_name, type_data in object_types.items() %}
     if (typeName == "{{ type_name }}") {
+        std::cout << "    Initializing PropertySets for type: {{ type_name }}" << std::endl;
         {% for pset_name in type_data.PropertySets %}
-        obj->AddPropertySets(CreatePset(model, "{{ pset_name }}"));
+        {
+            Handle(BrNode_adPropertySet) pset = CreatePset(model, "{{ pset_name }}");
+            if (obj->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: obj RootLabel is NULL!" << std::endl;
+            if (pset.IsNull()) std::cerr << "    [DataFactory] ERROR: pset is NULL!" << std::endl;
+            else if (pset->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: pset RootLabel is NULL!" << std::endl;
+            
+            try {
+                obj->AddPropertySets(pset);
+            } catch (Standard_Failure& e) {
+                std::cerr << "    [DataFactory] OCCT EXCEPTION in AddPropertySets: " << e.GetMessageString() << std::endl;
+            } catch (...) {
+                std::cerr << "    [DataFactory] UNKNOWN EXCEPTION in AddPropertySets!" << std::endl;
+            }
+        }
         {% endfor %}
     }
     {% endfor %}
@@ -23,20 +43,31 @@ Handle(BrNode_ActiveObject) DataFactory::CreateObject(const Handle(ActData_BaseM
     return obj;
 }
 
-Handle(BrNode_PropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
+Handle(BrNode_adPropertySet) DataFactory::CreatePset(const Handle(ActData_BaseModel)& model, 
                                                      const TCollection_AsciiString& psetName)
 {
+    std::cout << "      DataFactory::CreatePset: " << psetName.ToCString() << std::endl;
     Handle(DataModel) dm = Handle(DataModel)::DownCast(model);
-    Handle(BrNode_PropertySet) pset = dm->AddPropertySet();
+    Handle(BrNode_adPropertySet) pset = dm->AddadPropertySet();
+    
+    std::cout << "      [CreatePset] Node created. Checking Label..." << std::endl;
+    if (pset->RootLabel().IsNull()) {
+        std::cerr << "      [CreatePset] ERROR: pset Label is NULL!" << std::endl;
+    } else {
+        TCollection_AsciiString entry;
+        TDF_Tool::Entry(pset->RootLabel(), entry);
+        std::cout << "      [CreatePset] pset Label: " << entry.ToCString() << std::endl;
+    }
+    
     if (pset.IsNull()) return nullptr;
 
-    pset->SetSetName(psetName);
+    pset->SetName(psetName);
 
     {% for pset_id, pset_def in pset_defs.items() %}
     if (psetName == "{{ pset_id }}") {
         {% for prop_name, prop_data in pset_def.attributes.items() %}
         {
-            Handle(BrNode_Property) prop = dm->AddProperty();
+            Handle(BrNode_adProperty) prop = dm->AddadProperty();
             if (!prop.IsNull()) {
                 prop->SetPropertyName("{{ prop_name }}");
                 prop->SetPropertyValue("{{ prop_data.default }}");

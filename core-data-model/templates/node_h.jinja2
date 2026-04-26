@@ -1,3 +1,11 @@
+#ifndef BR_EXPORT
+#ifdef BR_EXPORT_EXPORTS
+  #define BR_EXPORT __declspec(dllexport)
+#else
+  #define BR_EXPORT __declspec(dllimport)
+#endif
+#endif
+
 #ifndef {{ class_name }}_HeaderFile
 #define {{ class_name }}_HeaderFile
 
@@ -7,6 +15,7 @@
 #include <Standard_Type.hxx>
 #include <ActData_BaseNode.h>
 #include <ActData_ParameterFactory.h>
+#include <ActData_NodeFactory.h>
 #include <TopoDS_Shape.hxx>
 #include <TColStd_HArray1OfReal.hxx>
 #include <NCollection_Sequence.hxx>
@@ -33,20 +42,30 @@
 /**
  * @brief MDA Generated Node for {{ class_name }}
  */
-class {{ class_name }} : public {{ parent_class if parent_class else "ActData_BaseNode" }}
+class BR_EXPORT {{ class_name }} : public {{ parent_class }}
 {
 public:
     // OCCT RTTI
-    DEFINE_STANDARD_RTTIEXT({{ class_name }}, {{ parent_class if parent_class else "ActData_BaseNode" }})
+    DEFINE_STANDARD_RTTI_INLINE({{ class_name }}, {{ parent_class }})
+
+    // Active Data Node Factory registration
+    static Handle(ActAPI_INode) AllocInstance() { return {{ class_name }}::Instance(); }
+    DEFINE_NODE_FACTORY({{ class_name }}, {{ class_name }}::AllocInstance)
 
 public:
     // Parameter IDs (Tags)
     enum ParamId
     {
-        PID_FirstAttr = {{ parent_class if parent_class else "ActData_BaseNode" }}::UserParam_Last,
+        {% if parent_class != "ActData_BaseNode" %}
+        PID_FirstAttr = {{ parent_class }}::PID_Last,
+        {% else %}
+        PID_FirstAttr = 1000,
+        {% endif %}
+        
         {% for attr_name in attributes.keys() %}
         PID_{{ attr_name }},
         {% endfor %}
+        
         PID_Last
     };
 
@@ -54,17 +73,20 @@ public:
     static Handle({{ class_name }}) Instance();
 
     // Custom initialization
-    void InitNode();
+    virtual void InitNode();
 
+public:
     // Mandatory overrides for ActData_BaseNode
     virtual TCollection_ExtendedString GetName() override;
     virtual void SetName(const TCollection_ExtendedString& theName) override;
 
 public:
-    // Getters / Setters (MDA Generated)
+    // Get/Set methods for attributes
     {% for attr_name, attr in attributes.items() %}
+    {% if attr_name != "Name" %}
     void Set{{ attr_name }}(const {{ attr.cpp_type }}& value);
     {{ attr.cpp_type }} Get{{ attr_name }}() const;
+    {% endif %}
     {% endfor %}
 
 public:
@@ -80,7 +102,7 @@ public:
     {% endfor %}
 
 protected:
-    {{ class_name }}() : {{ parent_class if parent_class else "ActData_BaseNode" }}() {}
+    {{ class_name }}();
 
 };
 

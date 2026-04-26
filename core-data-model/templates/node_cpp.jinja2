@@ -1,7 +1,19 @@
 #include "{{ class_name }}.h"
+#include "ActData_ParameterFactory.h"
+#include <TDF_Tool.hxx>
+#include <TDF_Label.hxx>
+#include <ActData_Utils.h>
+#include <iostream>
 
-// OCCT RTTI
-IMPLEMENT_STANDARD_RTTIEXT({{ class_name }}, {{ parent_class if parent_class else "ActData_BaseNode" }})
+// Register this node type with Active Data's NodeFactory
+REGISTER_NODE_TYPE({{ class_name }})
+
+{{ class_name }}::{{ class_name }}() : {{ parent_class }}()
+{
+    {% for attr_name, attr in attributes.items() %}
+    REGISTER_PARAMETER({{ attr.act_type }}, PID_{{ attr_name }});
+    {% endfor %}
+}
 
 Handle({{ class_name }}) {{ class_name }}::Instance()
 {
@@ -10,34 +22,99 @@ Handle({{ class_name }}) {{ class_name }}::Instance()
 
 void {{ class_name }}::InitNode()
 {
-    // Initialize parameters
+    {% if parent_class != "ActData_BaseNode" %}
+    {{ parent_class }}::InitNode();
+    {% endif %}
+    
+    // Initialize parameters with default names and flags
     {% for attr_name, attr in attributes.items() %}
     this->InitParameter(PID_{{ attr_name }}, "{{ attr_name }}");
     {% endfor %}
 }
 
-TCollection_ExtendedString {{ class_name }}::GetName()
-{
-    return "{{ class_name }}";
-}
-
-void {{ class_name }}::SetName(const TCollection_ExtendedString& /*theName*/)
-{
-}
-
 {% for attr_name, attr in attributes.items() %}
+{% if attr_name != "Name" %}
 // --- {{ attr_name }} ---
 
 void {{ class_name }}::Set{{ attr_name }}(const {{ attr.cpp_type }}& value)
 {
-    ActData_ParameterFactory::As{{ attr.act_type }}(this->Parameter(PID_{{ attr_name }}))->{{ attr.set_method }}(value);
+    std::cout << "    [Setter] Entering Set{{ attr_name }} for {{ class_name }}" << std::endl;
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_{{ attr_name }});
+
+    if (p.IsNull()) {
+        std::cerr << "  [Setter] ERROR: Parameter PID_{{ attr_name }} is NULL!" << std::endl;
+        return;
+    }
+    
+    auto typedP = ActData_ParameterFactory::As{{ attr.act_type }}(p);
+    if (typedP.IsNull()) {
+        std::cerr << "  [Setter] ERROR: Parameter PID_{{ attr_name }} cannot be cast to {{ attr.act_type }}!" << std::endl;
+        return;
+    }
+
+    try {
+        {% if attr.act_type == "Reference" %}
+        if (!value.IsNull()) {
+            typedP->SetTarget(value);
+        }
+        {% else %}
+        typedP->{{ attr.set_method }}(value);
+        {% endif %}
+        std::cout << "    [Setter] Value set successfully!" << std::endl;
+    } catch (Standard_Failure& e) {
+        std::cerr << "  [Setter] OCCT EXCEPTION: " << e.GetMessageString() << std::endl;
+    } catch (...) {
+        std::cerr << "  [Setter] UNKNOWN EXCEPTION!" << std::endl;
+    }
 }
 
 {{ attr.cpp_type }} {{ class_name }}::Get{{ attr_name }}() const
 {
-    return ActData_ParameterFactory::As{{ attr.act_type }}(this->Parameter(PID_{{ attr_name }}))->{{ attr.get_method }}();
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_{{ attr_name }});
+    if (p.IsNull()) return {{ attr.cpp_type }}();
+    
+    auto typedP = ActData_ParameterFactory::As{{ attr.act_type }}(p);
+    if (typedP.IsNull()) return {{ attr.cpp_type }}();
+    
+    {% if attr.act_type == "Reference" %}
+    return typedP->GetTarget();
+    {% else %}
+    return typedP->{{ attr.get_method }}();
+    {% endif %}
 }
+{% endif %}
 {% endfor %}
+
+// Mandatory overrides for ActData_BaseNode
+TCollection_ExtendedString {{ class_name }}::GetName()
+{
+    {% if "Name" in attributes %}
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_Name);
+    if (p.IsNull()) return "{{ class_name }}";
+    auto typedP = ActData_ParameterFactory::As{{ attributes.Name.act_type }}(p);
+    if (typedP.IsNull()) return "{{ class_name }}";
+    return typedP->GetValue();
+    {% elif parent_class != "ActData_BaseNode" %}
+    return {{ parent_class }}::GetName();
+    {% else %}
+    return "{{ class_name }}";
+    {% endif %}
+}
+
+void {{ class_name }}::SetName(const TCollection_ExtendedString& theName)
+{
+    {% if "Name" in attributes %}
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_Name);
+    if (p.IsNull()) return;
+    
+    auto typedP = ActData_ParameterFactory::As{{ attributes.Name.act_type }}(p);
+    if (typedP.IsNull()) return;
+    
+    typedP->{{ attributes.Name.set_method }}(theName);
+    {% elif parent_class != "ActData_BaseNode" %}
+    {{ parent_class }}::SetName(theName);
+    {% endif %}
+}
 
 // --- Children management ---
 {% for child_name, child in children.items() %}
@@ -57,6 +134,10 @@ void {{ class_name }}::Set{{ child_name }}(const Handle({{ child.class_name }})&
 {% else %}
 void {{ class_name }}::Add{{ child_name }}(const Handle({{ child.class_name }})& node)
 {
+    TCollection_AsciiString entry1, entry2;
+    TDF_Tool::Entry(this->RootLabel(), entry1);
+    if (!node.IsNull()) TDF_Tool::Entry(node->RootLabel(), entry2);
+    std::cout << "    [AddChild] " << entry1.ToCString() << " -> " << entry2.ToCString() << std::endl << std::flush;
     this->AddChildNode(node);
 }
 
@@ -68,7 +149,10 @@ NCollection_Sequence<Handle({{ child.class_name }})> {{ class_name }}::Get{{ chi
     {
         for (; it->More(); it->Next())
         {
-            Handle({{ child.class_name }}) child = Handle({{ child.class_name }})::DownCast(it->Value());
+            Handle(ActAPI_INode) childBase = it->Value();
+            if (childBase.IsNull()) continue;
+            
+            Handle({{ child.class_name }}) child = Handle({{ child.class_name }})::DownCast(childBase);
             if (!child.IsNull())
                 res.Append(child);
         }
