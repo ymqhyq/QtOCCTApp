@@ -7,13 +7,9 @@ import cadquery as cq
 width = 1200.0
 length = 1200.0
 height = 400.0
-concreteGrade = globals().get('concreteGrade', "C50") # inout参数从前端获取
-z_min = -50.0
-
 # 创建单个垫石模型 (位于局部坐标系中心)
 result = (
     cq.Workplane("XY")
-    .workplane(offset=z_min)
     .box(width, length, height, centered=(True, True, False))
 )
 

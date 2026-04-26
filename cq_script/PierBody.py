@@ -15,10 +15,10 @@ def draw(wp, xr, yr, px, nmy, ney, iy):
             .threePointArc((-129, -nmy), (-200, -yr))
             .close())
 
-# 获取桥墩高度：优先从 schema 的 'height' 获取，其次从全局 'pierHeight' 获取
-pierHeight = globals().get('height', globals().get('pierHeight', 12000.0))
+# 获取桥墩高度：优先从 JSON 传入的 'Height' 获取
+pierHeight = globals().get('Height', 8000.0)
 
-w = cq.Workplane('XY').workplane(offset=-pierHeight)
+w = cq.Workplane('XY')
 w = draw(w, 1600, 1667, 3267, 1637, 1567, 1467)
 w = draw(w.workplane(offset=pierHeight), 1600, 1400, 3000, 1374, 1300, 1200)
 result = w.loft()

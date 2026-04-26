@@ -125,6 +125,10 @@ if len(cavity_edges.vals()) > 0:
 # === 3. 布尔减：从外壳中挖去内腔 ===
 result = outer_solid.cut(cavity_solid)
 
+# === 3.5 对齐：将梁中心移动到 X=0 ===
+# 原始拉伸是从 0 到 L，现在向后移动 L/2
+result = result.translate((-L/2, 0, 0))
+
 # === 4. 可视化输出 ===
 if 'show_object' in globals():
     show_object(result, name="Variable_Girder", options={"color": (150, 150, 150)})

@@ -32,6 +32,14 @@
 #include <QTextEdit>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <gp_Trsf.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+
+// core-data-model headers
+#include "DataModel.h"
+#include "BrNode_adObject.h"
+#include "BrNode_adGeometry.h"
+#include "BrNode_adGeometricDef.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
@@ -139,6 +147,10 @@ void MainWindow::createRibbon() {
   });
   panelText->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
 
+  QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/random.svg"), "加载 ASI 模型", this);
+  connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
+  panelBasic->addLargeAction(loadAsiAction);
+
   // Bridge Generation Category
   SARibbonCategory *categoryBridge = ribbon->addCategoryPage("Bridge Tools");
   SARibbonPanel *panelBridge = categoryBridge->addPanel("Bridge");
@@ -233,7 +245,7 @@ void MainWindow::createRibbon() {
   QAction *tuopanAction =
       new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
   connect(tuopanAction, &QAction::triggered, [this]() {
-    m_currentModelType = "TuopanDingmao";
+    m_currentModelType = "PierTray";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
@@ -242,7 +254,7 @@ void MainWindow::createRibbon() {
   QAction *dunshenAction =
       new QAction(QIcon(":/resources/icons/dunshen.svg"), "墩身", this);
   connect(dunshenAction, &QAction::triggered, [this]() {
-    m_currentModelType = "Dunshen";
+    m_currentModelType = "PierBody";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
@@ -251,7 +263,7 @@ void MainWindow::createRibbon() {
   QAction *chengtaiAction =
       new QAction(QIcon(":/resources/icons/chengtai.svg"), "承台", this);
   connect(chengtaiAction, &QAction::triggered, [this]() {
-    m_currentModelType = "Chengtai";
+    m_currentModelType = "PileCap";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
@@ -269,7 +281,7 @@ void MainWindow::createRibbon() {
   QAction *girderAction =
       new QAction(QIcon(":/resources/icons/girder.svg"), "箱梁", this);
   connect(girderAction, &QAction::triggered, [this]() {
-    m_currentModelType = "girder";
+    m_currentModelType = "Girder";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
@@ -389,6 +401,88 @@ void MainWindow::onDrawBearing() {
   m_cqScriptEditor->setText(readScript(m_currentModelType));
   onRunCqScript();
   statusBar()->showMessage("支座脚本已加载并运行", 3000);
+}
+
+// 辅助递归函数：遍历 adObject 树并显示几何
+static void TraverseAndDisplay(const Handle(BrNode_adObject)& obj, OCCTWidget* widget, const gp_Trsf& parentTrsf) {
+    if (obj.IsNull()) return;
+
+    // 1. 获取当前对象的局部变换
+    gp_Trsf localTrsf;
+    Handle(TColStd_HArray1OfReal) placement = obj->GetObjectPlacement();
+    if (!placement.IsNull() && placement->Length() >= 3) {
+        int low = placement->Lower();
+        int up  = placement->Upper();
+        
+        double x = (low <= up) ? placement->Value(low) : 0.0;
+        double y = (low + 1 <= up) ? placement->Value(low + 1) : 0.0;
+        double z = (low + 2 <= up) ? placement->Value(low + 2) : 0.0;
+
+        // DEBUG: 打印原始数组内容
+        std::cout << "[RawPlacement] Node: " << TCollection_AsciiString(obj->GetName()).ToCString()
+                  << " | Raw: [" << x << ", " << y << ", " << z << "] (Range: " << low << "-" << up << ")" << std::endl;
+        
+        localTrsf.SetTranslation(gp_Vec(x, y, z));
+    }
+    
+    // 叠加变换 (ActiveData 目前使用的是全局坐标偏移，如果是相对坐标则需要 parentTrsf * localTrsf)
+    gp_Trsf currentTrsf = parentTrsf * localTrsf;
+    
+    // DEBUG: 打印每个构件的坐标
+    gp_XYZ trans = currentTrsf.TranslationPart();
+    std::cout << "[Display] Node: " << TCollection_AsciiString(obj->GetName()).ToCString() 
+              << " | Global Pos: (" << trans.X() << ", " << trans.Y() << ", " << trans.Z() << ")" << std::endl;
+
+    // 2. 显示几何
+    Handle(BrNode_adGeometry) geomNode = Handle(BrNode_adGeometry)::DownCast(obj->GetGeometry());
+    if (!geomNode.IsNull()) {
+        Handle(BrNode_adGeometricDef) geoDef = Handle(BrNode_adGeometricDef)::DownCast(geomNode->GetGeometryRef());
+        if (!geoDef.IsNull()) {
+            TopoDS_Shape shape = geoDef->GetShape();
+            if (!shape.IsNull()) {
+                // 应用变换
+                BRepBuilderAPI_Transform transformer(shape, currentTrsf);
+                if (transformer.IsDone()) {
+                    widget->addShape(transformer.Shape(), Quantity_Color(Quantity_NOC_GRAY70));
+                }
+            }
+        }
+    }
+
+    // 3. 递归子对象
+    NCollection_Sequence<Handle(BrNode_adObject)> children = obj->GetSubObjectsList();
+    for (int i = 1; i <= children.Length(); ++i) {
+        TraverseAndDisplay(children.Value(i), widget, currentTrsf);
+    }
+}
+
+void MainWindow::onLoadAsiModel() {
+    QString fileName = QFileDialog::getOpenFileName(this, "打开 ASI 模型", "", "ASI Files (*.asi *.asi.cbf);;All Files (*.*)");
+    if (fileName.isEmpty()) return;
+
+    Handle(DataModel) model = new DataModel();
+    if (!model->Open(fileName.toStdString().c_str())) {
+        QMessageBox::critical(this, "错误", "无法打开模型文件：" + fileName);
+        return;
+    }
+
+    m_occtWidget->clearAll();
+    
+    // 从根节点开始遍历
+    Handle(ActAPI_INode) rootBase = model->GetRootNode();
+    NCollection_Sequence<Handle(BrNode_adObject)> rootObjects;
+    
+    // 获取根节点下的所有 adObject
+    Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
+    for (; it->More(); it->Next()) {
+        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+        if (!obj.IsNull()) {
+            TraverseAndDisplay(obj, m_occtWidget, gp_Trsf());
+        }
+    }
+
+    m_occtWidget->fitAll();
+    statusBar()->showMessage("模型加载完成：" + fileName, 5000);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -851,13 +945,13 @@ void MainWindow::dispatchTask(int) {
       modelName = "Pile";
       break;
     case 1:
-      modelName = "Chengtai";
+      modelName = "PileCap";
       break;
     case 2:
-      modelName = "Dunshen";
+      modelName = "PierBody";
       break;
     case 3:
-      modelName = "TuopanDingmao";
+      modelName = "PierTray";
       break;
     case 4: // bed_stone 1
     case 5: // bed_stone 2
@@ -868,7 +962,7 @@ void MainWindow::dispatchTask(int) {
       modelName = "bearing";
       break;
     case 8: // girder
-      modelName = "girder";
+      modelName = "Girder";
       break;
     default:
       qWarning() << "Unknown assembly index:" << index;

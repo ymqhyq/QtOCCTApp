@@ -162,6 +162,24 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
         }
     }
 
+    // 3.5 设置 ObjectPlacement
+    if (objJson.contains("ObjectPlacement")) {
+        auto placementJson = objJson["ObjectPlacement"];
+        if (placementJson.is_array() && placementJson.size() >= 3) {
+            double x = placementJson[0].get<double>();
+            double y = placementJson[1].get<double>();
+            double z = placementJson[2].get<double>();
+            
+            Handle(TColStd_HArray1OfReal) arr = new TColStd_HArray1OfReal(1, 3);
+            arr->SetValue(1, x);
+            arr->SetValue(2, y);
+            arr->SetValue(3, z);
+            
+            adObj->SetObjectPlacement(arr);
+            std::cout << "  [ProcessJsonObject] Set ObjectPlacement -> [" << x << ", " << y << ", " << z << "]" << std::endl;
+        }
+    }
+
     // 4. 处理子对象
     if (objJson.contains("children")) {
         std::cout << "  [ProcessJsonObject] Processing " << objJson["children"].size() << " children..." << std::endl;
@@ -175,6 +193,28 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
     }
 
     return adObj;
+}
+
+// 递归遍历并构建几何
+#include "GeometryService.h"
+void BuildAllGeometry(const Handle(DataModel)& model, const Handle(BrNode_adObject)& node, GeometryService& geoService) {
+    if (node.IsNull()) return;
+    
+    // 如果该对象有对应的几何属性集，尝试构建几何
+    Handle(BrNode_adGeometricDef) geoDef = geoService.BuildGeometry(node);
+    if (!geoDef.IsNull()) {
+        // 创建 adGeometry 并关联
+        Handle(BrNode_adGeometry) geom = model->AddadGeometry();
+        geom->SetName(node->GetName());
+        geom->SetGeometryRef(geoDef);
+        node->SetGeometry(geom);
+    }
+    
+    // 递归子节点
+    NCollection_Sequence<Handle(BrNode_adObject)> children = node->GetSubObjectsList();
+    for (int i = 1; i <= children.Length(); ++i) {
+        BuildAllGeometry(model, children.Value(i), geoService);
+    }
 }
 
 int main(int argc, char** argv) {
@@ -218,6 +258,11 @@ int main(int argc, char** argv) {
             modelRoot->AddSubObjects(rootBridge);
         }
         
+        // 构建几何
+        std::cout << "Building geometry via microservice..." << std::endl;
+        GeometryService geoService(model, "http://127.0.0.1:3500/v1.0/invoke/modeling-service/method");
+        BuildAllGeometry(model, rootBridge, geoService);
+        
         // Commit the entire assembly transaction
         std::cout << "Committing assembly..." << std::endl;
         model->CommitCommand();
@@ -231,7 +276,7 @@ int main(int argc, char** argv) {
             std::cout << std::endl;
 
             // 5. 保存模型为 .asi 文件 (Active Data 二进制格式)
-            TCollection_AsciiString savePath = "bridge_test_save.asi";
+            TCollection_AsciiString savePath = "D:/QtOCCTApp/bridge_test_save.asi";
             std::cout << "Saving model to: " << savePath.ToCString() << "..." << std::endl;
             if (model->SaveAs(savePath)) {
                 std::cout << "Model saved successfully." << std::endl;

@@ -186,24 +186,24 @@ async def generate_model(request: ScriptRequest):
     code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
     args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
     
-    # 尝试从 Dapr 缓存中获取
+    # 尝试从 Dapr 缓存中获取 (临时禁用以强制重新生成，但保留 cache_key 定义供后续使用)
     cache_key = compute_cache_key(request)
-    try:
-        cached_data = await asyncio.to_thread(dapr_get_state, cache_key)
-        if cached_data and "brep_b64" in cached_data:
-            logger.info(f"命中 Dapr 缓存: {cache_key}")
-            brep_bytes = base64.b64decode(cached_data["brep_b64"])
-            metadata = cached_data["metadata"]
-            json_bytes = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
-            header = struct.pack("<I", len(json_bytes))
-            full_package = header + json_bytes + brep_bytes
-            return Response(
-                content=full_package,
-                media_type="application/octet-stream",
-                headers={"Content-Disposition": f"attachment; filename={task_id}.jhb"}
-            )
-    except Exception as e:
-        logger.error(f"读取 Dapr 缓存失败: {e}")
+    # try:
+    #     cached_data = await asyncio.to_thread(dapr_get_state, cache_key)
+    #     if cached_data and "brep_b64" in cached_data:
+    #         logger.info(f"命中 Dapr 缓存: {cache_key}")
+    #         brep_bytes = base64.b64decode(cached_data["brep_b64"])
+    #         metadata = cached_data["metadata"]
+    #         json_bytes = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+    #         header = struct.pack("<I", len(json_bytes))
+    #         full_package = header + json_bytes + brep_bytes
+    #         return Response(
+    #             content=full_package,
+    #             media_type="application/octet-stream",
+    #             headers={"Content-Disposition": f"attachment; filename={task_id}.jhb"}
+    #         )
+    # except Exception as e:
+    #     logger.error(f"读取 Dapr 缓存失败: {e}")
         
     try:
         code = request.code
