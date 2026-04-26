@@ -19,7 +19,8 @@ TYPE_MAP = {
     "enum":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"},
     "Reference": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget", "id": "Parameter_Reference"},
     "BrEntityRef": {"cpp": "Handle(ActAPI_IDataCursor)", "act": "Reference", "set": "SetTarget", "get": "GetTarget", "id": "Parameter_Reference"},
-    "GUID":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"}
+    "GUID":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"},
+    "JSON":      {"cpp": "TCollection_ExtendedString", "act": "Name", "set": "SetValue", "get": "GetValue", "id": "Parameter_Name"}
 }
 
 def generate_code():

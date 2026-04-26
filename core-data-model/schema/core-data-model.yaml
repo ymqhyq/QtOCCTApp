@@ -9,7 +9,7 @@ DataTypes:
   Reference: { description: "节点引用 (OCAF Link)", act_param: "ActData_ReferenceParameter" }
   GUID:      { description: "全局唯一标识符", act_param: "ActData_StringParameter" }
   enum:      { description: "枚举类型", act_param: "ActData_StringParameter" }
-
+  JSON:      { description: "JSON对象", act_param: "ActData_StringParameter" }
 # --- 2. 数据分区规划 (Partition Mapping) ---
 # 定义系统默认的分区 Label ID 偏移
 Partitions:
@@ -41,6 +41,8 @@ adGeometricDef:
   name: "几何定义"
   base: adRoot
   attributes:
+    ParamGeoID: { type: "String", default: "", label: "由型号和建模参数生成的MD5码，用于标识在型号和参数确定下的几何" }
+    GeoParameter: { type: "JSON", default: "", label: "几何参数(JSON)" }
     Shape: { type: "Shape", label: "几何外形" }
   default_partition: "GeometryDefinitions"
 # [新] 几何与显示类：负责存储形状及视觉样式

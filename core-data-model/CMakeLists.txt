@@ -37,6 +37,10 @@ endif()
 file(GLOB_RECURSE SOURCES "generated/*.cpp")
 file(GLOB_RECURSE HEADERS "generated/*.h")
 
+# GeometryService (手写类)
+list(APPEND SOURCES "GeometryService.cpp")
+list(APPEND HEADERS "GeometryService.h")
+
 add_library(core_data_model SHARED ${SOURCES} ${HEADERS})
 target_compile_definitions(core_data_model PRIVATE BR_EXPORT_EXPORTS)
 

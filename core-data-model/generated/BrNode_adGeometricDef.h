@@ -24,6 +24,13 @@
 
 
   
+#include <ActData_NameParameter.h>
+    
+  
+
+  
+
+  
 #include <ActData_ShapeParameter.h>
     
   
@@ -57,6 +64,10 @@ public:
         
         
         
+        PID_ParamGeoID,
+        
+        PID_GeoParameter,
+        
         PID_Shape,
         
         
@@ -76,6 +87,16 @@ public:
 
 public:
     // Get/Set methods for attributes
+    
+    
+    void SetParamGeoID(const TCollection_ExtendedString& value);
+    TCollection_ExtendedString GetParamGeoID() const;
+    
+    
+    
+    void SetGeoParameter(const TCollection_ExtendedString& value);
+    TCollection_ExtendedString GetGeoParameter() const;
+    
     
     
     void SetShape(const TopoDS_Shape& value);
