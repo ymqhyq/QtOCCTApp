@@ -170,13 +170,19 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
             double y = placementJson[1].get<double>();
             double z = placementJson[2].get<double>();
             
-            Handle(TColStd_HArray1OfReal) arr = new TColStd_HArray1OfReal(1, 3);
-            arr->SetValue(1, x);
-            arr->SetValue(2, y);
-            arr->SetValue(3, z);
-            
-            adObj->SetObjectPlacement(arr);
-            std::cout << "  [ProcessJsonObject] Set ObjectPlacement -> [" << x << ", " << y << ", " << z << "]" << std::endl;
+            auto p = adObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
+            auto typedP = ActData_ParameterFactory::AsRealArray(p);
+            if (!typedP.IsNull()) {
+                // 先通过 SetArray 初始化长度和基本空间
+                Handle(TColStd_HArray1OfReal) tmp = new TColStd_HArray1OfReal(0, 2);
+                typedP->SetArray(tmp);
+                
+                // 再通过 SetElement 精确赋值，确保万无一失
+                typedP->SetElement(0, x);
+                typedP->SetElement(1, y);
+                typedP->SetElement(2, z);
+                std::cout << "  [ProcessJsonObject] Set ObjectPlacement (Safe) -> [" << x << ", " << y << ", " << z << "]" << std::endl;
+            }
         }
     }
 

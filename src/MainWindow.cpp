@@ -409,18 +409,17 @@ static void TraverseAndDisplay(const Handle(BrNode_adObject)& obj, OCCTWidget* w
 
     // 1. 获取当前对象的局部变换
     gp_Trsf localTrsf;
-    Handle(TColStd_HArray1OfReal) placement = obj->GetObjectPlacement();
-    if (!placement.IsNull() && placement->Length() >= 3) {
-        int low = placement->Lower();
-        int up  = placement->Upper();
-        
-        double x = (low <= up) ? placement->Value(low) : 0.0;
-        double y = (low + 1 <= up) ? placement->Value(low + 1) : 0.0;
-        double z = (low + 2 <= up) ? placement->Value(low + 2) : 0.0;
+    Handle(ActAPI_IUserParameter) p = obj->Parameter(BrNode_adObject::PID_ObjectPlacement);
+    Handle(ActData_RealArrayParameter) typedP = ActData_ParameterFactory::AsRealArray(p);
+    
+    if (!typedP.IsNull() && typedP->NbElements() >= 3) {
+        double x = typedP->GetElement(0);
+        double y = typedP->GetElement(1);
+        double z = typedP->GetElement(2);
 
-        // DEBUG: 打印原始数组内容
+        // DEBUG: 打印原始内容
         std::cout << "[RawPlacement] Node: " << TCollection_AsciiString(obj->GetName()).ToCString()
-                  << " | Raw: [" << x << ", " << y << ", " << z << "] (Range: " << low << "-" << up << ")" << std::endl;
+                  << " | Raw (Direct): [" << x << ", " << y << ", " << z << "]" << std::endl;
         
         localTrsf.SetTranslation(gp_Vec(x, y, z));
     }
