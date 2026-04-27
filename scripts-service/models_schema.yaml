@@ -1,20 +1,20 @@
-girder:
+Girder:
   name: "预制箱梁"
   type: { type: enum, label: "类型", options: ["单箱单室", "单箱双室"], default: "单箱单室" }
   length: { type: float, label: "长度", default: 31500.0, unit: "mm", access: inout }
   width: { type: float, label: "宽度", default: 12600.0, unit: "mm", access: out }
   height: { type: float, label: "高度", default: 3000.0, unit: "mm", access: out }
 
-Dunshen:
+PierBody:
   name: "圆端型桥墩/墩身"
   type: { type: enum, label: "类型", options: ["圆端型", "矩型"], default: "圆端型", access: out}
   height: { type: float, label: "高度", default: 12000.0, min: 2000, access: inout }
 
-bed_stone:
+BedStone:
   name: "支承垫石"
   length: { type: float, label: "长度", default: 1200.0, access: out }
   width: { type: float, label: "宽度", default: 1200.0, access: out }
-  height: { type: float, label: "高度", default: 300.0, access: out }
+  height: { type: float, label: "高度", default: 400.0, access: out }
   concreteGrade: { type: enum, label: "混凝土型号", options: ["C35", "C40", "C50"], default: "C50", access: inout }
 
 bearing:
@@ -24,14 +24,14 @@ bearing:
   width: { type: float, label: "宽度", default: 200.0, access: out }
   height: { type: float, label: "高度", default: 200.0, access: out }
   
-TuopanDingmao:
+PierTray:
   name: "托盘与顶帽"
   length: { type: float, label: "长度", default: 200.0, access: out }
   width: { type: float, label: "宽度", default: 200.0, access: out }
   height: { type: float, label: "高度", default: 2750.0, access: out }
   concreteGrade: { type: enum, label: "混凝土型号", options: ["C40", "C50"], default: "C50", access: out}
 
-Chengtai:
+PileCap:
   name: "钢筋混凝土承台"
   layers: { type: int, label: "层数", default: 2, min: 1, max: 2, access: inout }
   totalH: { type: float, label: "预计总体积", default: 0.0, access: out }

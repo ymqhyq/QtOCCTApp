@@ -40,6 +40,7 @@
 #include "BrNode_adObject.h"
 #include "BrNode_adGeometry.h"
 #include "BrNode_adGeometricDef.h"
+#include <cmath>
 
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
@@ -421,7 +422,30 @@ static void TraverseAndDisplay(const Handle(BrNode_adObject)& obj, OCCTWidget* w
         std::cout << "[RawPlacement] Node: " << TCollection_AsciiString(obj->GetName()).ToCString()
                   << " | Raw (Direct): [" << x << ", " << y << ", " << z << "]" << std::endl;
         
+        
         localTrsf.SetTranslation(gp_Vec(x, y, z));
+
+        // [新] 支持旋转参数 [rx, ry, rz] (单位：度)
+        if (typedP->NbElements() >= 6) {
+            double rx = typedP->GetElement(3);
+            double ry = typedP->GetElement(4);
+            double rz = typedP->GetElement(5);
+
+            gp_Trsf rot;
+            if (std::abs(rz) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(0,0,1)), rz * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            if (std::abs(ry) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(0,1,0)), ry * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            if (std::abs(rx) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(1,0,0)), rx * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            localTrsf.Multiply(rot);
+        }
     }
     
     // 叠加变换 (ActiveData 目前使用的是全局坐标偏移，如果是相对坐标则需要 parentTrsf * localTrsf)

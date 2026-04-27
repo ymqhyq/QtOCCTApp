@@ -11,6 +11,7 @@
 #include <OpenGl_GraphicDriver.hxx>
 #include <V3d_View.hxx>
 #include <V3d_Viewer.hxx>
+#include <AIS_ViewCube.hxx>
 
 #include <AIS_Point.hxx>
 #include <AIS_Shape.hxx>
@@ -113,6 +114,7 @@ private:
 
 private:
   void initOCCT();
+  void initViewCube();
   void updateView();
 
   Handle(V3d_Viewer) m_viewer;
@@ -139,6 +141,8 @@ private:
   int m_shapeCount;
   QLabel *m_infoLabel;
   QTimer m_refreshTimer;
+
+  Handle(AIS_ViewCube) m_viewCube;
 };
 
 #endif // OCCTWIDGET_H

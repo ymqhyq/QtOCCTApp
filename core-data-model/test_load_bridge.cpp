@@ -8,6 +8,8 @@
 #include "generated/BrNode_adObject.h"
 #include "generated/BrNode_adPropertySet.h"
 #include "generated/BrNode_adProperty.h"
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 
 // Active Data 基础包含
 // #include <ActData_BinBinaryWriter.h> // 移除不正确的包含
@@ -166,22 +168,20 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
     if (objJson.contains("ObjectPlacement")) {
         auto placementJson = objJson["ObjectPlacement"];
         if (placementJson.is_array() && placementJson.size() >= 3) {
-            double x = placementJson[0].get<double>();
-            double y = placementJson[1].get<double>();
-            double z = placementJson[2].get<double>();
-            
+            int nParams = (int)placementJson.size();
+            if (nParams > 6) nParams = 6;
+
             auto p = adObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
             auto typedP = ActData_ParameterFactory::AsRealArray(p);
             if (!typedP.IsNull()) {
-                // 先通过 SetArray 初始化长度和基本空间
-                Handle(TColStd_HArray1OfReal) tmp = new TColStd_HArray1OfReal(0, 2);
+                // 动态分配长度 (0 到 nParams-1)
+                Handle(TColStd_HArray1OfReal) tmp = new TColStd_HArray1OfReal(0, nParams - 1);
                 typedP->SetArray(tmp);
                 
-                // 再通过 SetElement 精确赋值，确保万无一失
-                typedP->SetElement(0, x);
-                typedP->SetElement(1, y);
-                typedP->SetElement(2, z);
-                std::cout << "  [ProcessJsonObject] Set ObjectPlacement (Safe) -> [" << x << ", " << y << ", " << z << "]" << std::endl;
+                for (int i = 0; i < nParams; ++i) {
+                    typedP->SetElement(i, placementJson[i].get<double>());
+                }
+                std::cout << "  [ProcessJsonObject] Set ObjectPlacement (" << nParams << " params)" << std::endl;
             }
         }
     }
@@ -206,8 +206,8 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
 void BuildAllGeometry(const Handle(DataModel)& model, const Handle(BrNode_adObject)& node, GeometryService& geoService) {
     if (node.IsNull()) return;
     
-    // 如果该对象有对应的几何属性集，尝试构建几何
     Handle(BrNode_adGeometricDef) geoDef = geoService.BuildGeometry(node);
+
     if (!geoDef.IsNull()) {
         // 创建 adGeometry 并关联
         Handle(BrNode_adGeometry) geom = model->AddadGeometry();

@@ -11,6 +11,10 @@
 #include <BRep_Tool.hxx>
 #include <Graphic3d_Camera.hxx>
 #include <IFSelect_ReturnStatus.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Sphere.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Cone.hxx>
 #include <IntAna_Quadric.hxx>
 #include <Interface_Static.hxx>
 #include <Prs3d_DimensionAspect.hxx>
@@ -37,6 +41,7 @@
 #include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Trsf.hxx>
+#include <Graphic3d_ZLayerId.hxx>
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
@@ -109,8 +114,8 @@ void OCCTWidget::initOCCT() {
     m_view->Camera()->SetCenter(gp_Pnt(0, 0, 0));
     m_view->SetScale(100.0); // 设置合适的初始缩放比例
 
-    // 开启 Phong 着色以获得更好的金属高光效果 (像素级光照)
-    m_view->SetShadingModel(V3d_PHONG);
+    // 1. 在左下角显示带小方块的坐标轴 (ZBUFFER 模式)
+    m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.15, V3d_ZBUFFER);
 
     updateView();
   } catch (const std::exception &e) {
@@ -118,6 +123,28 @@ void OCCTWidget::initOCCT() {
     // 但在实际应用中，你可能想使用其他日志机制
   } catch (...) {
     // 捕获所有异常
+  }
+}
+
+void OCCTWidget::initViewCube() {
+  if (m_context.IsNull() || !m_viewCube.IsNull())
+    return;
+
+  try {
+    m_viewCube = new AIS_ViewCube();
+    m_viewCube->SetSize(100.0);
+    m_viewCube->SetBoxColor(Quantity_Color(Quantity_NOC_ANTIQUEWHITE));
+    m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
+    m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
+    
+    // 设置持久性：右上角
+    m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
+        Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(100, 100)));
+
+    m_context->Display(m_viewCube, 1, 0, false);
+    m_context->Activate(m_viewCube, 0);
+  } catch (...) {
+    // 忽略异常
   }
 }
 
@@ -130,6 +157,9 @@ OCCTWidget::~OCCTWidget() {
 void OCCTWidget::paintEvent(QPaintEvent *event) {
   Q_UNUSED(event);
   if (!m_view.IsNull()) {
+    if (m_viewCube.IsNull()) {
+      initViewCube();
+    }
     m_view->Redraw();
   }
 
@@ -249,6 +279,21 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   // Track mouse position for panning
   m_xPos = event->pos().x();
   m_yPos = event->pos().y();
+
+  // 检查是否点击了 ViewCube 交互组件
+  qreal pixelRatio = devicePixelRatio();
+  m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
+                    static_cast<int>(event->pos().y() * pixelRatio), m_view, true);
+  
+  if (!m_viewCube.IsNull() && m_context->HasDetected()) {
+    Handle(AIS_ViewCubeOwner) aCubeOwner = Handle(AIS_ViewCubeOwner)::DownCast(m_context->DetectedOwner());
+    if (!aCubeOwner.IsNull()) {
+      // 触发 ViewCube 的内部视图切换逻辑
+      m_viewCube->HandleClick(aCubeOwner);
+      update();
+      return; // 消耗事件，不触发后续的选择或绘制逻辑
+    }
+  }
 
   // Check if we are panning (Left Button + Not Drawing/Selecting or perhaps
   // just Left Button? User asked to CHANGE to Left Button. However, Left Button
@@ -1028,6 +1073,15 @@ void OCCTWidget::clearAll() {
     return;
 
   m_context->RemoveAll(true);
+  
+  // 关键修复：RemoveAll 会移除 ViewCube，这里需要重新显示它
+  if (!m_viewCube.IsNull()) {
+    m_context->Display(m_viewCube, AIS_Shaded, 0, false);
+    m_context->Activate(m_viewCube, 0);
+  }
+
+  m_context->UpdateCurrentViewer();
+
   m_lines.clear();
   m_objectMetadata.clear();
 
@@ -1783,7 +1837,7 @@ void OCCTWidget::buildFullBridgeFromParts(
   if (parts.isEmpty())
     return;
 
-  // 0:Pile, 1:Chengtai, 2:Dunshen, 3:Tuopan, 4:Stone1, 5:Stone2, 6:Bearing1,
+  // 0:Pile, 1:PileCap, 2:PierBody, 3:PierTray, 4:Stone1, 5:Stone2, 6:Bearing1,
   // 7:Bearing2, 8:Girder
   int partsAvailable = parts.size();
 
