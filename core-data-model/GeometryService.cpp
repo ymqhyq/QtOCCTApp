@@ -12,6 +12,7 @@
 #include <TDF_Tool.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TDF_ChildIterator.hxx>
+#include <ActData_BasePartition.h>
 
 // Windows HTTP (WinHTTP) - 轻量级 HTTP 客户端
 // 以后迁移为微服务时，此部分可替换为 gRPC/Dapr SDK
@@ -263,18 +264,13 @@ std::string GeometryService::ComputeParamGeoID(const std::string& modelType,
 Handle(BrNode_adGeometricDef)
 GeometryService::FindCachedGeoDef(const std::string& paramGeoId)
 {
-    // 遍历几何分区中的所有 adGeometricDef
-    TDF_Label geoPartLabel = m_model->GetPartitionLabel(DataModel::PID_GeometryDefinitions);
-    if (geoPartLabel.IsNull()) return nullptr;
+    // 获取几何定义分区
+    Handle(ActAPI_IPartition) partition = m_model->Partition(DataModel::PID_GeometryDefinitions);
+    if ( partition.IsNull() ) return nullptr;
 
-    Handle(ActAPI_INode) partitionNode = ActData_NodeFactory::NodeSettle(geoPartLabel);
-    if (partitionNode.IsNull()) return nullptr;
-
-    Handle(ActAPI_IChildIterator) it = partitionNode->GetChildIterator();
-    if (it.IsNull()) return nullptr;
-
-    for (; it->More(); it->Next()) {
-        Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it->Value());
+    // 使用分区的迭代器遍历节点
+    for (ActData_BasePartition::Iterator it(partition); it.More(); it.Next()) {
+        Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
         if (gd.IsNull()) continue;
 
         std::string existingId = ToStdString(gd->GetParamGeoID());

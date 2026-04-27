@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <map>
+#include <string>
 
 // 包含生成的 MDA 类
 #include "generated/DataModel.h"
@@ -14,7 +16,7 @@
 #include <math.h>
 
 // Active Data 基础包含
-// #include <ActData_BinBinaryWriter.h> // 移除不正确的包含
+#include <ActData_BasePartition.h>
 
 using json = nlohmann::json;
 
@@ -22,6 +24,59 @@ using json = nlohmann::json;
 static std::string ToStr(const TCollection_ExtendedString& es) {
     TCollection_AsciiString as(es);
     return std::string(as.ToCString());
+}
+
+/**
+ * @brief 统计并打印几何复用情况
+ */
+void PrintGeometryStats(const Handle(DataModel)& model) {
+    Handle(ActAPI_IPartition) geoPart = model->Partition(DataModel::PID_GeometryDefinitions);
+    Handle(ActAPI_IPartition) topoPart = model->Partition(DataModel::PID_Topology);
+    if (geoPart.IsNull() || topoPart.IsNull()) return;
+
+    std::cout << std::endl;
+    std::cout << "========== 几何复用统计 ==========" << std::endl;
+    
+    // 1. 收集所有几何定义
+    struct GeoStat {
+        Handle(BrNode_adGeometricDef) node;
+        int count = 0;
+    };
+    std::map<std::string, GeoStat> stats;
+    
+    for (ActData_BasePartition::Iterator it(geoPart); it.More(); it.Next()) {
+        Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
+        if (!gd.IsNull()) {
+            stats[ToStr(gd->GetParamGeoID())] = {gd, 0};
+        }
+    }
+
+    // 2. 扫描所有 adGeometry 节点进行计数
+    for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
+        Handle(BrNode_adGeometry) geom = Handle(BrNode_adGeometry)::DownCast(it.Value());
+        if (!geom.IsNull()) {
+            Handle(ActAPI_IDataCursor) ref = geom->GetGeometryRef();
+            Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(ref);
+            if (!gd.IsNull()) {
+                std::string id = ToStr(gd->GetParamGeoID());
+                if (stats.count(id)) {
+                    stats[id].count++;
+                }
+            }
+        }
+    }
+    
+    // 3. 打印结果
+    int totalDefs = 0;
+    for (auto const& [id, stat] : stats) {
+        totalDefs++;
+        std::string name = ToStr(stat.node->GetName());
+        std::cout << "  - [GeoDef] " << name << " (ID: " << id.substr(0,8) << "...)"
+                  << "  引用数量: " << stat.count << std::endl;
+    }
+    
+    std::cout << "总计几何定义对象数: " << totalDefs << std::endl;
+    std::cout << "==================================" << std::endl;
 }
 
 /**
@@ -291,6 +346,10 @@ int main(int argc, char** argv) {
             std::cout << "========== 桥梁装配树 ==========" << std::endl;
             PrintAssemblyTree(rootBridge);
             std::cout << "================================" << std::endl;
+
+            // 统计几何复用情况
+            PrintGeometryStats(model);
+            
             std::cout << std::endl;
 
             // 5. 保存模型为 .asi 文件 (Active Data 二进制格式)

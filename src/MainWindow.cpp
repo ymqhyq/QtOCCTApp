@@ -486,6 +486,7 @@ void MainWindow::onLoadAsiModel() {
     // 清理旧模型和视图
     m_occtWidget->clearAll();
     if (!m_currentModel.IsNull()) {
+        m_currentModel->Release(); // 显式释放，卸载 OCAF 文档资源
         m_currentModel.Nullify();
     }
 
