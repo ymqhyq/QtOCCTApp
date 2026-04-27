@@ -1,35 +1,31 @@
 import cadquery as cq
 
-pierHeight = globals().get('pierHeight', 12000.0)
-diameter = globals().get('diameter', 1000.0)
-length = globals().get('length', 15000.0)
-layout = globals().get('layout', "2x3")
-hSpacing = globals().get('hSpacing', 2500.0)
-vSpacing = globals().get('vSpacing', 3000.0)
+# 钻孔灌注桩 (Pile / SinglePile) - 极简生产版 (V3)
+# 移除 .combine() 避免耗时的布尔运算，直接返回形状集合
 
-pile = cq.Workplane('XY').circle(diameter / 2.0).extrude(-length)
-assy = cq.Assembly()
+diameter = globals().get('Diameter', globals().get('diameter', 1000.0))
+length = globals().get('Length', globals().get('length', 15000.0))
+layout = str(globals().get('Layout', globals().get('layout', "2x3"))).strip()
+hSpacing = globals().get('HSpacing', globals().get('hSpacing', 2500.0))
+vSpacing = globals().get('VSpacing', 3000.0)
 
+pts = []
 if layout == "2x3":
-    xs = [-hSpacing, 0, hSpacing]
-    ys = [-vSpacing / 2.0, vSpacing / 2.0]
+    for xi in [-hSpacing, 0, hSpacing]:
+        for yi in [-vSpacing / 2.0, vSpacing / 2.0]:
+            pts.append((xi, yi))
 elif layout == "3x3":
-    xs = [-hSpacing, 0, hSpacing]
-    ys = [-vSpacing, 0, vSpacing]
-elif layout == "4x4":
-    xs = [-hSpacing * 1.5, -hSpacing * 0.5, hSpacing * 0.5, hSpacing * 1.5]
-    ys = [-vSpacing * 1.5, -vSpacing * 0.5, vSpacing * 0.5, vSpacing * 1.5]
+    for xi in [-hSpacing, 0, hSpacing]:
+        for yi in [-vSpacing, 0, vSpacing]:
+            pts.append((xi, yi))
 else:
-    xs = [-hSpacing, 0, hSpacing]
-    ys = [-vSpacing / 2.0, vSpacing / 2.0]
+    pts = [(0, 0)]
 
-for xi in xs:
-    for yi in ys:
-        assy.add(pile, loc=cq.Location((xi, yi, -(pierHeight + 2000.0))))
-
-result = assy.toCompound()
-material = 'brass'
+# 生成桩集合，不执行 combine()
+result = (cq.Workplane("XY")
+          .pushPoints(pts)
+          .circle(diameter / 2.0)
+          .extrude(-length))
 
 if 'show_object' in globals():
     show_object(result, name="Pile")
-

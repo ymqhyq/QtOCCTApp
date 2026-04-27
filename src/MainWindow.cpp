@@ -483,18 +483,26 @@ void MainWindow::onLoadAsiModel() {
     QString fileName = QFileDialog::getOpenFileName(this, "打开 ASI 模型", "", "ASI Files (*.asi *.asi.cbf);;All Files (*.*)");
     if (fileName.isEmpty()) return;
 
-    Handle(DataModel) model = new DataModel();
-    if (!model->Open(fileName.toStdString().c_str())) {
+    // 清理旧模型和视图
+    m_occtWidget->clearAll();
+    if (!m_currentModel.IsNull()) {
+        m_currentModel.Nullify();
+    }
+
+    m_currentModel = new DataModel();
+    if (!m_currentModel->Open(fileName.toStdString().c_str())) {
         QMessageBox::critical(this, "错误", "无法打开模型文件：" + fileName);
+        m_currentModel.Nullify();
         return;
     }
 
-    m_occtWidget->clearAll();
-    
     // 从根节点开始遍历
-    Handle(ActAPI_INode) rootBase = model->GetRootNode();
-    NCollection_Sequence<Handle(BrNode_adObject)> rootObjects;
-    
+    Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
+    if (rootBase.IsNull()) {
+        statusBar()->showMessage("模型根节点为空：" + fileName, 5000);
+        return;
+    }
+
     // 获取根节点下的所有 adObject
     Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
     for (; it->More(); it->Next()) {

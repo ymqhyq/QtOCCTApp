@@ -51,7 +51,6 @@ adGeometry:
   base: adRoot
   attributes:
     GeometryRef: { type: "adGeometricDef", label: "几何引用" }
-    Transformation: { type: "RealArray", label: "几何变换" }
     MaterialType: { type: "Int", default: 0, label: "显示材质" }
     Color: { type: "Int", default: 16777215, label: "颜色(RGB)" }
     Transparency: { type: "Real", default: 0.0, label: "透明度" }
@@ -86,6 +85,7 @@ adObject:
     StructuralType: { type: "String", default: "", label: "结构类型" }
     StructuralSubType: { type: "String", default: "", label: "结构子类" }
     BrEntityRef: { type: "GUID", default: "", label: "外部业务实体引用(GUID)" }
+    ObjectPlacement: { type: "RealArray", label: "对象放置变换" }
     
     # 几何引用与实例化
     Geometry: { type: "adGeometry", label: "几何对象" }

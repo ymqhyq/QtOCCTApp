@@ -36,6 +36,14 @@ PileCap:
   layers: { type: int, label: "层数", default: 2, min: 1, max: 2, access: inout }
   totalH: { type: float, label: "预计总体积", default: 0.0, access: out }
 
+Pile:
+  name: "钻孔灌注桩"
+  Diameter: { type: float, label: "桩径", default: 1000.0, access: input }
+  Length: { type: float, label: "桩长", default: 15000.0, access: input }
+  Layout: { type: enum, label: "布局", options: ["2x3", "3x3", "4x4"], default: "2x3", access: input }
+  HSpacing: { type: float, label: "横向间距", default: 2500.0, access: input }
+  VSpacing: { type: float, label: "纵向间距", default: 3000.0, access: input }
+
 SinglePile:
   name: "钻孔灌注桩"
   Diameter: { type: float, label: "桩径", default: 1000.0, access: input }

@@ -29,11 +29,6 @@
   
 
   
-#include <ActData_RealArrayParameter.h>
-    
-  
-
-  
 #include <ActData_IntParameter.h>
     
   
@@ -81,8 +76,6 @@ public:
         
         PID_GeometryRef,
         
-        PID_Transformation,
-        
         PID_MaterialType,
         
         PID_Color,
@@ -112,11 +105,6 @@ public:
     
     void SetGeometryRef(const Handle(ActAPI_IDataCursor)& value);
     Handle(ActAPI_IDataCursor) GetGeometryRef() const;
-    
-    
-    
-    void SetTransformation(const Handle(TColStd_HArray1OfReal)& value);
-    Handle(TColStd_HArray1OfReal) GetTransformation() const;
     
     
     

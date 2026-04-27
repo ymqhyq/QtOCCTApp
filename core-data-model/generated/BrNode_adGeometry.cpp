@@ -13,8 +13,6 @@ BrNode_adGeometry::BrNode_adGeometry() : BrNode_adRoot()
     
     REGISTER_PARAMETER(Reference, PID_GeometryRef);
     
-    REGISTER_PARAMETER(RealArray, PID_Transformation);
-    
     REGISTER_PARAMETER(Int, PID_MaterialType);
     
     REGISTER_PARAMETER(Int, PID_Color);
@@ -39,8 +37,6 @@ void BrNode_adGeometry::InitNode()
     // Initialize parameters with default names and flags
     
     this->InitParameter(PID_GeometryRef, "GeometryRef");
-    
-    this->InitParameter(PID_Transformation, "Transformation");
     
     this->InitParameter(PID_MaterialType, "MaterialType");
     
@@ -96,51 +92,6 @@ Handle(ActAPI_IDataCursor) BrNode_adGeometry::GetGeometryRef() const
     
     
     return typedP->GetTarget();
-    
-}
-
-
-
-// --- Transformation ---
-
-void BrNode_adGeometry::SetTransformation(const Handle(TColStd_HArray1OfReal)& value)
-{
-    std::cout << "    [Setter] Entering SetTransformation for BrNode_adGeometry" << std::endl;
-    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_Transformation);
-
-    if (p.IsNull()) {
-        std::cerr << "  [Setter] ERROR: Parameter PID_Transformation is NULL!" << std::endl;
-        return;
-    }
-    
-    auto typedP = ActData_ParameterFactory::AsRealArray(p);
-    if (typedP.IsNull()) {
-        std::cerr << "  [Setter] ERROR: Parameter PID_Transformation cannot be cast to RealArray!" << std::endl;
-        return;
-    }
-
-    try {
-        
-        typedP->SetArray(value);
-        
-        std::cout << "    [Setter] Value set successfully!" << std::endl;
-    } catch (Standard_Failure& e) {
-        std::cerr << "  [Setter] OCCT EXCEPTION: " << e.GetMessageString() << std::endl;
-    } catch (...) {
-        std::cerr << "  [Setter] UNKNOWN EXCEPTION!" << std::endl;
-    }
-}
-
-Handle(TColStd_HArray1OfReal) BrNode_adGeometry::GetTransformation() const
-{
-    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_Transformation);
-    if (p.IsNull()) return Handle(TColStd_HArray1OfReal)();
-    
-    auto typedP = ActData_ParameterFactory::AsRealArray(p);
-    if (typedP.IsNull()) return Handle(TColStd_HArray1OfReal)();
-    
-    
-    return typedP->GetArray();
     
 }
 

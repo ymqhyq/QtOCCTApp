@@ -24,6 +24,8 @@
 
 #include "OCCTWidget.h"
 
+#include "DataModel.h"
+
 class ShxTextGenerator;
 class QLabel;
 class QTextEdit;
@@ -53,6 +55,7 @@ private slots:
   void onExportGltfClicked();         // 导出为GLTF
   void onMousePositionChanged(double x, double y, double z);
   void onObjectSelected(const QVariantMap &metadata);
+  void onLoadAsiModel();             // 加载ASI模型并显示
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
@@ -92,6 +95,7 @@ private:
   bool m_isAssembling = false;
   QList<OCCTWidget::AssemblyPart> m_assemblyParts;
   QList<OCCTWidget::AssemblyPart> m_batchParts;
+  Handle(DataModel) m_currentModel;
 };
 
 #endif // MAINWINDOW_H

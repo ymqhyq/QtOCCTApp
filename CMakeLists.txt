@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 
 project(QtOCCTApp VERSION 1.0.0)
 
@@ -26,8 +26,8 @@ else()
 endif()
 
 # Set OpenCASCADE include and library directories
-set(OpenCASCADE_INCLUDE_DIR "D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/inc")
-set(OpenCASCADE_LIBRARY_DIR "D:/GitHub_Ymqhyq/OCCT/build-vs2022-x64/win64/vc14/lib")
+set(OpenCASCADE_INCLUDE_DIR "D:/BrCAD/OCCT/OCCT_7_6_0/inc")
+set(OpenCASCADE_LIBRARY_DIR "D:/BrCAD/OCCT/OCCT_7_6_0/win64/vc14/lib")
 
 # Manually set the required libraries
 set(OpenCASCADE_LIBRARIES
@@ -79,7 +79,25 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${OpenCASCADE_INCLUDE_DIR}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/libs/shxparser/include
+    ${CMAKE_SOURCE_DIR}/core-data-model
+    ${CMAKE_SOURCE_DIR}/core-data-model/generated
+    ${CMAKE_SOURCE_DIR}/3rpart
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Kernel
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/API
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh/DS
+    ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools
 )
+
+# Add core-data-model
+add_subdirectory(core-data-model)
+
+# ActiveData needs Standard_Boolean.hxx forced include on MSVC
+if(MSVC)
+    target_compile_options(${PROJECT_NAME} PRIVATE /FIStandard_Boolean.hxx /utf-8)
+endif()
+
 
 # Add shxparser library
 add_subdirectory(libs/shxparser)
@@ -109,6 +127,7 @@ if(QT_VERSION STREQUAL "Qt6")
         Qt6::OpenGL
         Qt6::Svg
         Qt6::Network
+        core_data_model
     )
 else()
     target_link_libraries(${PROJECT_NAME}
@@ -118,6 +137,7 @@ else()
         Qt5::OpenGL
         Qt5::Svg
         Qt5::Network
+        core_data_model
     )
 endif()
 
@@ -146,64 +166,58 @@ set(OCCT_POSSIBLE_LIB_NAMES
 
 # Define the actual OCCT library names for Windows/MSVC (based on the actual files in the lib directory)
 set(OCCT_LIBRARIES_FULLNAMES
-    "TKernel.lib"
-    "TKMath.lib"
-    "TKCDF.lib"
-    "TKTObj.lib"
     "TKBin.lib"
-    "TKXml.lib"
-    "TKBool.lib"
-    "TKBO.lib"
-    "TKCAF.lib"
-    "TKXCAF.lib"
-    "TKVCAF.lib"
-    "TKFeat.lib"
-    "TKFillet.lib"
-    "TKGeomAlgo.lib"
-    "TKGeomBase.lib"
-    "TKHLR.lib"
-    "TKTopAlgo.lib"
-    "TKMesh.lib"
-    "TKPrim.lib"
-    "TKOffset.lib"
-    "TKShHealing.lib"
-    "TKG2d.lib"
-    "TKG3d.lib"
-    "TKOpenGl.lib"
-    "TKService.lib"
-    "TKV3d.lib"
-    "TKGeom.lib"
-    "TKBRep.lib"
-    "TKXSBase.lib"
-    "TKDraw.lib"
-    "TKStd.lib"
-    "TKStdL.lib"
-    "TKXSDRAW.lib"
-    "TKXmlXCAF.lib"
-    "TKXmlL.lib"
-    "TKXmlTObj.lib"
     "TKBinL.lib"
     "TKBinTObj.lib"
     "TKBinXCAF.lib"
-    "TKDE.lib"
+    "TKBO.lib"
+    "TKBool.lib"
+    "TKBRep.lib"
+    "TKCAF.lib"
+    "TKCDF.lib"
     "TKDCAF.lib"
-    "TKDEIGES.lib"
-    "TKDESTEP.lib"
-    "TKDESTL.lib"
+    "TKDraw.lib"
+    "TKernel.lib"
+    "TKFeat.lib"
+    "TKFillet.lib"
+    "TKG2d.lib"
+    "TKG3d.lib"
+    "TKGeomAlgo.lib"
+    "TKGeomBase.lib"
+    "TKHLR.lib"
+    "TKIGES.lib"
+    "TKLCAF.lib"
+    "TKMath.lib"
+    "TKMesh.lib"
+    "TKMeshVS.lib"
+    "TKOffset.lib"
+    "TKOpenGl.lib"
+    "TKPrim.lib"
+    "TKRWMesh.lib"
+    "TKService.lib"
+    "TKShHealing.lib"
+    "TKStd.lib"
+    "TKStdL.lib"
+    "TKSTEP.lib"
+    "TKSTEP209.lib"
+    "TKSTEPAttr.lib"
+    "TKSTEPBase.lib"
+    "TKSTL.lib"
+    "TKTObj.lib"
+    "TKTopAlgo.lib"
+    "TKV3d.lib"
+    "TKVCAF.lib"
+    "TKVRML.lib"
+    "TKXCAF.lib"
     "TKXDEIGES.lib"
     "TKXDESTEP.lib"
     "TKXMesh.lib"
-    "TKMeshVS.lib"
-    "TKRWMesh.lib"
-    "TKLCAF.lib"
-    "TKXDE.lib"
-    "TKXSDRAWDE.lib"
-    "TKXSDRAWIGES.lib"
-    "TKXSDRAWOBJ.lib"
-    "TKXSDRAWPLY.lib"
-    "TKXSDRAWSTEP.lib"
-    "TKXSDRAWSTL.lib"
-    "TKXSDRAWVRML.lib"
+    "TKXml.lib"
+    "TKXmlL.lib"
+    "TKXmlTObj.lib"
+    "TKXmlXCAF.lib"
+    "TKXSBase.lib"
+    "TKXSDRAW.lib"
 )
 
 # Set the library directory for linker
@@ -216,71 +230,63 @@ endif()
 
 # Link the OCCT libraries by name (the linker will find them in the specified directory)
 set(OCCT_LIBRARIES_NAMES
-    "TKernel"
-    "TKMath"
-    "TKCDF"
-    "TKTObj"
     "TKBin"
-    "TKXml"
-    "TKBool"
-    "TKBO"
-    "TKCAF"
-    "TKXCAF"
-    "TKVCAF"
-    "TKFeat"
-    "TKFillet"
-    "TKGeomAlgo"
-    "TKGeomBase"
-    "TKHLR"
-    "TKTopAlgo"
-    "TKMesh"
-    "TKPrim"
-    "TKOffset"
-    "TKShHealing"
-    "TKG2d"
-    "TKG3d"
-    "TKOpenGl"
-    "TKService"
-    "TKV3d"
-    "TKBRep"
-    "TKXSBase"
-    "TKDraw"
-    "TKStd"
-    "TKStdL"
-    "TKXSDRAW"
-    "TKXmlXCAF"
-    "TKXmlL"
-    "TKXmlTObj"
     "TKBinL"
     "TKBinTObj"
     "TKBinXCAF"
-    "TKDE"
+    "TKBO"
+    "TKBool"
+    "TKBRep"
+    "TKCAF"
+    "TKCDF"
     "TKDCAF"
-    "TKDEIGES"
-    "TKDEOBJ"
-    "TKDEPLY"
-    "TKDESTEP"
-    "TKDESTL"
-    "TKDEVRML"
-    "TKXMesh"
-    "TKMeshVS"
-    "TKRWMesh"
+    "TKDraw"
+    "TKernel"
+    "TKFeat"
+    "TKFillet"
+    "TKG2d"
+    "TKG3d"
+    "TKGeomAlgo"
+    "TKGeomBase"
+    "TKHLR"
+    "TKIGES"
     "TKLCAF"
-    "TKXSDRAWDE"
-    "TKXSDRAWIGES"
-    "TKXSDRAWOBJ"
-    "TKXSDRAWPLY"
-    "TKXSDRAWSTEP"
-    "TKXSDRAWSTL"
-    "TKXSDRAWVRML"
+    "TKMath"
+    "TKMesh"
+    "TKMeshVS"
+    "TKOffset"
+    "TKOpenGl"
+    "TKPrim"
+    "TKRWMesh"
+    "TKService"
+    "TKShHealing"
+    "TKStd"
+    "TKStdL"
+    "TKSTEP"
+    "TKSTEP209"
+    "TKSTEPAttr"
+    "TKSTEPBase"
+    "TKSTL"
+    "TKTObj"
+    "TKTopAlgo"
+    "TKV3d"
+    "TKVCAF"
+    "TKVRML"
+    "TKXCAF"
+    "TKXDEIGES"
+    "TKXDESTEP"
+    "TKXMesh"
+    "TKXml"
+    "TKXmlL"
+    "TKXmlTObj"
+    "TKXmlXCAF"
+    "TKXSBase"
+    "TKXSDRAW"
 )
 
 foreach(OCCT_LIB_NAME ${OCCT_LIBRARIES_NAMES})
     target_link_libraries(${PROJECT_NAME} ${OCCT_LIB_NAME})
 endforeach()
-
-# Link TKDEGLTF for GLTF support
-target_link_libraries(${PROJECT_NAME} "TKDEGLTF")
 
 # Set C++ properties for OCCT
 set_target_properties(${PROJECT_NAME} PROPERTIES

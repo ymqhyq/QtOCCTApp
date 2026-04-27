@@ -23,6 +23,8 @@ BrNode_adObject::BrNode_adObject() : BrNode_adRoot()
     
     REGISTER_PARAMETER(Name, PID_BrEntityRef);
     
+    REGISTER_PARAMETER(RealArray, PID_ObjectPlacement);
+    
     REGISTER_PARAMETER(Reference, PID_Geometry);
     
 }
@@ -51,6 +53,8 @@ void BrNode_adObject::InitNode()
     this->InitParameter(PID_StructuralSubType, "StructuralSubType");
     
     this->InitParameter(PID_BrEntityRef, "BrEntityRef");
+    
+    this->InitParameter(PID_ObjectPlacement, "ObjectPlacement");
     
     this->InitParameter(PID_Geometry, "Geometry");
     
@@ -323,6 +327,51 @@ TCollection_ExtendedString BrNode_adObject::GetBrEntityRef() const
     
     
     return typedP->GetValue();
+    
+}
+
+
+
+// --- ObjectPlacement ---
+
+void BrNode_adObject::SetObjectPlacement(const Handle(TColStd_HArray1OfReal)& value)
+{
+    std::cout << "    [Setter] Entering SetObjectPlacement for BrNode_adObject" << std::endl;
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_ObjectPlacement);
+
+    if (p.IsNull()) {
+        std::cerr << "  [Setter] ERROR: Parameter PID_ObjectPlacement is NULL!" << std::endl;
+        return;
+    }
+    
+    auto typedP = ActData_ParameterFactory::AsRealArray(p);
+    if (typedP.IsNull()) {
+        std::cerr << "  [Setter] ERROR: Parameter PID_ObjectPlacement cannot be cast to RealArray!" << std::endl;
+        return;
+    }
+
+    try {
+        
+        typedP->SetArray(value);
+        
+        std::cout << "    [Setter] Value set successfully!" << std::endl;
+    } catch (Standard_Failure& e) {
+        std::cerr << "  [Setter] OCCT EXCEPTION: " << e.GetMessageString() << std::endl;
+    } catch (...) {
+        std::cerr << "  [Setter] UNKNOWN EXCEPTION!" << std::endl;
+    }
+}
+
+Handle(TColStd_HArray1OfReal) BrNode_adObject::GetObjectPlacement() const
+{
+    Handle(ActAPI_IUserParameter) p = this->Parameter(PID_ObjectPlacement);
+    if (p.IsNull()) return Handle(TColStd_HArray1OfReal)();
+    
+    auto typedP = ActData_ParameterFactory::AsRealArray(p);
+    if (typedP.IsNull()) return Handle(TColStd_HArray1OfReal)();
+    
+    
+    return typedP->GetArray();
     
 }
 

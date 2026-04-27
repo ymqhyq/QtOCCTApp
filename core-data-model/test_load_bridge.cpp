@@ -9,7 +9,9 @@
 #include "generated/BrNode_adPropertySet.h"
 #include "generated/BrNode_adProperty.h"
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include <math.h>
 
 // Active Data 基础包含
 // #include <ActData_BinBinaryWriter.h> // 移除不正确的包含
@@ -152,12 +154,23 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
                     std::cout << "      [Prop] " << propKey.ToCString() << " = " << propVal << std::endl;
 
                     // 在属性集中查找并更新属性
+                    bool found = false;
                     NCollection_Sequence<Handle(BrNode_adProperty)> props = targetPset->GetPropertiesList();
                     for (int j = 1; j <= props.Length(); ++j) {
                         if (props.Value(j)->GetPropertyName() == propKey) {
                             props.Value(j)->SetPropertyValue(propVal.c_str());
+                            found = true;
                             break;
                         }
+                    }
+
+                    // 如果没找到，则创建新属性并添加
+                    if (!found) {
+                        std::cout << "      [ProcessJsonObject] Creating new property: " << propKey.ToCString() << std::endl;
+                        Handle(BrNode_adProperty) newProp = model->AddadProperty();
+                        newProp->SetPropertyName(propKey.ToCString());
+                        newProp->SetPropertyValue(propVal.c_str());
+                        targetPset->AddProperties(newProp);
                     }
                 }
             }
@@ -205,7 +218,6 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(DataModel)& model, const 
 #include "GeometryService.h"
 void BuildAllGeometry(const Handle(DataModel)& model, const Handle(BrNode_adObject)& node, GeometryService& geoService) {
     if (node.IsNull()) return;
-    
     Handle(BrNode_adGeometricDef) geoDef = geoService.BuildGeometry(node);
 
     if (!geoDef.IsNull()) {

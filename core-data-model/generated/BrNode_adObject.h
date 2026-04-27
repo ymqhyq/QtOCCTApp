@@ -39,6 +39,11 @@
   
 
   
+#include <ActData_RealArrayParameter.h>
+    
+  
+
+  
 #include <ActData_ReferenceParameter.h>
     
   
@@ -90,6 +95,8 @@ public:
         
         PID_BrEntityRef,
         
+        PID_ObjectPlacement,
+        
         PID_Geometry,
         
         
@@ -138,6 +145,11 @@ public:
     
     void SetBrEntityRef(const TCollection_ExtendedString& value);
     TCollection_ExtendedString GetBrEntityRef() const;
+    
+    
+    
+    void SetObjectPlacement(const Handle(TColStd_HArray1OfReal)& value);
+    Handle(TColStd_HArray1OfReal) GetObjectPlacement() const;
     
     
     

@@ -29,7 +29,7 @@ endforeach()
 
 # 强制包含标准布尔定义，解决宏冲突
 if(MSVC)
-    add_compile_options(/FI"Standard_Boolean.hxx")
+    add_compile_options(/FIStandard_Boolean.hxx)
     add_compile_options(/utf-8)
 endif()
 

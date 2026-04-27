@@ -215,6 +215,7 @@ GeometryService::ExtractGeoParams(const Handle(BrNode_adObject)& adObj)
         std::string psName = ToStdString(ps->GetName());
         if (psName.find("Geometry") == std::string::npos) continue;
 
+        std::cout << "[GeometryService] Found Geometry PSet: " << psName << " for " << result.modelType << std::endl;
         result.geoPset = ps;
 
         // 提取所有 Property 为 JSON
@@ -266,7 +267,10 @@ GeometryService::FindCachedGeoDef(const std::string& paramGeoId)
     TDF_Label geoPartLabel = m_model->GetPartitionLabel(DataModel::PID_GeometryDefinitions);
     if (geoPartLabel.IsNull()) return nullptr;
 
-    Handle(ActAPI_IChildIterator) it = ActData_NodeFactory::NodeSettle(geoPartLabel)->GetChildIterator();
+    Handle(ActAPI_INode) partitionNode = ActData_NodeFactory::NodeSettle(geoPartLabel);
+    if (partitionNode.IsNull()) return nullptr;
+
+    Handle(ActAPI_IChildIterator) it = partitionNode->GetChildIterator();
     if (it.IsNull()) return nullptr;
 
     for (; it->More(); it->Next()) {
@@ -303,24 +307,38 @@ GeometryService::CallModelingService(const std::string& modelType,
               << " modelType=" << modelType << std::endl;
 
 #ifdef _WIN32
-    // 解析 URL
     std::string host = "127.0.0.1";
     int port = 8000;
+    std::string path = "/api/v1/model/generate";
 
-    // 从 m_serviceUrl 中提取 host 和 port
+    // 从 m_serviceUrl 中提取 host, port 和 path
     {
         std::string url = m_serviceUrl;
         if (url.find("http://") == 0) url = url.substr(7);
+        
+        size_t slashPos = url.find('/');
+        if (slashPos != std::string::npos) {
+            std::string basePath = url.substr(slashPos);
+            if (!basePath.empty() && basePath.back() == '/') {
+                basePath.pop_back();
+            }
+            path = basePath + path;
+            url = url.substr(0, slashPos);
+        }
+
         size_t colonPos = url.find(':');
         if (colonPos != std::string::npos) {
             host = url.substr(0, colonPos);
             try { port = std::stoi(url.substr(colonPos + 1)); }
             catch (...) {}
+        } else {
+            host = url;
+            port = 80;
         }
     }
 
     std::string response = HttpPost(host, port,
-                                     "/api/v1/model/generate",
+                                     path,
                                      bodyStr);
     if (response.empty()) {
         result.error = "HTTP request failed or empty response";
@@ -435,8 +453,9 @@ GeometryService::BuildGeometry(const Handle(BrNode_adObject)& adObj)
 
     // 1. 提取参数
     ExtractedParams ep = ExtractGeoParams(adObj);
-    if (ep.modelType.empty()) {
-        std::cerr << "[GeometryService] No ObjectType on adObject" << std::endl;
+    if (ep.geoPset.IsNull()) {
+        std::cout << "[GeometryService] Skip building: No Geometry Pset found for [" << ep.modelType << "] " 
+                  << ToStdString(adObj->GetName()) << std::endl;
         return nullptr;
     }
 
