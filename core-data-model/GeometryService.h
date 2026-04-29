@@ -150,6 +150,30 @@ private:
     void WriteBackParams(const Handle(BrNode_adPropertySet)& geoPset,
                          const json& returnedParams);
 
+public:
+    /**
+     * @brief [重构] 遍历 adObject 树并为每个对象构建/获取几何
+     * @param rootObj   起始根对象
+     * @param shapes    [out] 构建出的形状及其元数据列表
+     * @param parentTrsf 父级变换 (递归使用)
+     */
+    struct VisualShape {
+        TopoDS_Shape shape;
+        std::string  name;
+        json         metadata;
+        gp_Trsf      transform;
+    };
+    void TraverseAndBuild(const Handle(BrNode_adObject)& rootObj,
+                          std::vector<VisualShape>& outShapes,
+                          const gp_Trsf& parentTrsf = gp_Trsf());
+
+    /**
+     * @brief [重构] 为业务对象初始化必要的 ActiveData 结构 (Psets)
+     * @param adObj 目标对象
+     * @param type  模型类型名
+     */
+    static void InitializeObject(const Handle(BrNode_adObject)& adObj, const std::string& type);
+
 private:
     Handle(DataModel) m_model;
     std::string       m_serviceUrl;

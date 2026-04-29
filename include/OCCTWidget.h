@@ -25,7 +25,7 @@
 #include <list>
 
 // Forward declaration
-class AspectWindow;
+class WNT_Window;
 
 class Line;
 
@@ -99,6 +99,7 @@ signals:
 protected:
   void paintEvent(QPaintEvent *event) override;
   void resizeEvent(QResizeEvent *event) override;
+  void showEvent(QShowEvent *event) override;
   void mousePressEvent(QMouseEvent *event) override;
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
@@ -121,7 +122,7 @@ private:
   Handle(V3d_View) m_view;
   Handle(AIS_InteractiveContext) m_context;
   Handle(OpenGl_GraphicDriver) m_graphicDriver;
-  AspectWindow *m_aspectWindow;
+  Handle(WNT_Window) m_aspectWindow;
 
   std::list<Handle(AIS_Shape)> m_lines;
   QMap<Handle(AIS_InteractiveObject), QVariantMap> m_objectMetadata;

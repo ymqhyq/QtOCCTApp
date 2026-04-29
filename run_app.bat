@@ -2,29 +2,31 @@
 setlocal
 
 set QT_BIN=D:\Qt\6.10.1\msvc2022_64\bin
-set OCCT_BIN=D:\GitHub_Ymqhyq\OCCT\build-vs2022-x64\win64\vc14\bin
-set OCCT_3RD_FREETYE=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\freetype-2.13.3-x64\bin
-set OCCT_3RD_TBB=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\tbb-2021.13.0-x64\bin
-set OCCT_3RD_FREEIMAGE=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\freeimage-3.18.0-x64\bin
-set OCCT_3RD_LZMA=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\lzma-5.2.2-vc14-64\bin
-set OCCT_3RD_ZLIB=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\zlib-1.2.8-vc14-64\bin
-set OCCT_3RD_TCLTK=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\tcltk-8.6.15-x64\bin
-set OCCT_3RD_OPENVR=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\openvr-1.14.15-64\bin\win64
-set OCCT_3RD_FFMPEG=D:\GitHub_Ymqhyq\OCCT\3rdparty-vc14-64\ffmpeg-3.3.4-64\bin
-set MSVC_REDIST=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC\14.44.35112\x64\Microsoft.VC143.CRT
+set OCCT_BIN=D:\QtOCCTApp\3rpart\opencascade-7.9.3-vc14-64\win64\vc14\bin
+
+set TP=D:\QtOCCTApp\3rpart\3rdparty-vc14-64
+set ANGLE=%TP%\angle-gles2-2.1.0-vc14-64\bin
+set DRACO=%TP%\draco-1.4.1-vc14-64\bin
+set FFMPEG=%TP%\ffmpeg-3.3.4-64\bin
+set FREEIMAGE=%TP%\freeimage-3.18.0-x64\bin
+set FREETYPE=%TP%\freetype-2.13.3-x64\bin
+set GL2PS=%TP%\gl2ps-1.3.8-vc14-64\bin
+set JEMALLOC=%TP%\jemalloc-vc14-64\bin
+set LZMA=%TP%\lzma-5.2.2-vc14-64\bin
+set OPENVR=%TP%\openvr-1.14.15-64\bin\win64
+set TBB=%TP%\tbb-2021.13.0-x64\bin
+set TCLTK=%TP%\tcltk-8.6.15-x64\bin
+set VTK=%TP%\vtk-9.4.1-x64\bin
+set ZLIB=%TP%\zlib-1.2.8-vc14-64\bin
+
+set APP_BIN=D:\QtOCCTApp\build\Debug
 set QT_PLUGIN_PATH=D:\Qt\6.10.1\msvc2022_64\plugins
-set QT_QPA_PLATFORM_PLUGIN_PATH=%QT_PLUGIN_PATH%\platforms
 
-set MY_PYTHON_EXE=D:\ProgramData\miniforge3\envs\cq\python.exe
-set CQ_BIN=D:\ProgramData\miniforge3\envs\cq
-set CQ_LIB_BIN=D:\ProgramData\miniforge3\envs\cq\Library\bin
-set CQ_SCRIPTS=D:\ProgramData\miniforge3\envs\cq\Scripts
+set PATH=%QT_BIN%;%OCCT_BIN%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%APP_BIN%;%PATH%
 
-set PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_3RD_FREETYE%;%OCCT_3RD_TBB%;%OCCT_3RD_FREEIMAGE%;%OCCT_3RD_LZMA%;%OCCT_3RD_ZLIB%;%OCCT_3RD_TCLTK%;%OCCT_3RD_OPENVR%;%OCCT_3RD_FFMPEG%;%MSVC_REDIST%;%CQ_BIN%;%CQ_LIB_BIN%;%CQ_SCRIPTS%;%PATH%
-
-echo Environment configured. > run_debug.log
+echo Environment configured.
 echo Starting QtOCCTApp...
-"d:\QtOCCTApp\build\Debug\QtOCCTApp.exe"
+"D:\QtOCCTApp\build\Debug\QtOCCTApp.exe"
 if %ERRORLEVEL% NEQ 0 (
     echo Application exited with error code: %ERRORLEVEL%
     pause

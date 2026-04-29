@@ -21,7 +21,6 @@ Aspect_Drawable AspectWindow::NativeParentHandle() const {
 }
 
 Aspect_TypeOfResize AspectWindow::DoResize() {
-  // 返回合适的调整类型
   return Aspect_TOR_UNKNOWN;
 }
 

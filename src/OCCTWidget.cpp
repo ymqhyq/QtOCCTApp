@@ -1,5 +1,6 @@
 #include "../include/OCCTWidget.h"
-#include "../include/AspectWindow.h"
+#include <WNT_Window.hxx>
+#include <OpenGl_GraphicDriver.hxx>
 #include "../include/Line.h"
 
 #include <Aspect_DisplayConnection.hxx>
@@ -45,7 +46,7 @@
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
-      m_graphicDriver(nullptr), m_aspectWindow(nullptr),
+      m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
       m_frameCount(0), m_fps(0.0), m_shapeCount(0) {
   setFocusPolicy(Qt::StrongFocus);
@@ -72,6 +73,14 @@ OCCTWidget::OCCTWidget(QWidget *parent)
   setBackgroundRole(QPalette::NoRole);
 
   initOCCT();
+  
+  // 延迟一秒再次强制调整大小，确保初始 showMaximized 状态被正确捕获
+  QTimer::singleShot(100, this, [this]() {
+    if (!m_view.IsNull()) {
+      m_view->MustBeResized();
+      m_view->Redraw();
+    }
+  });
 }
 
 void OCCTWidget::initOCCT() {
@@ -97,8 +106,8 @@ void OCCTWidget::initOCCT() {
     m_context->SetPixelTolerance(10); // Easier to hit lines
     m_context->SetDisplayMode(AIS_Shaded, true);
 
-    // Create custom aspect window
-    m_aspectWindow = new AspectWindow(this);
+    // Create native Windows window
+    m_aspectWindow = new WNT_Window((Aspect_Handle)winId());
     m_view->SetWindow(m_aspectWindow);
     if (!m_aspectWindow->IsMapped()) {
       m_aspectWindow->Map();
@@ -115,8 +124,11 @@ void OCCTWidget::initOCCT() {
     m_view->SetScale(100.0); // 设置合适的初始缩放比例
 
     // 1. 在左下角显示带小方块的坐标轴 (ZBUFFER 模式)
-    m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.15, V3d_ZBUFFER);
+    m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_GRAY80, 0.1, V3d_ZBUFFER);
 
+    // 启用抗锯齿 (OCCT 7.9+ 推荐方式)
+    m_view->ChangeRenderingParams().IsAntialiasingEnabled = Standard_True;
+    
     updateView();
   } catch (const std::exception &e) {
     // 在调试版本中，我们可以输出错误信息
@@ -149,9 +161,6 @@ void OCCTWidget::initViewCube() {
 }
 
 OCCTWidget::~OCCTWidget() {
-  if (m_aspectWindow) {
-    delete m_aspectWindow;
-  }
 }
 
 void OCCTWidget::paintEvent(QPaintEvent *event) {
@@ -200,6 +209,14 @@ void OCCTWidget::resizeEvent(QResizeEvent *event) {
     m_view->MustBeResized();
     m_view->Redraw();
   }
+}
+
+void OCCTWidget::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    if (!m_view.IsNull()) {
+        m_view->MustBeResized();
+        m_view->Redraw();
+    }
 }
 
 bool OCCTWidget::Get3DPoint(int userX, int userY, gp_Pnt &outPoint) {
@@ -510,20 +527,17 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
   }
 
   // Check for Panning (Left Button and NOT in Draw Mode)
-  // If we are in Draw Mode, Left Drag updates the line preview.
-  // If we are NOT in Draw Mode, Left Drag pans.
   if ((event->buttons() & Qt::LeftButton) && !m_drawLineMode) {
     // Pan the view
     if (!m_view.IsNull()) {
       qreal pixelRatio = devicePixelRatio();
-      m_view->Pan(static_cast<Standard_Integer>((event->pos().x() - m_xPos) *
-                                                pixelRatio),
-                  static_cast<Standard_Integer>((m_yPos - event->pos().y()) *
-                                                pixelRatio));
+      m_view->Pan(static_cast<Standard_Integer>((event->pos().x() - m_xPos) * pixelRatio),
+                  static_cast<Standard_Integer>((m_yPos - event->pos().y()) * pixelRatio));
       m_xPos = event->pos().x();
       m_yPos = event->pos().y();
-      update();
-      return; // Consume event if panning
+      m_view->Invalidate();
+      m_view->Redraw();
+      return; 
     }
   }
 

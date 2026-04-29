@@ -13,6 +13,11 @@
 #include <TCollection_AsciiString.hxx>
 #include <TDF_ChildIterator.hxx>
 #include <ActData_BasePartition.h>
+#include <gp_Ax1.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Trsf.hxx>
 
 // Windows HTTP (WinHTTP) - 轻量级 HTTP 客户端
 // 以后迁移为微服务时，此部分可替换为 gRPC/Dapr SDK
@@ -269,14 +274,17 @@ GeometryService::FindCachedGeoDef(const std::string& paramGeoId)
     if ( partition.IsNull() ) return nullptr;
 
     // 使用分区的迭代器遍历节点
-    for (ActData_BasePartition::Iterator it(partition); it.More(); it.Next()) {
-        Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
-        if (gd.IsNull()) continue;
+    Handle(ActData_BasePartition) basePart = Handle(ActData_BasePartition)::DownCast(partition);
+    if (!basePart.IsNull()) {
+        for (ActData_BasePartition::Iterator it(basePart); it.More(); it.Next()) {
+            Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
+            if (gd.IsNull()) continue;
 
-        std::string existingId = ToStdString(gd->GetParamGeoID());
-        if (existingId == paramGeoId) {
-            std::cout << "[GeometryService] Cache HIT: " << paramGeoId << std::endl;
-            return gd;
+            std::string existingId = ToStdString(gd->GetParamGeoID());
+            if (existingId == paramGeoId) {
+                std::cout << "[GeometryService] Cache HIT: " << paramGeoId << std::endl;
+                return gd;
+            }
         }
     }
     return nullptr;
@@ -379,17 +387,8 @@ TopoDS_Shape GeometryService::ParseBREP(const std::string& brepData)
     TopoDS_Shape shape;
     BRep_Builder builder;
 
-    // 写入临时文件，BRepTools 从文件读取
-    std::string tmpFile = "temp_geo_service.brep";
-    {
-        std::ofstream ofs(tmpFile, std::ios::binary);
-        ofs.write(brepData.data(), brepData.size());
-    }
-
-    BRepTools::Read(shape, tmpFile.c_str(), builder);
-
-    // 清理临时文件
-    std::remove(tmpFile.c_str());
+    std::istringstream iss(brepData);
+    BRepTools::Read(shape, iss, builder);
 
     return shape;
 }
@@ -527,8 +526,89 @@ GeometryService::BuildGeometryFromParams(const std::string& modelType,
     result.shape = ParseBREP(sr.brepData);
     result.allParams = sr.allParams;
 
-    // 5. 保存到几何分区
     CreateGeoDef(result.paramGeoId, sr.allParams, result.shape);
 
     return result;
+}
+
+// ------ 遍历并构建 ------
+void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject)& rootObj,
+                                       std::vector<VisualShape>& outShapes,
+                                       const gp_Trsf& parentTrsf)
+{
+    if (rootObj.IsNull()) return;
+
+    // 1. 获取局部变换
+    gp_Trsf localTrsf;
+    Handle(ActAPI_IUserParameter) p = rootObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
+    Handle(ActData_RealArrayParameter) typedP = ActData_ParameterFactory::AsRealArray(p);
+    
+    if (!typedP.IsNull() && typedP->NbElements() >= 3) {
+        localTrsf.SetTranslation(gp_Vec(typedP->GetElement(0), typedP->GetElement(1), typedP->GetElement(2)));
+        if (typedP->NbElements() >= 6) {
+            double rx = typedP->GetElement(3);
+            double ry = typedP->GetElement(4);
+            double rz = typedP->GetElement(5);
+            gp_Trsf rot;
+            if (std::abs(rz) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(0,0,1)), rz * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            if (std::abs(ry) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(0,1,0)), ry * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            if (std::abs(rx) > 1e-6) {
+                gp_Trsf r; r.SetRotation(gp_Ax1(gp_Pnt(0,0,0), gp_Dir(1,0,0)), rx * 3.14159265358979323846 / 180.0);
+                rot.Multiply(r);
+            }
+            localTrsf.Multiply(rot);
+        }
+    }
+    
+    gp_Trsf currentTrsf = parentTrsf * localTrsf;
+
+    // 2. 构建当前对象的几何
+    Handle(BrNode_adGeometricDef) geoDef = this->BuildGeometry(rootObj);
+    if (!geoDef.IsNull()) {
+        TopoDS_Shape shape = geoDef->GetShape();
+        if (!shape.IsNull()) {
+            VisualShape vs;
+            vs.shape = shape;
+            vs.name = ToStdString(rootObj->GetName());
+            vs.transform = currentTrsf;
+            // 提取所有参数作为元数据
+            ExtractedParams ep = ExtractGeoParams(rootObj);
+            vs.metadata = ep.params;
+            outShapes.push_back(vs);
+        }
+    }
+
+    // 3. 递归子对象
+    NCollection_Sequence<Handle(BrNode_adObject)> children = rootObj->GetSubObjectsList();
+    for (int i = 1; i <= children.Length(); ++i) {
+        TraverseAndBuild(children.Value(i), outShapes, currentTrsf);
+    }
+}
+
+// ------ 初始化对象 ------
+void GeometryService::InitializeObject(const Handle(BrNode_adObject)& adObj, const std::string& type)
+{
+    if (adObj.IsNull()) return;
+    adObj->SetObjectType(ToExtString(type));
+    
+    // 确保有一个 Geometry 属性集
+    bool hasGeoPset = false;
+    NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
+    for (int i = 1; i <= psets.Length(); ++i) {
+        if (ToStdString(psets.Value(i)->GetName()).find("Geometry") != std::string::npos) {
+            hasGeoPset = true;
+            break;
+        }
+    }
+
+    if (!hasGeoPset) {
+        // 这里应由工厂或模型创建，暂由模型 AddPropertySet 实现
+        // 注意: 实际应根据 Schema 动态创建
+    }
 }
