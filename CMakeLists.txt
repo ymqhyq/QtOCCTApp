@@ -25,32 +25,17 @@ else()
     set(QT_VERSION Qt6)
 endif()
 
-# Set OpenCASCADE include and library directories
-set(OpenCASCADE_INCLUDE_DIR "D:/BrCAD/OCCT/OCCT_7_6_0/inc")
-set(OpenCASCADE_LIBRARY_DIR "D:/BrCAD/OCCT/OCCT_7_6_0/win64/vc14/lib")
+# Set OpenCASCADE directory
+set(OpenCASCADE_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-7.9.3-vc14-64/cmake")
+find_package(OpenCASCADE REQUIRED)
 
-# Manually set the required libraries
-set(OpenCASCADE_LIBRARIES
-    "TKernel"
-    "TKMath"
-    "TCollection"
-    "gp"
-    "Geom"
-    "Geom2d"
-    "Graphic3d"
-    "Prs3d"
-    "AIS"
-    "V3d"
-    "Aspect"
-    "StdPrs"
-    "StdObj"
-    "BRep"
-    "BRepPrim"
-    "BRepAlgoAPI"
-    "BRepBuilderAPI"
-    "StlAPI"
-    "Draw"
-)
+# Set VTK directory
+set(VTK_DIR "${CMAKE_SOURCE_DIR}/3rpart/3rdparty-vc14-64/vtk-9.4.1-x64/lib/cmake/vtk-9.4")
+find_package(VTK REQUIRED)
+
+# Set TBB directory
+set(TBB_DIR "${CMAKE_SOURCE_DIR}/3rpart/3rdparty-vc14-64/tbb-2021.13.0-x64/lib/cmake/TBB")
+find_package(TBB CONFIG REQUIRED)
 
 # Enable automatic MOC, UIC and RCC processing for Qt
 set(CMAKE_AUTOMOC ON)
@@ -76,7 +61,8 @@ add_executable(${PROJECT_NAME}
 
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${OpenCASCADE_INCLUDE_DIR}
+    ${OpenCASCADE_INCLUDE_DIRS}
+    ${VTK_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/libs/shxparser/include
     ${CMAKE_SOURCE_DIR}/core-data-model
@@ -90,6 +76,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools
 )
 
+# Add asiActiveData
+add_subdirectory(3rpart/asiActiveData)
+
 # Add core-data-model
 add_subdirectory(core-data-model)
 
@@ -101,26 +90,25 @@ endif()
 
 # Add shxparser library
 add_subdirectory(libs/shxparser)
-target_link_libraries(${PROJECT_NAME} shxparser)
+target_link_libraries(${PROJECT_NAME} PRIVATE shxparser)
 
 # Add SARibbonBar library
 set(SARIBBON_BUILD_EXAMPLES OFF CACHE BOOL "Disable SARibbon examples" FORCE)
 add_subdirectory("D:/GitHub_Ymqhyq/SARibbon" "${CMAKE_BINARY_DIR}/SARibbon")
-target_link_libraries(${PROJECT_NAME} SARibbonBar)
+target_link_libraries(${PROJECT_NAME} PRIVATE SARibbonBar)
 
 # Add Qt OpenGL module if needed
 if(QT_VERSION STREQUAL "Qt6")
     find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets Network)
-    target_link_libraries(${PROJECT_NAME} Qt6::OpenGLWidgets)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
 else()
     find_package(Qt5 REQUIRED COMPONENTS OpenGL Network)
-    target_link_libraries(${PROJECT_NAME} Qt5::OpenGL)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Qt5::OpenGL)
 endif()
 
 # Link libraries based on Qt version
-# Link libraries based on Qt version
 if(QT_VERSION STREQUAL "Qt6")
-    target_link_libraries(${PROJECT_NAME}
+    target_link_libraries(${PROJECT_NAME} PRIVATE
         Qt6::Core
         Qt6::Widgets
         Qt6::Gui
@@ -128,9 +116,10 @@ if(QT_VERSION STREQUAL "Qt6")
         Qt6::Svg
         Qt6::Network
         core_data_model
+        asiActiveData
     )
 else()
-    target_link_libraries(${PROJECT_NAME}
+    target_link_libraries(${PROJECT_NAME} PRIVATE
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
@@ -138,155 +127,16 @@ else()
         Qt5::Svg
         Qt5::Network
         core_data_model
+        asiActiveData
     )
 endif()
 
-# Define the actual OCCT library names
-set(OCCT_POSSIBLE_LIB_NAMES
-    "TKernel"
-    "TKMath"
-    "TCollection"
-    "gp"
-    "Geom"
-    "Geom2d"
-    "Graphic3d"
-    "Prs3d"
-    "AIS"
-    "V3d"
-    "Aspect"
-    "StdPrs"
-    "StdObj"
-    "BRep"
-    "BRepPrim"
-    "BRepAlgoAPI"
-    "BRepBuilderAPI"
-    "StlAPI"
-    "Draw"
+# Link the OCCT and VTK libraries
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    ${OpenCASCADE_LIBRARIES}
+    ${VTK_LIBRARIES}
+    TBB::tbb
 )
-
-# Define the actual OCCT library names for Windows/MSVC (based on the actual files in the lib directory)
-set(OCCT_LIBRARIES_FULLNAMES
-    "TKBin.lib"
-    "TKBinL.lib"
-    "TKBinTObj.lib"
-    "TKBinXCAF.lib"
-    "TKBO.lib"
-    "TKBool.lib"
-    "TKBRep.lib"
-    "TKCAF.lib"
-    "TKCDF.lib"
-    "TKDCAF.lib"
-    "TKDraw.lib"
-    "TKernel.lib"
-    "TKFeat.lib"
-    "TKFillet.lib"
-    "TKG2d.lib"
-    "TKG3d.lib"
-    "TKGeomAlgo.lib"
-    "TKGeomBase.lib"
-    "TKHLR.lib"
-    "TKIGES.lib"
-    "TKLCAF.lib"
-    "TKMath.lib"
-    "TKMesh.lib"
-    "TKMeshVS.lib"
-    "TKOffset.lib"
-    "TKOpenGl.lib"
-    "TKPrim.lib"
-    "TKRWMesh.lib"
-    "TKService.lib"
-    "TKShHealing.lib"
-    "TKStd.lib"
-    "TKStdL.lib"
-    "TKSTEP.lib"
-    "TKSTEP209.lib"
-    "TKSTEPAttr.lib"
-    "TKSTEPBase.lib"
-    "TKSTL.lib"
-    "TKTObj.lib"
-    "TKTopAlgo.lib"
-    "TKV3d.lib"
-    "TKVCAF.lib"
-    "TKVRML.lib"
-    "TKXCAF.lib"
-    "TKXDEIGES.lib"
-    "TKXDESTEP.lib"
-    "TKXMesh.lib"
-    "TKXml.lib"
-    "TKXmlL.lib"
-    "TKXmlTObj.lib"
-    "TKXmlXCAF.lib"
-    "TKXSBase.lib"
-    "TKXSDRAW.lib"
-)
-
-# Set the library directory for linker
-link_directories(${OpenCASCADE_LIBRARY_DIR})
-
-# Add linker flags to ensure the library path is included
-if(WIN32)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LIBPATH:\"${OpenCASCADE_LIBRARY_DIR}\"")
-endif()
-
-# Link the OCCT libraries by name (the linker will find them in the specified directory)
-set(OCCT_LIBRARIES_NAMES
-    "TKBin"
-    "TKBinL"
-    "TKBinTObj"
-    "TKBinXCAF"
-    "TKBO"
-    "TKBool"
-    "TKBRep"
-    "TKCAF"
-    "TKCDF"
-    "TKDCAF"
-    "TKDraw"
-    "TKernel"
-    "TKFeat"
-    "TKFillet"
-    "TKG2d"
-    "TKG3d"
-    "TKGeomAlgo"
-    "TKGeomBase"
-    "TKHLR"
-    "TKIGES"
-    "TKLCAF"
-    "TKMath"
-    "TKMesh"
-    "TKMeshVS"
-    "TKOffset"
-    "TKOpenGl"
-    "TKPrim"
-    "TKRWMesh"
-    "TKService"
-    "TKShHealing"
-    "TKStd"
-    "TKStdL"
-    "TKSTEP"
-    "TKSTEP209"
-    "TKSTEPAttr"
-    "TKSTEPBase"
-    "TKSTL"
-    "TKTObj"
-    "TKTopAlgo"
-    "TKV3d"
-    "TKVCAF"
-    "TKVRML"
-    "TKXCAF"
-    "TKXDEIGES"
-    "TKXDESTEP"
-    "TKXMesh"
-    "TKXml"
-    "TKXmlL"
-    "TKXmlTObj"
-    "TKXmlXCAF"
-    "TKXSBase"
-    "TKXSDRAW"
-)
-
-foreach(OCCT_LIB_NAME ${OCCT_LIBRARIES_NAMES})
-    target_link_libraries(${PROJECT_NAME} ${OCCT_LIB_NAME})
-endforeach()
 
 # Set C++ properties for OCCT
 set_target_properties(${PROJECT_NAME} PROPERTIES
