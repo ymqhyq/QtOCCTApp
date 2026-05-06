@@ -19,14 +19,17 @@ set TCLTK=%TP%\tcltk-8.6.15-x64\bin
 set VTK=%TP%\vtk-9.4.1-x64\bin
 set ZLIB=%TP%\zlib-1.2.8-vc14-64\bin
 
-set APP_BIN=D:\QtOCCTApp\build\Debug
+set APP_BIN=D:\QtOCCTApp\build
+set APP_BIN2=D:\QtOCCTApp\build\bin
+set APP_BIN3=D:\QtOCCTApp\build\libs\shxparser
+set APP_BIN4=D:\QtOCCTApp\build\3rpart\asiActiveData
 set QT_PLUGIN_PATH=D:\Qt\6.10.1\msvc2022_64\plugins
 
-set PATH=%QT_BIN%;%OCCT_BIN%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%APP_BIN%;%PATH%
+set PATH=%QT_BIN%;%OCCT_BIN%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%APP_BIN%;%APP_BIN2%;%APP_BIN3%;%APP_BIN4%;%PATH%
 
 echo Environment configured.
 echo Starting QtOCCTApp...
-"D:\QtOCCTApp\build\Debug\QtOCCTApp.exe"
+"D:\QtOCCTApp\build\QtOCCTApp.exe"
 if %ERRORLEVEL% NEQ 0 (
     echo Application exited with error code: %ERRORLEVEL%
     pause

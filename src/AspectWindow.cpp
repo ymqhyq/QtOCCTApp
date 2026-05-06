@@ -21,7 +21,16 @@ Aspect_Drawable AspectWindow::NativeParentHandle() const {
 }
 
 Aspect_TypeOfResize AspectWindow::DoResize() {
-  return Aspect_TOR_UNKNOWN;
+  int aMask = 0;
+  Aspect_TypeOfResize aMode = Aspect_TOR_UNKNOWN;
+
+  if (!m_widget) return aMode;
+
+  if (m_widget->isMinimized()) return Aspect_TOR_UNKNOWN;
+
+  // Just report that the window was resized
+  aMode = Aspect_TOR_LEFT_AND_TOP_BORDER; // Any non-UNKNOWN value triggers resize in OCCT
+  return aMode;
 }
 
 Standard_Boolean AspectWindow::IsMapped() const {

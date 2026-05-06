@@ -6,11 +6,13 @@
 
 #include <Aspect_Window.hxx>
 #include <Quantity_Color.hxx>
+#include <Standard_Type.hxx>
 
 class QWidget;
 
 class AspectWindow : public Aspect_Window
 {
+    DEFINE_STANDARD_RTTI_INLINE(AspectWindow, Aspect_Window)
 public:
     AspectWindow(QWidget *widget);
     ~AspectWindow();

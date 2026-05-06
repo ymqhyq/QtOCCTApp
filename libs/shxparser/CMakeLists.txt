@@ -19,6 +19,7 @@ set(SHX_HEADERS
 )
 
 # 创建库
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 add_library(shxparser ${SHX_SOURCES} ${SHX_HEADERS})
 
 # 包含目录

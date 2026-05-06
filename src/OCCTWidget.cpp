@@ -1,5 +1,5 @@
 #include "../include/OCCTWidget.h"
-#include <WNT_Window.hxx>
+#include "../include/AspectWindow.h"
 #include <OpenGl_GraphicDriver.hxx>
 #include "../include/Line.h"
 
@@ -106,8 +106,8 @@ void OCCTWidget::initOCCT() {
     m_context->SetPixelTolerance(10); // Easier to hit lines
     m_context->SetDisplayMode(AIS_Shaded, true);
 
-    // Create native Windows window
-    m_aspectWindow = new WNT_Window((Aspect_Handle)winId());
+    // Create custom AspectWindow that correctly handles Qt DPI scaling
+    m_aspectWindow = new AspectWindow(this);
     m_view->SetWindow(m_aspectWindow);
     if (!m_aspectWindow->IsMapped()) {
       m_aspectWindow->Map();
@@ -166,6 +166,15 @@ OCCTWidget::~OCCTWidget() {
 void OCCTWidget::paintEvent(QPaintEvent *event) {
   Q_UNUSED(event);
   if (!m_view.IsNull()) {
+    // 每帧检测 widget 大小是否变化，自动同步 OCCT 视图大小
+    // 解决 showMaximized() 在 setCentralWidget() 之前调用时
+    // 窗口布局变化未被 OCCT 正确捕获的问题
+    QSize currentSize = size();
+    if (currentSize != m_lastSize && currentSize.width() > 0 && currentSize.height() > 0) {
+      m_lastSize = currentSize;
+      m_view->MustBeResized();
+    }
+
     if (m_viewCube.IsNull()) {
       initViewCube();
     }

@@ -25,7 +25,7 @@
 #include <list>
 
 // Forward declaration
-class WNT_Window;
+class AspectWindow;
 
 class Line;
 
@@ -122,7 +122,7 @@ private:
   Handle(V3d_View) m_view;
   Handle(AIS_InteractiveContext) m_context;
   Handle(OpenGl_GraphicDriver) m_graphicDriver;
-  Handle(WNT_Window) m_aspectWindow;
+  Handle(AspectWindow) m_aspectWindow;
 
   std::list<Handle(AIS_Shape)> m_lines;
   QMap<Handle(AIS_InteractiveObject), QVariantMap> m_objectMetadata;
@@ -144,6 +144,7 @@ private:
   QTimer m_refreshTimer;
 
   Handle(AIS_ViewCube) m_viewCube;
+  QSize m_lastSize; // 用于检测 widget 大小变化
 };
 
 #endif // OCCTWIDGET_H
