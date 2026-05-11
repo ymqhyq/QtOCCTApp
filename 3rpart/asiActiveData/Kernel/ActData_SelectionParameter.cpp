@@ -69,7 +69,7 @@ void ActData_SelectionParameter::SetMask(const Handle(TColStd_HPackedMapOfIntege
                                          const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetIntPackedMap(m_label, DS_IntPackedMap, theMask);
 
@@ -96,7 +96,7 @@ Standard_Boolean
                                   const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot affect BAD-FORMED data");
+    throw Standard_ProgramError("Cannot affect BAD-FORMED data");
 
   Standard_Boolean
     aResult = ActData_Utils::AddIntPackedMapValue(m_label, DS_IntPackedMap, theID);
@@ -129,7 +129,7 @@ Standard_Boolean
                                      const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot affect BAD-FORMED data");
+    throw Standard_ProgramError("Cannot affect BAD-FORMED data");
 
   Standard_Boolean
     aResult = ActData_Utils::RemoveIntPackedMapValue(m_label, DS_IntPackedMap, theID);
@@ -155,7 +155,7 @@ Standard_Boolean
   ActData_SelectionParameter::Contains(const Standard_Integer theID)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot access BAD-FORMED data");
+    throw Standard_ProgramError("Cannot access BAD-FORMED data");
 
   return ActData_Utils::HasIntPackedMapValue(m_label, DS_IntPackedMap, theID);
 }
@@ -166,7 +166,7 @@ Standard_Integer
   ActData_SelectionParameter::Size()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot access BAD-FORMED data");
+    throw Standard_ProgramError("Cannot access BAD-FORMED data");
 
   return ActData_Utils::GetIntPackedMap(m_label, DS_IntPackedMap)->Map().Extent();
 }
@@ -176,7 +176,7 @@ Standard_Integer
 Handle(TColStd_HPackedMapOfInteger) ActData_SelectionParameter::GetMask()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot access BAD-FORMED data");
+    throw Standard_ProgramError("Cannot access BAD-FORMED data");
 
   return ActData_Utils::GetIntPackedMap(m_label, DS_IntPackedMap);
 }

@@ -64,7 +64,7 @@ ActAPI_NodeId
   else if ( tags.size() == ActData_NumTags_UserParameterId )
     tagsToSkip = 2;
   else
-    Standard_ProgramError::Raise("Unexpected format of Parameter ID.");
+    throw Standard_ProgramError("Unexpected format of Parameter ID.");
 
   ActAPI_DataObjectId nodeId;
   for ( size_t k = 0; k < tags.size() - tagsToSkip; ++k )

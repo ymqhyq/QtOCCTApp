@@ -40,7 +40,7 @@
 
 // OCCT includes
 #include <Standard_ProgramError.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TFunction_Driver.hxx>
 #include <TFunction_GraphNode.hxx>
 #include <TFunction_Function.hxx>
@@ -116,7 +116,7 @@ Standard_Boolean
 {
   TDF_LabelList anArgLabels;
   this->getArguments(anArgLabels);
-  for ( TDF_ListIteratorOfLabelList aLabIt(anArgLabels); aLabIt.More(); aLabIt.Next() )
+  for ( TDF_LabelList::Iterator aLabIt(anArgLabels); aLabIt.More(); aLabIt.Next() )
   {
     TDF_Label& aLab = aLabIt.Value();
     if ( ActData_Utils::GetEntry(aLab) == ActData_Utils::GetEntry(theParamLab) )
@@ -160,7 +160,7 @@ Standard_Boolean
 {
   TDF_LabelList aResLabels;
   this->getResults(aResLabels);
-  for ( TDF_ListIteratorOfLabelList aLabIt(aResLabels); aLabIt.More(); aLabIt.Next() )
+  for ( TDF_LabelList::Iterator aLabIt(aResLabels); aLabIt.More(); aLabIt.Next() )
   {
     TDF_Label& aLab = aLabIt.Value();
     if ( ActData_Utils::GetEntry(aLab) == ActData_Utils::GetEntry(theParamLab) )

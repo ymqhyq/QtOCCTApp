@@ -41,7 +41,7 @@
 const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::Find(const Handle(ActData_Mesh_Element)& K) const
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::Find");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::Find");
   }
 //  Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshOrientedElement::Find");
   ActData_Mesh_MapOfOrientedElements::MapNode** data = (ActData_Mesh_MapOfOrientedElements::MapNode**) myData1;
@@ -51,7 +51,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::Find(
       return p->Key();
     p = (ActData_Mesh_MapOfOrientedElements::MapNode*) p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::Find");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::Find");
   return p->Key();
 }
 
@@ -63,7 +63,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::Find(
 Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::ChangeFind(const Handle(ActData_Mesh_Element)& K)
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::ChangeFind");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::ChangeFind");
   }
 //Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshOrientedElement::ChangeFind");
   ActData_Mesh_MapOfOrientedElements::MapNode** data = (ActData_Mesh_MapOfOrientedElements::MapNode**) myData1;
@@ -73,7 +73,7 @@ Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::ChangeFind(
       return p->ChangeValue();
     p = (ActData_Mesh_MapOfOrientedElements::MapNode*)  p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::ChangeFind");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::ChangeFind");
   return p->ChangeValue();
 }
 
@@ -86,7 +86,7 @@ Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::ChangeFind(
 const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::FindID(const Standard_Integer ID) const
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::FindID");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::FindID");
   }
 //  Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshOrientedElement::Find");
   ActData_Mesh_MapOfOrientedElements::MapNode** data = (ActData_Mesh_MapOfOrientedElements::MapNode**) myData1;
@@ -96,7 +96,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshOrientedElement::FindI
       return p->ChangeValue();
     p = (ActData_Mesh_MapOfOrientedElements::MapNode*) p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshOrientedElement::Find");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshOrientedElement::Find");
   return  p->ChangeValue();
 }
 

@@ -137,7 +137,7 @@ TDF_Label ActData_MetaParameter::RootLabel() const
 Handle(ActAPI_INode) ActData_MetaParameter::GetNode()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   /* ====================================================
    *  Access Node TDF Label & allocate the Node instance
@@ -233,7 +233,7 @@ Standard_Integer ActData_MetaParameter::GetUserFlags() const
 {
   Standard_Integer result;
   if ( !ActData_Utils::GetIntegerValue(m_label, -1, result) )
-    Standard_ProgramError::Raise("No attribute available for user flags");
+    throw Standard_ProgramError("No attribute available for user flags");
 
   return result;
 }
@@ -459,7 +459,7 @@ void ActData_MetaParameter::SetFromDTO(const Handle(ActData_MetaDTO)& theDTO)
 Handle(ActData_MetaDTO) ActData_MetaParameter::GetAsDTO()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   // Create DTO instance
   Handle(ActData_MetaDTO) aResDTO = new ActData_MetaDTO;

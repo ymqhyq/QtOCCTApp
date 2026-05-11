@@ -1,3 +1,4 @@
+#include <TDF_AttributeDeltaList.hxx>
 //-----------------------------------------------------------------------------
 // Created on: July 2012
 //-----------------------------------------------------------------------------
@@ -41,9 +42,9 @@
 // OCCT includes
 #include <TDF_Delta.hxx>
 #include <TDF_LabelList.hxx>
-#include <TDF_ListIteratorOfAttributeDeltaList.hxx>
-#include <TDF_ListIteratorOfDeltaList.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+#include <TDF_AttributeDeltaList.hxx>
+#include <TDF_DeltaList.hxx>
+
 #include <TDF_Tool.hxx>
 
 #define ERR_TRANSACTION_DEPLOYMENT_OFF "Transactions are OFF"
@@ -118,10 +119,10 @@ void ActData_TransactionEngine::OpenCommand()
     return;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   if ( m_bIsActiveTransaction )
-    Standard_ProgramError::Raise(ERR_TR_ALREADY_OPENED);
+    throw Standard_ProgramError(ERR_TR_ALREADY_OPENED);
 
   m_doc->OpenCommand();
   m_bIsActiveTransaction = Standard_True;
@@ -134,7 +135,7 @@ void ActData_TransactionEngine::CommitCommand()
     return;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   m_doc->CommitCommand();
   m_bIsActiveTransaction = Standard_False;
@@ -148,7 +149,7 @@ Standard_Boolean ActData_TransactionEngine::HasOpenCommand() const
     return Standard_False;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   return m_bIsActiveTransaction;
 }
@@ -160,7 +161,7 @@ void ActData_TransactionEngine::AbortCommand()
     return;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   m_doc->AbortCommand();
   m_bIsActiveTransaction = Standard_False;
@@ -176,7 +177,7 @@ Handle(ActAPI_TxRes)
     return NULL;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   // Get Parameters which are going to be affected by Undo operation with
   // the given depth
@@ -209,7 +210,7 @@ Standard_Integer ActData_TransactionEngine::NbUndos() const
     return 0;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   return m_doc->GetAvailableUndos();
 }
@@ -224,7 +225,7 @@ Handle(ActAPI_TxRes)
     return NULL;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   // Get Parameters which are going to be affected by Redo operation with
   // the given depth
@@ -257,7 +258,7 @@ Standard_Integer ActData_TransactionEngine::NbRedos() const
     return 0;
 
   if ( m_doc.IsNull() )
-    Standard_ProgramError::Raise(ERR_NULL_DOC);
+    throw Standard_ProgramError(ERR_NULL_DOC);
 
   return m_doc->GetAvailableRedos();
 }

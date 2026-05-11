@@ -26,15 +26,15 @@ else()
 endif()
 
 # Set OpenCASCADE directory
-set(OpenCASCADE_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-7.9.3-vc14-64/cmake")
+set(OpenCASCADE_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/opencascade-8.0.0-vc14-64/cmake")
 find_package(OpenCASCADE REQUIRED)
 
 # Set VTK directory
-set(VTK_DIR "${CMAKE_SOURCE_DIR}/3rpart/3rdparty-vc14-64/vtk-9.4.1-x64/lib/cmake/vtk-9.4")
+set(VTK_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/3rdparty-vc14-64/vtk-9.4.1-x64/lib/cmake/vtk-9.4")
 find_package(VTK REQUIRED)
 
 # Set TBB directory
-set(TBB_DIR "${CMAKE_SOURCE_DIR}/3rpart/3rdparty-vc14-64/tbb-2021.13.0-x64/lib/cmake/TBB")
+set(TBB_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/3rdparty-vc14-64/tbb-2021.13.0-x64/lib/cmake/TBB")
 find_package(TBB CONFIG REQUIRED)
 
 # Enable automatic MOC, UIC and RCC processing for Qt

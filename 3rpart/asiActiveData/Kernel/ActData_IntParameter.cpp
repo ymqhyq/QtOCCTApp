@@ -72,7 +72,7 @@ void ActData_IntParameter::SetValue(const Standard_Integer theVal,
                                     const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetIntegerValue(m_label, DS_Value, theVal);
 
@@ -89,7 +89,7 @@ void ActData_IntParameter::SetValue(const Standard_Integer theVal,
 Standard_Integer ActData_IntParameter::GetValue()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   Standard_Integer aValue;
   ActData_Utils::GetIntegerValue(m_label, DS_Value, aValue);

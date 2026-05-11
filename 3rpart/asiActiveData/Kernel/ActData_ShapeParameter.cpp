@@ -69,7 +69,7 @@ void ActData_ShapeParameter::SetShape(const TopoDS_Shape& theShape,
                                       const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   // NOTICE: there is a bug in OCAF. When you change orientation of a persistent
   //         shape and rewrite this shape in its corresponding TNaming_NamedShape
@@ -96,7 +96,7 @@ void ActData_ShapeParameter::SetShape(const TopoDS_Shape& theShape,
 TopoDS_Shape ActData_ShapeParameter::GetShape()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetShapeValue(m_label, DS_Shape);
 }

@@ -1,3 +1,4 @@
+#include <TDF_LabelList.hxx>
 //-----------------------------------------------------------------------------
 // Created on: February 2012
 //-----------------------------------------------------------------------------
@@ -40,7 +41,7 @@
 // OCCT includes
 #include <Standard_ProgramError.hxx>
 #include <TDataStd_Integer.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 
 //! Default constructor.
 ActData_ParameterFactory::ActData_ParameterFactory()
@@ -341,7 +342,7 @@ Handle(ActAPI_HParameterList)
   ActData_ParameterFactory::ParamsByLabelsSettle(const TDF_LabelList& theLabels)
 {
   ActAPI_ParameterStream aPStream;
-  TDF_ListIteratorOfLabelList aLabelIt(theLabels);
+  TDF_LabelList::Iterator aLabelIt(theLabels);
   for ( ; aLabelIt.More(); aLabelIt.Next() )
   {
     Standard_Boolean isUndefined;

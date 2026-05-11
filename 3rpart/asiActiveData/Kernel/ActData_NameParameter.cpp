@@ -69,7 +69,7 @@ void ActData_NameParameter::SetValue(const TCollection_ExtendedString& theString
                                      const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetExtStringValue(m_label, -1, theString);
 

@@ -68,7 +68,7 @@ void ActData_TriangulationParameter::SetTriangulation(const Handle(Poly_Triangul
                                                       const Standard_Boolean            doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetTriangulation(m_label, DS_Triangulation, theTriangulation);
 
@@ -85,7 +85,7 @@ void ActData_TriangulationParameter::SetTriangulation(const Handle(Poly_Triangul
 Handle(Poly_Triangulation) ActData_TriangulationParameter::GetTriangulation()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetTriangulation(m_label, DS_Triangulation);
 }

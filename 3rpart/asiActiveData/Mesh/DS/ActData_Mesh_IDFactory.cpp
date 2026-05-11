@@ -1,3 +1,4 @@
+#include <TColStd_PackedMapOfInteger.hxx>
 //-----------------------------------------------------------------------------
 // Created on: June 2016
 //-----------------------------------------------------------------------------
@@ -37,7 +38,7 @@
 #include <ActData_Mesh_Element.h>
 
 // OCCT includes
-#include <TColStd_MapIteratorOfPackedMapOfInteger.hxx>
+
 
 //-----------------------------------------------------------------------------
 
@@ -48,7 +49,7 @@ ActData_Mesh_IDFactory::ActData_Mesh_IDFactory() : myMaxID(0)
 
 Standard_Integer ActData_Mesh_IDFactory::GetFreeID()
 {
-  TColStd_MapIteratorOfPackedMapOfInteger it(myPoolOfID);
+  TColStd_PackedMapOfInteger::Iterator it(myPoolOfID);
   while (it.More()) {
     const Standard_Integer anID = it.Key();
     it.Next();

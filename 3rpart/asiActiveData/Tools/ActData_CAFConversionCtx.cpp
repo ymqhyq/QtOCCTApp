@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Created on: March 2013
 //-----------------------------------------------------------------------------
 // Copyright (c) 2017, OPEN CASCADE SAS
@@ -48,7 +48,7 @@
 #include <OSD_Directory.hxx>
 #include <OSD_File.hxx>
 #include <OSD_Path.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TDF_Tool.hxx>
 
 #define CARD_DUMP "dump"
@@ -501,7 +501,7 @@ Standard_Boolean
         // Clean up OCAF attribute
         ArgListAttr->Clear();
 
-        for ( TDF_ListIteratorOfLabelList lit1(ArgLabelList); lit1.More(); lit1.Next() )
+        for ( TDF_LabelList::Iterator lit1(ArgLabelList); lit1.More(); lit1.Next() )
         {
           TDF_Label& ArgLab = lit1.Value();
           ActAPI_ParameterGID OldGID = ActData_Utils::ConvertToGID(ArgLab, isInternal);
@@ -533,7 +533,7 @@ Standard_Boolean
         // Clean up OCAF attribute
         ResListAttr->Clear();
 
-        for ( TDF_ListIteratorOfLabelList lit1(ResLabelList); lit1.More(); lit1.Next() )
+        for ( TDF_LabelList::Iterator lit1(ResLabelList); lit1.More(); lit1.Next() )
         {
           TDF_Label& ResLab = lit1.Value();
           ActAPI_ParameterGID OldGID = ActData_Utils::ConvertToGID(ResLab, isInternal);
@@ -618,7 +618,7 @@ Standard_Boolean
 
   TDF_LabelList oldTargetLabels = refAttr->List();
   //
-  for ( TDF_ListIteratorOfLabelList lit(oldTargetLabels); lit.More(); lit.Next() )
+  for ( TDF_LabelList::Iterator lit(oldTargetLabels); lit.More(); lit.Next() )
   {
     TDF_Label& TargetLab = lit.Value();
 
@@ -676,7 +676,7 @@ Standard_Boolean
   // ...
 
   // Process target Labels one-by-one
-  for ( TDF_ListIteratorOfLabelList lit(NewRefTargets); lit.More(); lit.Next() )
+  for ( TDF_LabelList::Iterator lit(NewRefTargets); lit.More(); lit.Next() )
   {
     TDF_Label& NewTargetLab = lit.Value();
 

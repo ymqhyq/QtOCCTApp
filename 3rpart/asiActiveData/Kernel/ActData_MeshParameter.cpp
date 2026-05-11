@@ -61,11 +61,11 @@ Handle(ActData_MeshParameter) ActData_MeshParameter::Instance()
 void ActData_MeshParameter::DeltaModeOn()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Handle(ActData_MeshAttr) aMeshAttr = ActData_Utils::AccessMeshAttr(m_label, DS_Mesh);
   if ( aMeshAttr.IsNull() )
-    Standard_ProgramError::Raise("Cannot access NULL Mesh DS");
+    throw Standard_ProgramError("Cannot access NULL Mesh DS");
 
   aMeshAttr->DeltaModeOn();
 }
@@ -74,11 +74,11 @@ void ActData_MeshParameter::DeltaModeOn()
 void ActData_MeshParameter::DeltaModeOff()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Handle(ActData_MeshAttr) aMeshAttr = ActData_Utils::AccessMeshAttr(m_label, DS_Mesh);
   if ( aMeshAttr.IsNull() )
-    Standard_ProgramError::Raise("Cannot access NULL Mesh DS");
+    throw Standard_ProgramError("Cannot access NULL Mesh DS");
 
   aMeshAttr->DeltaModeOff();
 }
@@ -95,7 +95,7 @@ void ActData_MeshParameter::SetMesh(const Handle(ActData_Mesh)& theMesh,
                                     const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetMesh(m_label, DS_Mesh, theMesh);
 
@@ -125,11 +125,11 @@ Standard_Integer
                                  const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot access BAD-FORMED data");
+    throw Standard_ProgramError("Cannot access BAD-FORMED data");
 
   Handle(ActData_MeshAttr) aMeshAttr = ActData_Utils::AccessMeshAttr(m_label, DS_Mesh);
   if ( aMeshAttr.IsNull() )
-    Standard_ProgramError::Raise("Cannot access NULL Mesh DS");
+    throw Standard_ProgramError("Cannot access NULL Mesh DS");
 
   Standard_Integer aResID = aMeshAttr->AddNode(theNodeX, theNodeY, theNodeZ);
 
@@ -159,11 +159,11 @@ Standard_Integer
                                     const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Cannot access BAD-FORMED data");
+    throw Standard_ProgramError("Cannot access BAD-FORMED data");
 
   Handle(ActData_MeshAttr) aMeshAttr = ActData_Utils::AccessMeshAttr(m_label, DS_Mesh);
   if ( aMeshAttr.IsNull() )
-    Standard_ProgramError::Raise("Cannot access NULL Mesh DS");
+    throw Standard_ProgramError("Cannot access NULL Mesh DS");
 
   Standard_Integer aResID = aMeshAttr->AddElement(theNodes, theNbNodes);
 
@@ -182,7 +182,7 @@ Standard_Integer
 Handle(ActData_Mesh) ActData_MeshParameter::GetMesh()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetMesh(m_label, DS_Mesh);
 }

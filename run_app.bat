@@ -2,9 +2,9 @@
 setlocal
 
 set QT_BIN=D:\Qt\6.10.1\msvc2022_64\bin
-set OCCT_BIN=D:\QtOCCTApp\3rpart\opencascade-7.9.3-vc14-64\win64\vc14\bin
+set OCCT_BIN=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64\win64\vc14\bin;D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64\win64\vc14\bind
 
-set TP=D:\QtOCCTApp\3rpart\3rdparty-vc14-64
+set TP=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64
 set ANGLE=%TP%\angle-gles2-2.1.0-vc14-64\bin
 set DRACO=%TP%\draco-1.4.1-vc14-64\bin
 set FFMPEG=%TP%\ffmpeg-3.3.4-64\bin
@@ -19,7 +19,7 @@ set TCLTK=%TP%\tcltk-8.6.15-x64\bin
 set VTK=%TP%\vtk-9.4.1-x64\bin
 set ZLIB=%TP%\zlib-1.2.8-vc14-64\bin
 
-set APP_BIN=D:\QtOCCTApp\build
+set APP_BIN=D:\QtOCCTApp\build\Debug
 set APP_BIN2=D:\QtOCCTApp\build\bin
 set APP_BIN3=D:\QtOCCTApp\build\libs\shxparser
 set APP_BIN4=D:\QtOCCTApp\build\3rpart\asiActiveData
@@ -29,7 +29,7 @@ set PATH=%QT_BIN%;%OCCT_BIN%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL
 
 echo Environment configured.
 echo Starting QtOCCTApp...
-"D:\QtOCCTApp\build\QtOCCTApp.exe"
+"D:\QtOCCTApp\build\Debug\QtOCCTApp.exe"
 if %ERRORLEVEL% NEQ 0 (
     echo Application exited with error code: %ERRORLEVEL%
     pause

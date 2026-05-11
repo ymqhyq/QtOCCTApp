@@ -75,7 +75,7 @@ void ActData_BoolArrayParameter::InitEmpty()
 void ActData_BoolArrayParameter::BackupArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   ActData_Utils::BackupBooleanArray(m_label, DS_Array);
 }
@@ -97,10 +97,10 @@ void ActData_BoolArrayParameter::SetElement(const Standard_Integer theIndex,
                                             const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("SetElement -- out of range");
+    throw Standard_Failure("SetElement -- out of range");
 
   ActData_Utils::SetBooleanArrayElem(m_label, DS_Array, theIndex, theValue);
 
@@ -119,10 +119,10 @@ Standard_Boolean
   ActData_BoolArrayParameter::GetElement(const Standard_Integer theIndex)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("GetElement -- out of range");
+    throw Standard_Failure("GetElement -- out of range");
 
   return ActData_Utils::GetBooleanArrayElem(m_label, DS_Array, theIndex);
 }
@@ -142,7 +142,7 @@ void ActData_BoolArrayParameter::SetArray(const Handle(HBoolArray)& theArray,
                                           const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   if ( theArray.IsNull() )
     this->InitEmpty();
@@ -169,7 +169,7 @@ void ActData_BoolArrayParameter::SetArray(const Handle(HBoolArray)& theArray,
 Handle(HBoolArray) ActData_BoolArrayParameter::GetArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetBooleanArray(m_label, DS_Array);
 }
@@ -179,7 +179,7 @@ Handle(HBoolArray) ActData_BoolArrayParameter::GetArray()
 Standard_Integer ActData_BoolArrayParameter::NbElements()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Standard_Integer aValue;
   ActData_Utils::GetIntegerValue(m_label, DS_ElemNum, aValue);

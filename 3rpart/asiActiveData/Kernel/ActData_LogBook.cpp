@@ -41,7 +41,7 @@
 
 // OCCT includes
 #include <TDF_ChildIterator.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TDF_Tool.hxx>
 
 #undef COUT_DEBUG

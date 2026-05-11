@@ -1,3 +1,4 @@
+#include <TColStd_PackedMapOfInteger.hxx>
 //-----------------------------------------------------------------------------
 // Created on: May 2012
 //-----------------------------------------------------------------------------
@@ -38,8 +39,8 @@
 #include <ActData_Utils.h>
 
 // OCCT includes
-#include <TColStd_MapIteratorOfMapOfInteger.hxx>
-#include <TColStd_MapIteratorOfPackedMapOfInteger.hxx>
+#include <TColStd_MapOfInteger.hxx>
+
 #include <TColStd_MapOfInteger.hxx>
 #include <TFunction_IFunction.hxx>
 #include <TFunction_Scope.hxx>
@@ -97,7 +98,7 @@ void ActData_DependencyAnalyzer::DetectLoops(const LoopStrategy theStrategy)
       break;
 
     default:
-      Standard_ProgramError::Raise("Unexpected detection strategy");
+      throw Standard_ProgramError("Unexpected detection strategy");
   }
 }
 
@@ -153,7 +154,7 @@ Handle(ActAPI_HParameterList)
   TColStd_PackedMapOfInteger anEntireIDs; anEntireIDs = m_cyclicParamIDs;
   if ( isEnriched )
   {
-    TColStd_MapIteratorOfPackedMapOfInteger aCyclicIt(m_cyclicParamIDs);
+    TColStd_PackedMapOfInteger::Iterator aCyclicIt(m_cyclicParamIDs);
     for ( ; aCyclicIt.More(); aCyclicIt.Next() )
     {
       Standard_Integer aNextCyclicID = aCyclicIt.Key();
@@ -169,7 +170,7 @@ Handle(ActAPI_HParameterList)
    * ======================================================= */
 
   Handle(ActAPI_HParameterList) aParamList = new ActAPI_HParameterList;
-  TColStd_MapIteratorOfPackedMapOfInteger aMapIt(anEntireIDs);
+  TColStd_PackedMapOfInteger::Iterator aMapIt(anEntireIDs);
   for ( ; aMapIt.More(); aMapIt.Next() )
   {
     Standard_Boolean isUndefinedType;
@@ -300,7 +301,7 @@ void ActData_DependencyAnalyzer::performAD_DFS(const ActData_Graph& theGraph)
 void ActData_DependencyAnalyzer::performTarjan(const ActData_Graph& ActData_NotUsed(theGraph))
 {
   // TODO: NYI Tarjan's algorithm of SCC searching
-  Standard_ProgramError::Raise("Not yet implemented");
+  throw Standard_ProgramError("Not yet implemented");
 }
 
 //! Internal routine providing recursive analysis of the given dependency web

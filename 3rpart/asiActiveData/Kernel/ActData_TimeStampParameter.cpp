@@ -69,7 +69,7 @@ void ActData_TimeStampParameter::SetValue(const Handle(ActAux_TimeStamp)& theVal
                                           const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   TDF_Label aDataLab = m_label.FindChild(DS_Value, Standard_True);
   Handle(TDataStd_IntegerArray) aDataAttr = TDataStd_IntegerArray::Set(aDataLab, 0, Item_IsDST);
@@ -100,7 +100,7 @@ void ActData_TimeStampParameter::SetValue(const Standard_Integer theItemVal,
                                           const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   TDF_Label aDataLab = m_label.FindChild(DS_Value, Standard_True);
   Handle(TDataStd_IntegerArray) aDataAttr = TDataStd_IntegerArray::Set(aDataLab, 0, Item_IsDST);
@@ -119,7 +119,7 @@ void ActData_TimeStampParameter::SetValue(const Standard_Integer theItemVal,
 Handle(ActAux_TimeStamp) ActData_TimeStampParameter::GetValue()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetTimeStampValue(m_label, DS_Value);
 }
@@ -130,7 +130,7 @@ Handle(ActAux_TimeStamp) ActData_TimeStampParameter::GetValue()
 Standard_Integer ActData_TimeStampParameter::GetValue(const Item theItemType)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   TDF_Label aDataLab = m_label.FindChild(DS_Value, Standard_False);
   Handle(TDataStd_IntegerArray) aDataAttr;

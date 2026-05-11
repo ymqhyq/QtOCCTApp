@@ -34,7 +34,7 @@
 #include <ActData_DependencyGraph.h>
 
 // OCCT includes
-#include <TColStd_MapIteratorOfMapOfInteger.hxx>
+#include <TColStd_MapOfInteger.hxx>
 #include <TDF_Tool.hxx>
 #include <TFunction_IFunction.hxx>
 #include <TFunction_Scope.hxx>

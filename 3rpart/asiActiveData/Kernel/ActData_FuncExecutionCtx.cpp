@@ -41,9 +41,9 @@
 #include <ActData_Utils.h>
 
 // OCCT includes
-#include <TColStd_MapIteratorOfMapOfInteger.hxx>
-#include <TColStd_MapIteratorOfPackedMapOfInteger.hxx>
-#include <TFunction_DoubleMapIteratorOfDoubleMapOfIntegerLabel.hxx>
+#include <TColStd_MapOfInteger.hxx>
+
+#include <TFunction_DoubleMapOfIntegerLabel.hxx>
 #include <TFunction_IFunction.hxx>
 #include <TFunction_Scope.hxx>
 

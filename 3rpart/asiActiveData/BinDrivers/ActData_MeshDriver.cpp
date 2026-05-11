@@ -1,3 +1,4 @@
+#include <TColStd_IndexedMapOfTransient.hxx>
 //-----------------------------------------------------------------------------
 // Created on: May 2012
 //-----------------------------------------------------------------------------
@@ -96,7 +97,7 @@ Standard_Boolean
 //! \param RelocTable [in] not used (see OCAF reference manual).
 void ActData_MeshDriver::Paste(const Handle(TDF_Attribute)& FromTransient,
                                BinObjMgt_Persistent&        ToPersistent,
-                               BinObjMgt_SRelocationTable&  ActData_NotUsed(RelocTable)) const
+                               TColStd_IndexedMapOfTransient&  ActData_NotUsed(RelocTable)) const
 {
   /* ====================================================
    *  Access Mesh Attribute along with contained Mesh DS

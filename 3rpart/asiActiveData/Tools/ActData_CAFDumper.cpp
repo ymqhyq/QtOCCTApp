@@ -41,7 +41,7 @@
 #include <OSD_OpenMode.hxx>
 #include <OSD_Path.hxx>
 #include <OSD_Protection.hxx>
-#include <TColStd_MapIteratorOfPackedMapOfInteger.hxx>
+
 #include <TColStd_PackedMapOfInteger.hxx>
 #include <TDataStd_AsciiString.hxx>
 #include <TDataStd_BooleanArray.hxx>
@@ -51,7 +51,7 @@
 #include <TDataStd_Real.hxx>
 #include <TDF_AttributeIterator.hxx>
 #include <TDF_ChildIterator.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TDF_Reference.hxx>
 #include <TNaming_NamedShape.hxx>
 
@@ -233,7 +233,7 @@ Standard_Boolean
   else if ( theContentType == Content_TreeNodes )
     dumpTreeNodeStructure(theOut, M->GetRootNode(), theVerbosity, 0);
   else if ( theContentType == Content_DependencyGraph )
-    Standard_ProgramError::Raise("TODO: Not implemented: Content_DependencyGraph");
+    throw Standard_ProgramError("TODO: Not implemented: Content_DependencyGraph");
 
   // -----------------------------------
   // --> COPY & PASTE Buffering section
@@ -260,7 +260,7 @@ Standard_Boolean
     }
   }
   else if ( theContentType == Content_DependencyGraph )
-    Standard_ProgramError::Raise("TODO: Not implemented: Content_DependencyGraph");
+    throw Standard_ProgramError("TODO: Not implemented: Content_DependencyGraph");
 
   // ----------------------------------
   // --> Tree Function LogBook section
@@ -735,7 +735,7 @@ TCollection_AsciiString
   TCollection_AsciiString aResult("{");
   Standard_Integer aNbElems = theCol->Extent();
   Standard_Boolean isTrimmed = Standard_False;
-  TColStd_MapIteratorOfPackedMapOfInteger aMapIt( theCol->GetMap() );
+  TColStd_PackedMapOfInteger::Iterator aMapIt( theCol->GetMap() );
   Standard_Integer j = 1;
   for ( ; aMapIt.More(); aMapIt.Next() )
   {
@@ -770,7 +770,7 @@ TCollection_AsciiString
   TCollection_AsciiString aResult("{");
   const TDF_LabelList& aRefLabels = theCol->List();
   Standard_Integer j = 1, aNbElems = aRefLabels.Extent();
-  for ( TDF_ListIteratorOfLabelList it(aRefLabels); it.More(); it.Next() )
+  for ( TDF_LabelList::Iterator it(aRefLabels); it.More(); it.Next() )
   {
     const TDF_Label& aRefLabel = it.Value();
     aResult = aResult.Cat( ActData_Utils::GetEntry(aRefLabel) );

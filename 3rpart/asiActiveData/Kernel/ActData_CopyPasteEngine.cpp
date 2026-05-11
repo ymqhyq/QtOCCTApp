@@ -47,7 +47,7 @@
 #include <TDF_ClosureTool.hxx>
 #include <TDF_CopyLabel.hxx>
 #include <TDF_CopyTool.hxx>
-#include <TDF_DataMapIteratorOfLabelDataMap.hxx>
+#include <TDF_LabelDataMap.hxx>
 #include <TDF_DataSet.hxx>
 #include <TDF_LabelDataMap.hxx>
 #include <TDF_RelocationTable.hxx>
@@ -705,7 +705,7 @@ void ActData_CopyPasteEngine::normalizeObservers(const Handle(ActData_BaseNode)&
       anObserverList = theNode->m_paramScope.Meta->GetReferrerCursors();
       break;
     default:
-      Standard_ProgramError::Raise("Unexpected observer type");
+      throw Standard_ProgramError("Unexpected observer type");
   }
 
   // We start with cleaning up the attribute containing back-references.

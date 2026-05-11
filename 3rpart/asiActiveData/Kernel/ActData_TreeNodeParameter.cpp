@@ -63,7 +63,7 @@ Handle(ActData_TreeNodeParameter) ActData_TreeNodeParameter::Instance()
 void ActData_TreeNodeParameter::AppendChild(const Handle(ActData_TreeNodeParameter)& theTreeNode)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   /* ================================================
    *  If child attribute already has some father, it
@@ -103,7 +103,7 @@ void ActData_TreeNodeParameter::AppendChild(const Handle(ActData_TreeNodeParamet
 Standard_Boolean ActData_TreeNodeParameter::RemoveChild(const Handle(ActData_TreeNodeParameter)& theTreeNode)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Handle(TDataStd_TreeNode) aChild      = theTreeNode->GetCAFTreeNode();
   Handle(TDataStd_TreeNode) aThisParent = this->GetCAFTreeNode();

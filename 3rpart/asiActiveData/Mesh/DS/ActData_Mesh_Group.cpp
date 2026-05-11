@@ -90,7 +90,7 @@ void ActData_Mesh_Group::Add(const Handle(ActData_Mesh_Element)& ME)
   if (myElements.IsEmpty())
     myType = ME->GetType();
   else if (ME->GetType() != myType)
-    Standard_TypeMismatch::Raise("ActData_Mesh_Group::Add");
+    throw Standard_TypeMismatch("ActData_Mesh_Group::Add");
   myElements.Add(ME);
 }
 

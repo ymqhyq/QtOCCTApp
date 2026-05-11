@@ -23,7 +23,7 @@ void ActData_PointArrayParameter::InitEmpty()
 void ActData_PointArrayParameter::BackupArray()
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 
 	ActData_Utils::BackupRealArray(m_label, DS_Array_X);
 	ActData_Utils::BackupRealArray(m_label, DS_Array_Y);
@@ -36,10 +36,10 @@ void ActData_PointArrayParameter::SetElement(const Standard_Integer theIndex,
 	const Standard_Boolean doResetPending /*= Standard_False*/)
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 
 	if (theIndex > this->NbElements())
-		Standard_Failure::Raise("SetElement -- out of range");
+		throw Standard_Failure("SetElement -- out of range");
 	ActData_Utils::SetRealArrayElem(m_label, DS_Array_X, theIndex, theValue.X());
 	ActData_Utils::SetRealArrayElem(m_label, DS_Array_Y, theIndex, theValue.Y());
 	ActData_Utils::SetRealArrayElem(m_label, DS_Array_Z, theIndex, theValue.Z());
@@ -55,10 +55,10 @@ void ActData_PointArrayParameter::SetElement(const Standard_Integer theIndex,
 gp_XYZ ActData_PointArrayParameter::GetElement(const Standard_Integer theIndex)
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 
 	if (theIndex > this->NbElements())
-		Standard_Failure::Raise("GetElement -- out of range");
+		throw Standard_Failure("GetElement -- out of range");
 
 	return gp_XYZ(ActData_Utils::GetRealArrayElem(m_label, DS_Array_X, theIndex),
 		ActData_Utils::GetRealArrayElem(m_label, DS_Array_Y, theIndex),
@@ -68,7 +68,7 @@ gp_XYZ ActData_PointArrayParameter::GetElement(const Standard_Integer theIndex)
 void ActData_PointArrayParameter::SetArray(const Handle(HPointList)& theArray, const ActAPI_ModificationType theModType /*= MT_Touched*/, const Standard_Boolean doResetValidity /*= Standard_True*/, const Standard_Boolean doResetPending /*= Standard_True*/)
 {
 	if (this->IsDetached())
-		Standard_ProgramError::Raise("Cannot access detached data");
+		throw Standard_ProgramError("Cannot access detached data");
 
 	if (theArray.IsNull())
 		this->InitEmpty();
@@ -98,7 +98,7 @@ void ActData_PointArrayParameter::SetArray(const Handle(HPointList)& theArray, c
 Handle(HPointList) ActData_PointArrayParameter::GetArray()
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 	PointList pList;
 	Standard_Integer nElems = this->NbElements();
 	if (nElems == 0)
@@ -123,7 +123,7 @@ Handle(HPointList) ActData_PointArrayParameter::GetArray()
 Standard_Integer ActData_PointArrayParameter::NbElements()
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 
 	Standard_Integer aValue;
 	ActData_Utils::GetIntegerValue(m_label, DS_ElemNum, aValue);

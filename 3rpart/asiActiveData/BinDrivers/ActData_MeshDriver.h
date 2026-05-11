@@ -1,3 +1,4 @@
+#include <TColStd_IndexedMapOfTransient.hxx>
 //-----------------------------------------------------------------------------
 // Created on: May 2012
 //-----------------------------------------------------------------------------
@@ -232,7 +233,7 @@ public:
   ActData_EXPORT virtual void
     Paste(const Handle(TDF_Attribute)& FromTransient,
           BinObjMgt_Persistent&        ToPersistent,
-          BinObjMgt_SRelocationTable&  RelocTable) const;
+          TColStd_IndexedMapOfTransient&  RelocTable) const;
 
 };
 

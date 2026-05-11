@@ -305,7 +305,7 @@ public:
     Handle(Standard_Transient) aTxData = TxPrimDataSeq.Value(m_iSeekIndx++);
 
     if ( !aTxData->IsInstance( STANDARD_TYPE(ActAPI_TxPrimDataInt) ) )
-      Standard_ProgramError::Raise(ERR_INCONSISTENT_DATA_TYPES);
+      throw Standard_ProgramError(ERR_INCONSISTENT_DATA_TYPES);
 
     theData = Handle(ActAPI_TxPrimDataInt)::DownCast(aTxData)->Value;
     return *this;
@@ -322,7 +322,7 @@ public:
     Handle(Standard_Transient) aTxData = TxPrimDataSeq.Value(m_iSeekIndx++);
 
     if ( !aTxData->IsInstance( STANDARD_TYPE(ActAPI_TxPrimDataReal) ) )
-      Standard_ProgramError::Raise(ERR_INCONSISTENT_DATA_TYPES);
+      throw Standard_ProgramError(ERR_INCONSISTENT_DATA_TYPES);
 
     theData = Handle(ActAPI_TxPrimDataReal)::DownCast(aTxData)->Value;
     return *this;
@@ -339,7 +339,7 @@ public:
     Handle(Standard_Transient) aTxData = TxPrimDataSeq.Value(m_iSeekIndx++);
 
     if ( !aTxData->IsInstance( STANDARD_TYPE(ActAPI_TxPrimDataBool) ) )
-      Standard_ProgramError::Raise(ERR_INCONSISTENT_DATA_TYPES);
+      throw Standard_ProgramError(ERR_INCONSISTENT_DATA_TYPES);
 
     theData = Handle(ActAPI_TxPrimDataBool)::DownCast(aTxData)->Value;
     return *this;
@@ -356,7 +356,7 @@ public:
     Handle(Standard_Transient) aTxData = TxPrimDataSeq.Value(m_iSeekIndx++);
 
     if ( !aTxData->IsInstance( STANDARD_TYPE(ActAPI_TxPrimDataString) ) )
-      Standard_ProgramError::Raise(ERR_INCONSISTENT_DATA_TYPES);
+      throw Standard_ProgramError(ERR_INCONSISTENT_DATA_TYPES);
 
     theStr = Handle(ActAPI_TxPrimDataString)::DownCast(aTxData)->Value;
     return *this;

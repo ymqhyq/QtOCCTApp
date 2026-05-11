@@ -62,9 +62,9 @@
 // OCCT includes
 #include <Standard_ProgramError.hxx>
 #include <TDataStd_Integer.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TDF_Tool.hxx>
-#include <TFunction_DoubleMapIteratorOfDoubleMapOfIntegerLabel.hxx>
+#include <TFunction_DoubleMapOfIntegerLabel.hxx>
 #include <TFunction_DriverTable.hxx>
 #include <TFunction_GraphNode.hxx>
 #include <TFunction_IFunction.hxx>
@@ -163,7 +163,7 @@ Standard_Boolean
   catch ( const Standard_Failure& exc )
   {
     std::cout << "OCCT exception:"         << std::endl;
-    std::cout << exc.DynamicType()->Name() << std::endl;
+    std::cout << exc.ExceptionType() << std::endl;
     std::cout << exc.GetMessageString()    << std::endl;
     return Standard_False;
   }
@@ -277,7 +277,7 @@ Standard_Boolean
   catch ( const Standard_Failure& exc )
   {
     std::cout << "OCCT exception:"         << std::endl;
-    std::cout << exc.DynamicType()->Name() << std::endl;
+    std::cout << exc.ExceptionType() << std::endl;
     std::cout << exc.GetMessageString()    << std::endl;
     return Standard_False;
   }
@@ -361,7 +361,7 @@ void ActData_BaseModel::EnableTransactions()
 void ActData_BaseModel::OpenCommand()
 {
   if ( this->HasOpenCommand() )
-    Standard_ProgramError::Raise("Nested transactions are prohibited");
+    throw Standard_ProgramError("Nested transactions are prohibited");
 
   m_trEngine->OpenCommand();
 }
@@ -526,7 +526,7 @@ Handle(ActAPI_IPartition)
   ActData_BaseModel::Partition(const Standard_Integer theTypeId) const
 {
   if ( !m_partitionMap->IsBound(theTypeId) )
-    Standard_ProgramError::Raise("No partition registered for this type");
+    throw Standard_ProgramError("No partition registered for this type");
 
   return m_partitionMap->Find(theTypeId);
 }
@@ -548,7 +548,7 @@ Handle(ActAPI_IPartition)
       return aNextPartition;
   }
 
-  Standard_ProgramError::Raise("No partition registered for this Node type");
+  throw Standard_ProgramError("No partition registered for this Node type");
   return NULL;
 }
 
@@ -913,7 +913,7 @@ ActAPI_DataObjectId
     aNode = ActData_RealVarNode::Instance();
     break;
   default:
-    Standard_ProgramError::Raise("Unexpected type of Variable Node");
+    throw Standard_ProgramError("Unexpected type of Variable Node");
   }
 
   /* =======================================================
@@ -1007,7 +1007,7 @@ Standard_Integer ActData_BaseModel::FuncExecuteAll(const Standard_Boolean doDeta
     ActData_FuncExecutionTask::Launch(this->FuncProgressNotifier(), this, theData);
     return MS_Undefined;
 #else
-    Standard_ProgramError::Raise("Cannot detach without TBB 3-rd party enabled.");
+    throw Standard_ProgramError("Cannot detach without TBB 3-rd party enabled.");
 #endif
   }
 
@@ -1167,7 +1167,7 @@ Standard_Integer ActData_BaseModel::FuncExecuteAll(const Standard_Boolean doDeta
     dumpPrefix += "\t";
 #endif
 
-    TDF_ListIteratorOfLabelList aCurrentIt(aCurrentFunctions);
+    TDF_LabelList::Iterator aCurrentIt(aCurrentFunctions);
     for ( ; aCurrentIt.More(); aCurrentIt.Next() )
     {
       TDF_Label aCurrentLab = aCurrentIt.Value();
@@ -1457,7 +1457,7 @@ void ActData_BaseModel::doDeleteRecursive(const ActAPI_DataObjectId& theNodeId)
   // Access the target Data Node
   Handle(ActAPI_INode) aNode = this->FindNode(theNodeId);
   if ( !aNode->IsWellFormed() )
-    Standard_ProgramError::Raise("Inconsistent CAF data");
+    throw Standard_ProgramError("Inconsistent CAF data");
 
   // Access the parent Data Node
   Handle(ActAPI_INode) aParentNode = aNode->GetParentNode();

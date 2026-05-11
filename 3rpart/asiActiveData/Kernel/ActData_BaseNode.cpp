@@ -42,7 +42,7 @@
 
 // OCCT includes
 #include <Standard_ProgramError.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TDF_Tool.hxx>
 
 //-----------------------------------------------------------------------------
@@ -625,14 +625,14 @@ void ActData_BaseNode::ConnectEvaluator(const Standard_Integer               the
   //
   if ( aParam->GetParamType() != Parameter_Real &&
        aParam->GetParamType() != Parameter_Int )
-    Standard_ProgramError::Raise("Not implemented for others than REAL & INT");
+    throw Standard_ProgramError("Not implemented for others than REAL & INT");
 
   /* ==================================
    *  Set reference to Function Driver
    * ================================== */
 
   if ( !this->IsEvaluable(theId) )
-    Standard_ProgramError::Raise("Cannot connect non-expressible Parameter");
+    throw Standard_ProgramError("Cannot connect non-expressible Parameter");
 
   Standard_Integer aEvalFuncTag = m_paramScope.ExpressibleParams.Find(theId);
   Handle(ActData_TreeFunctionParameter)
@@ -722,7 +722,7 @@ Standard_Boolean
 void ActData_BaseNode::DisconnectEvaluator(const Standard_Integer theId)
 {
   if ( !m_paramScope.ExpressibleParams.IsBound(theId) )
-    Standard_ProgramError::Raise("Cannot connect non-expressible Parameter");
+    throw Standard_ProgramError("Cannot connect non-expressible Parameter");
 
   // Get evaluator Tree Function Parameter
   const Standard_Integer aEvalFuncTag = m_paramScope.ExpressibleParams.Find(theId);
@@ -1083,7 +1083,7 @@ void ActData_BaseNode::remove(const Standard_Boolean canAffectExGraph)
       }
     }
     else
-      Standard_ProgramError::Raise("Unexpected type of referrer");
+      throw Standard_ProgramError("Unexpected type of referrer");
   }
 
   /* ===============================================================
@@ -1240,7 +1240,7 @@ Handle(ActData_TreeFunctionParameter)
     aFuncParam = m_paramScope.SafeCast<Handle(ActData_TreeFunctionParameter)>(theId, isInternal);
 
   if ( aFuncParam.IsNull() ) // Bad type of expected Tree Function Parameter
-    Standard_ProgramError::Raise("Tree Function Parameter expected");
+    throw Standard_ProgramError("Tree Function Parameter expected");
 
   return aFuncParam;
 }
@@ -1255,7 +1255,7 @@ Handle(ActData_ReferenceParameter)
     aRefParam = m_paramScope.SafeCast<Handle(ActData_ReferenceParameter)>(theId, Standard_False);
 
   if ( aRefParam.IsNull() ) // Bad type of expected Reference Parameter
-    Standard_ProgramError::Raise("Reference Parameter expected");
+    throw Standard_ProgramError("Reference Parameter expected");
 
   return aRefParam;
 }
@@ -1270,7 +1270,7 @@ Handle(ActData_ReferenceListParameter)
     aRefParam = m_paramScope.SafeCast<Handle(ActData_ReferenceListParameter)>(theId, Standard_False);
 
   if ( aRefParam.IsNull() ) // Bad type of expected Reference Parameter
-    Standard_ProgramError::Raise("Reference List Parameter expected");
+    throw Standard_ProgramError("Reference List Parameter expected");
 
   return aRefParam;
 }
@@ -1303,11 +1303,11 @@ Handle(ActAPI_HParameterList)
       aRefLabs = m_paramScope.Meta->GetReferrers();
       break;
     default:
-      Standard_ProgramError::Raise("Unexpected observer type");
+      throw Standard_ProgramError("Unexpected observer type");
   }
 
   // Loop over the clients
-  TDF_ListIteratorOfLabelList aRefLabsIt(aRefLabs);
+  TDF_LabelList::Iterator aRefLabsIt(aRefLabs);
   for ( ; aRefLabsIt.More(); aRefLabsIt.Next() )
   {
     TDF_Label& aNextRefLab = aRefLabsIt.Value();
@@ -1323,7 +1323,7 @@ Handle(ActAPI_HParameterList)
     if ( aNextRefParam->GetParamType() != Parameter_TreeFunction &&
          aNextRefParam->GetParamType() != Parameter_Reference &&
          aNextRefParam->GetParamType() != Parameter_ReferenceList )
-      Standard_ProgramError::Raise("Unexpected type of observer Parameter");
+      throw Standard_ProgramError("Unexpected type of observer Parameter");
 
     aResult->Append(aNextRefParam);
   }
@@ -1474,7 +1474,7 @@ void ActData_BaseNode::disconnectTreeFunction(const Handle(ActData_TreeFunctionP
 
   // Disconnect as reader
   thePFunc->getArguments(anArgList);
-  TDF_ListIteratorOfLabelList aParIt(anArgList);
+  TDF_LabelList::Iterator aParIt(anArgList);
   for ( ; aParIt.More(); aParIt.Next() )
   {
     const TDF_Label& aCurrentRoot = aParIt.Value();
@@ -1582,7 +1582,7 @@ void ActData_BaseNode::disconnectObserver(const ObserverType                   t
       this->disconnectReferrer(theObserver);
       break;
     default:
-      Standard_ProgramError::Raise("Unexpected observer type");
+      throw Standard_ProgramError("Unexpected observer type");
   }
 }
 

@@ -44,7 +44,7 @@
 #include <Standard_ProgramError.hxx>
 #include <Standard_Type.hxx>
 #include <TCollection_AsciiString.hxx>
-#include <TColStd_MapIteratorOfPackedMapOfInteger.hxx>
+
 #include <TColStd_PackedMapOfInteger.hxx>
 
 #define LogInfo(PriorityShort) \
@@ -316,7 +316,7 @@ public:
       return *this;
 
     if ( !m_bIsMsgInitialized )
-      Standard_ProgramError::Raise("Message must be initialized first");
+      throw Standard_ProgramError("Message must be initialized first");
 
     Handle(ActAPI_VariableInt) aTVal = new ActAPI_VariableInt(val);
     m_args.Append(aTVal);
@@ -333,7 +333,7 @@ public:
       return *this;
 
     if ( !m_bIsMsgInitialized )
-      Standard_ProgramError::Raise("Message must be initialized first");
+      throw Standard_ProgramError("Message must be initialized first");
 
     Handle(ActAPI_VariableReal) aTVal = new ActAPI_VariableReal(val);
     m_args.Append(aTVal);
@@ -358,7 +358,7 @@ public:
       return *this;
 
     if ( !m_bIsMsgInitialized )
-      Standard_ProgramError::Raise("Message must be initialized first");
+      throw Standard_ProgramError("Message must be initialized first");
 
     Handle(ActAPI_VariableShape) aTVal = new ActAPI_VariableShape(shape);
     m_args.Append(aTVal);
@@ -375,7 +375,7 @@ public:
     TCollection_AsciiString str;
 
     int iter = 0;
-    for ( TColStd_MapIteratorOfPackedMapOfInteger mit(mask); mit.More(); mit.Next() )
+    for ( TColStd_PackedMapOfInteger::Iterator mit(mask); mit.More(); mit.Next() )
     {
       if ( iter++ )
         str += " ";

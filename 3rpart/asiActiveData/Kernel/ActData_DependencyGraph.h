@@ -41,7 +41,7 @@
 
 // OCCT includes
 #include <TDF_Label.hxx>
-#include <TFunction_DoubleMapIteratorOfDoubleMapOfIntegerLabel.hxx>
+#include <TFunction_DoubleMapOfIntegerLabel.hxx>
 #include <TFunction_DoubleMapOfIntegerLabel.hxx>
 #include <TFunction_Driver.hxx>
 

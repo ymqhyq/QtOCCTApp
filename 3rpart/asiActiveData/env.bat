@@ -3,8 +3,8 @@
 set "CONFIG=Release"
 if /i "%1"=="debug" set "CONFIG=Debug"
 
-set "THIRDPARTY_DIR=D:\QtOCCTApp\3rpart\3rdparty-vc14-64"
-set "OCCT_DIR=D:\QtOCCTApp\3rpart\opencascade-7.9.3-vc14-64"
+set "THIRDPARTY_DIR=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64"
+set "OCCT_DIR=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64"
 set "ACTIVE_DATA_BIN=%~dp0build\%CONFIG%"
 
 :: Add ActiveData bin to PATH

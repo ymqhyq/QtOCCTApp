@@ -42,7 +42,7 @@
 // OCCT includes
 #include <TDF_ChildIterator.hxx>
 #include <TDF_LabelList.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 
 DEFINE_STANDARD_HANDLE(ActData_BasePartition, ActAPI_IPartition)
 
@@ -81,7 +81,7 @@ public:
   private:
 
     Handle(ActData_BasePartition) m_partition; //!< Owning partition.
-    TDF_ListIteratorOfLabelList m_it; //!< Internal iterator for TDF labels.
+    TDF_LabelList::Iterator m_it; //!< Internal iterator for TDF labels.
     TDF_LabelList m_labelList; //!< List being iterated over.
 
   };

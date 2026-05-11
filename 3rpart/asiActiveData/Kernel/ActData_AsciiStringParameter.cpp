@@ -86,7 +86,7 @@ void ActData_AsciiStringParameter::SetValue(const TCollection_AsciiString& theSt
                                             const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetAsciiStringValue(m_label, DS_Value, theString);
 
@@ -103,7 +103,7 @@ void ActData_AsciiStringParameter::SetValue(const TCollection_AsciiString& theSt
 TCollection_AsciiString ActData_AsciiStringParameter::GetValue()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   return ActData_Utils::GetAsciiStringValue(m_label, DS_Value);
 }

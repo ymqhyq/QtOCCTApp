@@ -41,7 +41,7 @@
 const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::Find(const Handle(ActData_Mesh_Element)& K) const
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::Find");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::Find");
   }
 //  Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshElement::Find");
   ActData_Mesh_MapOfElements::MapNode** data = (ActData_Mesh_MapOfElements::MapNode**) myData1;
@@ -51,7 +51,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::Find(const Ha
       return p->ChangeValue();
     p = (ActData_Mesh_MapOfElements::MapNode*) p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::Find");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::Find");
   return p->ChangeValue();
 }
 
@@ -63,7 +63,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::Find(const Ha
 Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::ChangeFind(const Handle(ActData_Mesh_Element)& K)
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::ChangeFind");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::ChangeFind");
   }
 //Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshElement::ChangeFind");
   ActData_Mesh_MapOfElements::MapNode** data = (ActData_Mesh_MapOfElements::MapNode**) myData1;
@@ -73,7 +73,7 @@ Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::ChangeFind(const Ha
       return p->ChangeValue();
     p = (ActData_Mesh_MapOfElements::MapNode*)  p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::ChangeFind");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::ChangeFind");
   return p->ChangeValue();
 }
 
@@ -86,7 +86,7 @@ Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::ChangeFind(const Ha
 const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::FindID(const Standard_Integer ID) const
 {
   if (IsEmpty()) {
-    Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::FindID");
+    throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::FindID");
   }
 //  Standard_NoSuchObject_Raise_if(IsEmpty(),"ActData_Mesh_MapOfMeshElement::Find");
   ActData_Mesh_MapOfElements::MapNode** data = (ActData_Mesh_MapOfElements::MapNode**) myData1;
@@ -96,7 +96,7 @@ const Handle(ActData_Mesh_Element)& ActData_Mesh_MapOfMeshElement::FindID(const 
       return p->ChangeValue();
     p = (ActData_Mesh_MapOfElements::MapNode*) p->Next();
   }
-  Standard_NoSuchObject::Raise("ActData_Mesh_MapOfMeshElement::Find");
+  throw Standard_NoSuchObject("ActData_Mesh_MapOfMeshElement::Find");
   return  p->ChangeValue();
 }
 

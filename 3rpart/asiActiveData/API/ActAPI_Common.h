@@ -45,6 +45,7 @@
 #include <NCollection_HArray2.hxx>
 #include <NCollection_Sequence.hxx>
 #include <NCollection_Shared.hxx>
+#include <NCollection_HSequence.hxx>
 #include <Standard_GUID.hxx>
 #include <Standard_ProgramError.hxx>
 #include <TCollection_AsciiString.hxx>
@@ -90,7 +91,7 @@ inline Standard_Boolean IsEqual(const Standard_GUID& theGuid1, const Standard_GU
   }
 
 #define ASSERT_RAISE(expr, mess) \
-  ASSERT_ACTDATA(expr, Standard_ProgramError::Raise( \
+  ASSERT_ACTDATA(expr, throw Standard_ProgramError( \
       "*** ERROR: ASSERT in file " __FILE__ ": \n" mess " (" #expr ")" ) )
 
 typedef TCollection_AsciiString    t_asciiString;
@@ -205,19 +206,19 @@ struct ComplexNumber
 //!
 //! Shortcut for one-dimensional static array of complex numbers.
 typedef NCollection_Array1<ComplexNumber> ComplexArray;
-NCOLLECTION_HARRAY1(HComplexArray, ComplexNumber)
+typedef NCollection_HArray1<ComplexNumber> HComplexArray;
 
 //! \ingroup AD_DF
 //!
 //! Shortcut for two-dimensional static array of complex numbers.
 typedef NCollection_Array2<ComplexNumber> ComplexMatrix;
-NCOLLECTION_HARRAY2(HComplexMatrix, ComplexNumber)
+typedef NCollection_HArray2<ComplexNumber> HComplexMatrix;
 
 //! \ingroup AD_DF
 //!
 //! Shortcut for one-dimensional static array of OCCT shapes.
 typedef NCollection_Array1<TopoDS_Shape> ShapeArray;
-NCOLLECTION_HARRAY1(HShapeArray, TopoDS_Shape)
+typedef NCollection_HArray1<TopoDS_Shape> HShapeArray;
 
 //! \ingroup AD_DF
 //!
@@ -265,19 +266,19 @@ typedef TColStd_HArray1OfExtendedString HStringArray;
 //!
 //! Shortcut for two-dimensional static array of strings.
 typedef NCollection_Array2<TCollection_ExtendedString> StringMatrix;
-NCOLLECTION_HARRAY2(HStringMatrix, TCollection_ExtendedString)
+typedef NCollection_HArray2<TCollection_ExtendedString> HStringMatrix;
 
 //! \ingroup AD_DF
 //!
 //! Shortcut for dynamic ordered direct-access collection of 3D points.
 typedef NCollection_Sequence<gp_XYZ>  PointList;
-typedef NCollection_Shared<PointList> HPointList;
+typedef NCollection_HSequence<gp_XYZ> HPointList;
 
 //! \ingroup AD_DF
 //!
 //! Shortcut for dynamic ordered direct-access collection of ASCII strings.
 typedef NCollection_Sequence<TCollection_AsciiString> StringList;
-typedef NCollection_Shared<StringList>                HStringList;
+typedef NCollection_HSequence<TCollection_AsciiString> HStringList;
 
 //! \ingroup AD_DF
 //!

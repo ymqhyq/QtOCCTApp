@@ -297,7 +297,7 @@ Standard_Boolean
     Handle(ActData_BasePartition) aPartBase = Handle(ActData_BasePartition)::DownCast(aPart);
 
     if ( aPartBase.IsNull() )
-      Standard_ProgramError::Raise("Non-standard Partitions prohibited");
+      throw Standard_ProgramError("Non-standard Partitions prohibited");
 
     // Iterate over the Nodes in their persistent order
     ActData_BasePartition::Iterator aNodeIt(aPartBase);

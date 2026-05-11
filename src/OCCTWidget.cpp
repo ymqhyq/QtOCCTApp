@@ -2,6 +2,7 @@
 #include "../include/AspectWindow.h"
 #include <OpenGl_GraphicDriver.hxx>
 #include "../include/Line.h"
+#include <Graphic3d_Vec2.hxx>
 
 #include <Aspect_DisplayConnection.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>

@@ -47,7 +47,7 @@
 #include <Standard_ProgramError.hxx>
 #include <TDataStd_Integer.hxx>
 #include <TDataStd_ReferenceList.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 #include <TFunction_Logbook.hxx>
 
 #undef COUT_DEBUG
@@ -398,7 +398,7 @@ Standard_Boolean
   this->Arguments(anArgLabels);
 
   // Check if the Arguments are touched
-  for ( TDF_ListIteratorOfLabelList it(anArgLabels); it.More(); it.Next() )
+  for ( TDF_LabelList::Iterator it(anArgLabels); it.More(); it.Next() )
   {
     TDF_Label anArgLab = it.Value();
 
@@ -460,7 +460,7 @@ void ActData_TreeFunctionDriver::Arguments(TDF_LabelList& theArguments) const
     aTreeFuncParam = Handle(ActData_TreeFunctionParameter)::DownCast(aParam);
 
   if ( aTreeFuncParam.IsNull() )
-    Standard_ProgramError::Raise("Invalid Label passed into Function Driver");
+    throw Standard_ProgramError("Invalid Label passed into Function Driver");
 
   aTreeFuncParam->getArguments(theArguments);
 }
@@ -480,7 +480,7 @@ void ActData_TreeFunctionDriver::Results(TDF_LabelList& theResults) const
     aTreeFuncParam = Handle(ActData_TreeFunctionParameter)::DownCast(aParam);
 
   if ( aTreeFuncParam.IsNull() )
-    Standard_ProgramError::Raise("Invalid Label passed into Function Driver");
+    throw Standard_ProgramError("Invalid Label passed into Function Driver");
 
   aTreeFuncParam->getResults(theResults);
 }

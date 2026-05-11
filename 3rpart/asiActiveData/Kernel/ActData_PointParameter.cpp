@@ -11,7 +11,7 @@ Handle(ActData_PointParameter) ActData_PointParameter::Instance()
 void ActData_PointParameter::SetValue(const gp_Pnt theVal, const ActAPI_ModificationType theModType /*= MT_Touched*/, const Standard_Boolean doResetValidity /*= Standard_True*/, const Standard_Boolean doResetPending /*= Standard_True*/)
 {
 	if (this->IsDetached())
-		Standard_ProgramError::Raise("Cannot access detached data");
+		throw Standard_ProgramError("Cannot access detached data");
 
 	ActData_Utils::SetRealValue(m_label, DS_X, theVal.X());
 	ActData_Utils::SetRealValue(m_label, DS_Y, theVal.Y());
@@ -28,7 +28,7 @@ void ActData_PointParameter::SetValue(const gp_Pnt theVal, const ActAPI_Modifica
 gp_Pnt ActData_PointParameter::GetValue()
 {
 	if (!this->IsWellFormed())
-		Standard_ProgramError::Raise("Data inconsistent");
+		throw Standard_ProgramError("Data inconsistent");
 
 	Standard_Real vX, vY, vZ;
 	ActData_Utils::GetRealValue(m_label, DS_X, vX);

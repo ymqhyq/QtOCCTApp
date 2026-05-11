@@ -45,9 +45,9 @@ class ActData_GraphFrozenException;
 DEFINE_STANDARD_HANDLE(ActData_GraphFrozenException, Standard_Failure)
 
 #define ActData_GraphFrozenException_Raise_if(CONDITION, MESSAGE) \
-  if ( CONDITION ) ActData_GraphFrozenException::Raise(MESSAGE);
+  if ( CONDITION ) throw ActData_GraphFrozenException(MESSAGE);
 
 DEFINE_STANDARD_EXCEPTION(ActData_GraphFrozenException, Standard_Failure)
-IMPLEMENT_STANDARD_EXCEPTION(ActData_GraphFrozenException)
+
 
 #endif

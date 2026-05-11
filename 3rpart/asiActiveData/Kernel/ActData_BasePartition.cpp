@@ -165,7 +165,7 @@ ActAPI_DataObjectId ActData_BasePartition::AddNode(const Handle(ActAPI_INode)& N
   TCollection_AsciiString allowedType = TCollection_AsciiString( this->GetNodeType()->Name() );
   //
   if ( !::IsEqual(nodeType, allowedType) )
-    Standard_ProgramError::Raise("Unexpected Node type");
+    throw Standard_ProgramError("Unexpected Node type");
 
   // Find a label to be a root for the Node.
   TDF_Label             nodeLab;

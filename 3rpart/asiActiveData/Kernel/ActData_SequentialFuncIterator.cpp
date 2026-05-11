@@ -1,3 +1,4 @@
+#include <TColStd_MapOfInteger.hxx>
 //-----------------------------------------------------------------------------
 // Created on: November 2013
 //-----------------------------------------------------------------------------
@@ -38,10 +39,10 @@
 #include <ActData_TreeFunctionPriority.h>
 
 // OCCT includes
-#include <TColStd_MapIteratorOfMapOfInteger.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
-#include <TDF_MapIteratorOfLabelMap.hxx>
-#include <TFunction_DoubleMapIteratorOfDoubleMapOfIntegerLabel.hxx>
+#include <TColStd_MapOfInteger.hxx>
+
+#include <TDF_LabelMap.hxx>
+#include <TFunction_DoubleMapOfIntegerLabel.hxx>
 #include <TFunction_GraphNode.hxx>
 #include <TFunction_IFunction.hxx>
 
@@ -134,7 +135,7 @@ void ActData_SequentialFuncIterator::Next()
    * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
   TDF_LabelMap nextCurrentsNormal, nextCurrentsHigh;
-  for ( TDF_ListIteratorOfLabelList lit(m_currentFunctions); lit.More(); lit.Next() )
+  for ( TDF_LabelList::Iterator lit(m_currentFunctions); lit.More(); lit.Next() )
   {
     const TDF_Label& L = lit.Value();
     TFunction_IFunction iFunction(L);

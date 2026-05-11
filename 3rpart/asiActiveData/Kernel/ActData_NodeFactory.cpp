@@ -133,7 +133,7 @@ Standard_Boolean ActData_NodeFactory::CanSettleNode(const TDF_Label& theLab)
     return Standard_False;
 
   if ( !m_allocMap.IsBound(aTypeName) )
-    Standard_ProgramError::Raise("RTTI is not registered");
+    throw Standard_ProgramError("RTTI is not registered");
 
   /* =====================================================
    *  Access Node allocator and create the requested Node
@@ -158,7 +158,7 @@ Handle(ActAPI_INode) ActData_NodeFactory::NodeSettle(const TDF_Label& theLab)
     return NULL;
 
   if ( !m_allocMap.IsBound(aTypeName) )
-    Standard_ProgramError::Raise("RTTI is not registered");
+    throw Standard_ProgramError("RTTI is not registered");
 
   /* =====================================================
    *  Access Node allocator and create the requested Node

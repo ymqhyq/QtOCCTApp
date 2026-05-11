@@ -578,11 +578,11 @@ Standard_Boolean
   TDF_Label aDataLab = ChooseLabelByTag(theLab, theSubTag);
 
   if ( aDataLab.IsNull() )
-    Standard_ProgramError::Raise("Data Label is NULL");
+    throw Standard_ProgramError("Data Label is NULL");
 
   Handle(TDataStd_IntPackedMap) aMapAttr;
   if ( !aDataLab.FindAttribute(TDataStd_IntPackedMap::GetID(), aMapAttr) )
-    Standard_ProgramError::Raise("Data Attribute NOT FOUND");
+    throw Standard_ProgramError("Data Attribute NOT FOUND");
 
   return aMapAttr->Add(theValue);
 }
@@ -595,11 +595,11 @@ Standard_Boolean
   TDF_Label aDataLab = ChooseLabelByTag(theLab, theSubTag);
 
   if ( aDataLab.IsNull() )
-    Standard_ProgramError::Raise("Data Label is NULL");
+    throw Standard_ProgramError("Data Label is NULL");
 
   Handle(TDataStd_IntPackedMap) aMapAttr;
   if ( !aDataLab.FindAttribute(TDataStd_IntPackedMap::GetID(), aMapAttr) )
-    Standard_ProgramError::Raise("Data Attribute NOT FOUND");
+    throw Standard_ProgramError("Data Attribute NOT FOUND");
 
   return aMapAttr->Remove(theValue);
 }
@@ -612,11 +612,11 @@ Standard_Boolean
   TDF_Label aDataLab = ChooseLabelByTag(theLab, theSubTag);
 
   if ( aDataLab.IsNull() )
-    Standard_ProgramError::Raise("Data Label is NULL");
+    throw Standard_ProgramError("Data Label is NULL");
 
   Handle(TDataStd_IntPackedMap) aMapAttr;
   if ( !aDataLab.FindAttribute(TDataStd_IntPackedMap::GetID(), aMapAttr) )
-    Standard_ProgramError::Raise("Data Attribute NOT FOUND");
+    throw Standard_ProgramError("Data Attribute NOT FOUND");
 
   return aMapAttr->Contains(theValue);
 }
@@ -1068,7 +1068,7 @@ Standard_Integer ActData_Utils::HasTarget(const TDF_LabelList& theList,
                                           const TDF_Label&     theTargetLab)
 {
   Standard_Integer aTargetIdx = 0;
-  for ( TDF_ListIteratorOfLabelList anIt(theList); anIt.More(); anIt.Next() )
+  for ( TDF_LabelList::Iterator anIt(theList); anIt.More(); anIt.Next() )
   {
     aTargetIdx++;
     TDF_Label& aLab = anIt.Value();
@@ -1087,7 +1087,7 @@ Handle(ActAPI_HDataCursorList) ActData_Utils::ConvertToCursors(const TDF_LabelLi
 {
   Handle(ActAPI_HDataCursorList) aResult = new ActAPI_HDataCursorList();
   //
-  for ( TDF_ListIteratorOfLabelList anIt(theList); anIt.More(); anIt.Next() )
+  for ( TDF_LabelList::Iterator anIt(theList); anIt.More(); anIt.Next() )
   {
     TDF_Label aTargetRoot = anIt.Value();
 

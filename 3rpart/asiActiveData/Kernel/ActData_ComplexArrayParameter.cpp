@@ -75,7 +75,7 @@ void ActData_ComplexArrayParameter::InitEmpty()
 void ActData_ComplexArrayParameter::BackupArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   ActData_Utils::BackupRealArray(m_label, DS_RealArray);
   ActData_Utils::BackupRealArray(m_label, DS_ImaginaryArray);
@@ -98,10 +98,10 @@ void ActData_ComplexArrayParameter::SetElement(const Standard_Integer        the
                                                const Standard_Boolean        doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("SetElement -- out of range");
+    throw Standard_Failure("SetElement -- out of range");
 
   ActData_Utils::SetRealArrayElem(m_label, DS_RealArray, theIndex, theValue.Re);
   ActData_Utils::SetRealArrayElem(m_label, DS_ImaginaryArray, theIndex, theValue.Im);
@@ -121,10 +121,10 @@ ComplexNumber
   ActData_ComplexArrayParameter::GetElement(const Standard_Integer theIndex)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("GetElement -- out of range");
+    throw Standard_Failure("GetElement -- out of range");
 
   // Get real part
   Standard_Real aRealPart =
@@ -152,7 +152,7 @@ void ActData_ComplexArrayParameter::SetArray(const Handle(HComplexArray)&  theAr
                                              const Standard_Boolean        doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   if ( theArray.IsNull() )
     this->InitEmpty();
@@ -180,7 +180,7 @@ void ActData_ComplexArrayParameter::SetArray(const Handle(HComplexArray)&  theAr
 Handle(HComplexArray) ActData_ComplexArrayParameter::GetArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   Handle(HRealArray)
     aRealParts = ActData_Utils::GetRealArray(m_label, DS_RealArray);
@@ -206,7 +206,7 @@ Handle(HComplexArray) ActData_ComplexArrayParameter::GetArray()
 Standard_Integer ActData_ComplexArrayParameter::NbElements()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   Standard_Integer aValue;
   ActData_Utils::GetIntegerValue(m_label, DS_ElemNum, aValue);

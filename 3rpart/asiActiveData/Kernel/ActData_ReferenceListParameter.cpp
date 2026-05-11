@@ -41,7 +41,7 @@
 // OCCT includes
 #include <Standard_ProgramError.hxx>
 #include <TDF_LabelList.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 
 //-----------------------------------------------------------------------------
 // Parameter
@@ -168,7 +168,7 @@ void ActData_ReferenceListParameter::InsertTargetAfter(const Standard_Integer   
   //
   Standard_Integer aCurrentIndex = 1;
   TDF_Label aCurrentLab;
-  for ( TDF_ListIteratorOfLabelList anIt(aLabelList); anIt.More(); anIt.Next() )
+  for ( TDF_LabelList::Iterator anIt(aLabelList); anIt.More(); anIt.Next() )
   {
     if ( aCurrentIndex == theIndex )
     {
@@ -180,7 +180,7 @@ void ActData_ReferenceListParameter::InsertTargetAfter(const Standard_Integer   
   }
 
   if ( aCurrentLab.IsNull() )
-    Standard_ProgramError::Raise("No Label found with such index");
+    throw Standard_ProgramError("No Label found with such index");
 
   Handle(TDataStd_ReferenceList) aRefList = this->AccessReferenceList();
   aRefList->InsertAfter(theTargetLab, aCurrentLab);
@@ -303,7 +303,7 @@ Standard_Boolean
   // Fins Label with the given index
   TDF_Label aTargetLab;
   Standard_Integer aCurrentIndex = 1;
-  for ( TDF_ListIteratorOfLabelList it(aTargetLabs); it.More(); it.Next() )
+  for ( TDF_LabelList::Iterator it(aTargetLabs); it.More(); it.Next() )
   {
     if ( aCurrentIndex == theTargetIndex )
     {
@@ -398,7 +398,7 @@ TDF_Label
   TDF_LabelList aLabelList;
   this->getTargets(aLabelList);
   Standard_Integer aTargetIdx = 0;
-  for ( TDF_ListIteratorOfLabelList anIt(aLabelList); anIt.More(); anIt.Next() )
+  for ( TDF_LabelList::Iterator anIt(aLabelList); anIt.More(); anIt.Next() )
   {
     aTargetIdx++;
     TDF_Label& aLab = anIt.Value();

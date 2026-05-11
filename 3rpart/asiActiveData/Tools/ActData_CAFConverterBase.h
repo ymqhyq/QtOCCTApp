@@ -209,7 +209,7 @@ public:
                    const ActData_ConversionRoutine& theRoutine)
   {
     if ( this->NewByOld(theOldVer) != -1 )
-      Standard_ProgramError::Raise("Conversion delta already exists");
+      throw Standard_ProgramError("Conversion delta already exists");
 
     m_cMap.Bind(ActData_VersionDelta(theOldVer, theNewVer), theRoutine);
   }

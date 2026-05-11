@@ -35,7 +35,7 @@
 
 // OCCT includes
 #include <TFunction_Scope.hxx>
-#include <TDF_ListIteratorOfLabelList.hxx>
+
 
 //! Default constructor.
 ActData_DependencyGraphIterator::ActData_DependencyGraphIterator()
@@ -245,7 +245,7 @@ NCollection_Sequence<Standard_Integer>
   TDF_LabelList aNextLabs;
   CurrentIFunc.GetNext(aNextLabs);
 
-  for ( TDF_ListIteratorOfLabelList lit(aNextLabs); lit.More(); lit.Next() )
+  for ( TDF_LabelList::Iterator lit(aNextLabs); lit.More(); lit.Next() )
   {
     Standard_Integer aVertexID = m_graph->VertexByLabel( lit.Value() );
     if ( aVertexID != -1 )
@@ -277,7 +277,7 @@ NCollection_Sequence<Standard_Integer>
   TDF_LabelList aNextLabs;
   CurrentIFunc.GetPrevious(aNextLabs);
 
-  for ( TDF_ListIteratorOfLabelList lit(aNextLabs); lit.More(); lit.Next() )
+  for ( TDF_LabelList::Iterator lit(aNextLabs); lit.More(); lit.Next() )
   {
     Standard_Integer aVertexID = m_graph->VertexByLabel( lit.Value() );
     if ( aVertexID != -1 )

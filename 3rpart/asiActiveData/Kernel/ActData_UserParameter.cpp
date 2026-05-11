@@ -143,7 +143,7 @@ void ActData_UserParameter::SetEvalString(const TCollection_AsciiString& theEval
 TCollection_AsciiString ActData_UserParameter::GetEvalString()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   return ActData_Utils::GetAsciiStringValue(m_label, DS_EvalString);
 }
@@ -164,7 +164,7 @@ void ActData_UserParameter::SetName(const TCollection_ExtendedString& theString,
 TCollection_ExtendedString ActData_UserParameter::GetName()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   return ActData_Utils::GetExtStringValue(m_label, DS_Name);
 }
@@ -174,7 +174,7 @@ TCollection_ExtendedString ActData_UserParameter::GetName()
 Handle(ActAPI_INode) ActData_UserParameter::GetNode()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   /* ====================================================
    *  Access Node TDF Label & allocate the Node instance
@@ -260,7 +260,7 @@ void ActData_UserParameter::RemoveUserFlags(const Standard_Integer theUFlags,
 Standard_Integer ActData_UserParameter::GetUserFlags()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Standard_Integer aValue;
   if ( !ActData_Utils::GetIntegerValue(m_label, DS_UserFlags, aValue) )
@@ -285,7 +285,7 @@ void ActData_UserParameter::SetSemanticId(const TCollection_AsciiString& theId,
 TCollection_AsciiString ActData_UserParameter::GetSemanticId()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   return ActData_Utils::GetAsciiStringValue(m_label, DS_SemanticId);
 }
@@ -302,7 +302,7 @@ void ActData_UserParameter::SetModified()
 Handle(ActAux_TimeStamp) ActData_UserParameter::GetMTime()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   return ActData_Utils::GetTimeStampValue(m_label, DS_MTime);
 }
@@ -312,7 +312,7 @@ Handle(ActAux_TimeStamp) ActData_UserParameter::GetMTime()
 Standard_Boolean ActData_UserParameter::IsValidData()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Standard_Integer aValue;
   if ( !ActData_Utils::GetIntegerValue(m_label, DS_IsValid, aValue) )
@@ -328,7 +328,7 @@ void ActData_UserParameter::SetValidity(const Standard_Boolean isValid,
                                         const ActAPI_ModificationType theModType)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetIntegerValue( m_label, DS_IsValid, (isValid ? 1 : 0) );
 
@@ -341,7 +341,7 @@ void ActData_UserParameter::SetValidity(const Standard_Boolean isValid,
 Standard_Boolean ActData_UserParameter::IsPendingData()
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   Standard_Integer aValue;
   if ( !ActData_Utils::GetIntegerValue(m_label, DS_IsPending, aValue) )
@@ -357,7 +357,7 @@ void ActData_UserParameter::SetPending(const Standard_Boolean isPending,
                                        const ActAPI_ModificationType theModType)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetIntegerValue( m_label, DS_IsPending, (isPending ? 1 : 0) );
 
@@ -423,7 +423,7 @@ void ActData_UserParameter::SetFromDTO(const Handle(ActData_ParameterDTO)& theDT
 Handle(ActData_ParameterDTO) ActData_UserParameter::GetAsDTO()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   // Prepare GID for DTO
   ActAPI_ParameterGID GID;

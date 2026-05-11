@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Created on: June 2012
 //-----------------------------------------------------------------------------
 // Copyright (c) 2017, OPEN CASCADE SAS
@@ -57,7 +57,7 @@ Standard_Boolean ActData_CAFConversionAsset::HasBadFormedNodes() const
     Handle(ActData_BasePartition) aPartBase = Handle(ActData_BasePartition)::DownCast(aPart);
 
     if ( aPartBase.IsNull() )
-      Standard_ProgramError::Raise("Non-standard Partitions prohibited");
+      throw Standard_ProgramError("Non-standard Partitions prohibited");
 
     // Iterate over the Nodes in their persistent order
     ActData_BasePartition::Iterator aNodeIt(aPartBase);
@@ -91,7 +91,7 @@ Standard_Boolean
     Handle(ActData_BasePartition) aPartBase = Handle(ActData_BasePartition)::DownCast(aPart);
 
     if ( aPartBase.IsNull() )
-      Standard_ProgramError::Raise("Non-standard Partitions prohibited");
+      throw Standard_ProgramError("Non-standard Partitions prohibited");
 
     // Iterate over the Nodes in their persistent order
     ActData_BasePartition::Iterator aNodeIt(aPartBase);
@@ -247,7 +247,7 @@ Handle(ActAPI_HParameterList)
     TDF_Label aParamRootLab = it.Value();
 
     if ( !ActData_ParameterFactory::IsUserParameter(aParamRootLab) )
-      Standard_ProgramError::Raise("Not valid CAF Document structure");
+      throw Standard_ProgramError("Not valid CAF Document structure");
 
     Standard_Boolean isUndefinedType;
     Handle(ActData_UserParameter)

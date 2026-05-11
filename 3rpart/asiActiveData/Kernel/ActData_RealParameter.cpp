@@ -70,7 +70,7 @@ void ActData_RealParameter::SetValue(const Standard_Real theVal,
                                      const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   ActData_Utils::SetRealValue(m_label, DS_Value, theVal);
 
@@ -87,7 +87,7 @@ void ActData_RealParameter::SetValue(const Standard_Real theVal,
 Standard_Real ActData_RealParameter::GetValue()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   Standard_Real aValue;
   ActData_Utils::GetRealValue(m_label, DS_Value, aValue);

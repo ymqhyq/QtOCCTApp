@@ -1,3 +1,5 @@
+#include <Poly_Array1OfTriangle.hxx>
+#include <TColgp_Array1OfPnt.hxx>
 //-----------------------------------------------------------------------------
 // Created on: June 2016
 //-----------------------------------------------------------------------------
@@ -969,13 +971,13 @@ void ActData_Mesh::DebugStats(Standard_OStream& aStream) const
   aStream << "Debug stats of mesh : " << std::endl;
 
   aStream << "===== NODES =====" << std::endl;
-  myNodes.Statistics(aStream);
+  //myNodes.Statistics(aStream);
 
   aStream << "===== EDGES =====" << std::endl;
-  myEdges.Statistics(aStream);
+  //myEdges.Statistics(aStream);
 
   aStream << "===== FACES =====" << std::endl;
-  myFaces.Statistics(aStream);
+  //myFaces.Statistics(aStream);
 
   aStream << "End Debug stats of mesh " << std::endl;
 

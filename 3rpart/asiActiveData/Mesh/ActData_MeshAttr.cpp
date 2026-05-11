@@ -463,7 +463,7 @@ Standard_Integer ActData_MeshAttr::AddElement(Standard_Address Nodes,
     MDELTA_ADDED_QUAD(aResID, Nodes);
   }
   else
-    Standard_ProgramError::Raise("Unexpected number of nodes for delta");
+    throw Standard_ProgramError("Unexpected number of nodes for delta");
 
   return aResID;
 }
@@ -495,7 +495,7 @@ Standard_Boolean
     MDELTA_ADDED_QUAD(ID, Nodes);
   }
   else
-    Standard_ProgramError::Raise("Unexpected number of nodes for delta");
+    throw Standard_ProgramError("Unexpected number of nodes for delta");
 
   return aRes;
 }
@@ -523,7 +523,7 @@ Standard_Boolean ActData_MeshAttr::RemoveElement(const Standard_Integer ID)
     MDELTA_REMOVED_QUAD(ID);
   }
   else
-    Standard_ProgramError::Raise("Unexpected type of element for delta");
+    throw Standard_ProgramError("Unexpected type of element for delta");
 
   return Standard_True;
 }
@@ -537,8 +537,8 @@ Standard_Boolean ActData_MeshAttr::RemoveElement(const Standard_Integer ID)
 void ActData_MeshAttr::assertModificationAllowed()
 {
   if ( !Label().Data()->IsModificationAllowed() )
-    Standard_ImmutableObject::Raise("ActData_MeshAttr changed outside transaction");
+    throw Standard_ImmutableObject("ActData_MeshAttr changed outside transaction");
 
   if ( m_mesh.IsNull() )
-    Standard_ProgramError::Raise("Mesh DS is NULL");
+    throw Standard_ProgramError("Mesh DS is NULL");
 }

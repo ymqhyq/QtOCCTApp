@@ -74,7 +74,7 @@ void ActData_RealArrayParameter::InitEmpty()
 void ActData_RealArrayParameter::BackupArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   ActData_Utils::BackupRealArray(m_label, DS_Array);
 }
@@ -93,10 +93,10 @@ void ActData_RealArrayParameter::SetElement(const Standard_Integer theIndex,
                                             const Standard_Boolean doResetPending)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("SetElement -- out of range");
+    throw Standard_Failure("SetElement -- out of range");
 
   ActData_Utils::SetRealArrayElem(m_label, DS_Array, theIndex, theValue);
 
@@ -115,10 +115,10 @@ Standard_Real
   ActData_RealArrayParameter::GetElement(const Standard_Integer theIndex)
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   if ( theIndex > this->NbElements() )
-    Standard_Failure::Raise("GetElement -- out of range");
+    throw Standard_Failure("GetElement -- out of range");
 
   return ActData_Utils::GetRealArrayElem(m_label, DS_Array, theIndex);
 }
@@ -135,7 +135,7 @@ void ActData_RealArrayParameter::SetArray(const Handle(HRealArray)& theArray,
                                           const Standard_Boolean doResetPending)
 {
   if ( this->IsDetached() )
-    Standard_ProgramError::Raise("Cannot access detached data");
+    throw Standard_ProgramError("Cannot access detached data");
 
   if ( theArray.IsNull() )
     this->InitEmpty();
@@ -162,7 +162,7 @@ void ActData_RealArrayParameter::SetArray(const Handle(HRealArray)& theArray,
 Handle(HRealArray) ActData_RealArrayParameter::GetArray()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
   
   return ActData_Utils::GetRealArray(m_label, DS_Array);
 }
@@ -172,7 +172,7 @@ Handle(HRealArray) ActData_RealArrayParameter::GetArray()
 Standard_Integer ActData_RealArrayParameter::NbElements()
 {
   if ( !this->IsWellFormed() )
-    Standard_ProgramError::Raise("Data inconsistent");
+    throw Standard_ProgramError("Data inconsistent");
 
   Standard_Integer aValue;
   ActData_Utils::GetIntegerValue(m_label, DS_ElemNum, aValue);
