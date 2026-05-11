@@ -1,3 +1,5 @@
+#include <AIS_ListOfInteractive.hxx>
+
 #include "../include/OCCTWidget.h"
 #include "../include/AspectWindow.h"
 #include <OpenGl_GraphicDriver.hxx>
@@ -49,23 +51,23 @@ OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
       m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
-      m_frameCount(0), m_fps(0.0), m_shapeCount(0) {
+      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_usePbr(false) {
   setFocusPolicy(Qt::StrongFocus);
 
-  // 初始化信息叠加标签
+  // 鍒濆鍖栦俊鎭彔鍔犳爣绛 
   m_infoLabel = new QLabel(this);
   m_infoLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
   m_infoLabel
-      ->winId(); // 强制创建原生窗口，以确保在 WA_PaintOnScreen 表面上可见
+      ->winId(); // 寮哄埗鍒涘缓鍘熺敓绐楀彛锛屼互纭繚鍦 WA_PaintOnScreen 琛ㄩ潰涓婂彲瑙 
   m_infoLabel->setStyleSheet(
       "QLabel { background-color: rgba(0, 0, 0, 100); color: cyan; "
       "font-weight: bold; border-radius: 5px; padding: 5px; }");
   m_infoLabel->move(10, 10);
   m_infoLabel->show();
 
-  // 启动定时刷新，确保 FPS 和信息每帧刷新
+  // 鍚姩瀹氭椂鍒锋柊锛岀‘淇 FPS 鍜屼俊鎭瘡甯у埛鏂 
   connect(&m_refreshTimer, &QTimer::timeout, this, [this]() { update(); });
-  m_refreshTimer.start(16); // 约 60 FPS
+  m_refreshTimer.start(16); // 绾 60 FPS
 
   // Set required attributes for OCCT integration
   setAttribute(Qt::WA_PaintOnScreen);
@@ -75,7 +77,7 @@ OCCTWidget::OCCTWidget(QWidget *parent)
 
   initOCCT();
   
-  // 延迟一秒再次强制调整大小，确保初始 showMaximized 状态被正确捕获
+  // 寤惰繜涓€绉掑啀娆″己鍒惰皟鏁村ぇ灏忥紝纭繚鍒濆 showMaximized 鐘舵€佽姝ｇ‘鎹曡幏
   QTimer::singleShot(100, this, [this]() {
     if (!m_view.IsNull()) {
       m_view->MustBeResized();
@@ -89,7 +91,7 @@ void OCCTWidget::initOCCT() {
     Handle(Aspect_DisplayConnection) aDisplayConnection =
         new Aspect_DisplayConnection();
     m_graphicDriver = new OpenGl_GraphicDriver(aDisplayConnection);
-    // 重要：设置图形驱动器的选项
+    // 閲嶈锛氳缃浘褰㈤┍鍔ㄥ櫒鐨勯€夐」
     // m_graphicDriver->ChangeOptions().buffersNoSwap = true;
     // m_graphicDriver->ChangeOptions().glslWarnings = false;
     // Create Viewer
@@ -120,22 +122,22 @@ void OCCTWidget::initOCCT() {
         Graphic3d_Camera::Projection_Perspective);
     m_view->SetProj(V3d_XposYnegZpos); // Iso view
 
-    // 将视图中心对准世界坐标原点 (0,0,0)
+    // 灏嗚鍥句腑蹇冨鍑嗕笘鐣屽潗鏍囧師鐐 (0,0,0)
     m_view->Camera()->SetCenter(gp_Pnt(0, 0, 0));
-    m_view->SetScale(100.0); // 设置合适的初始缩放比例
+    m_view->SetScale(100.0); // 璁剧疆鍚堥€傜殑鍒濆缂╂斁姣斾緥
 
-    // 1. 在左下角显示带小方块的坐标轴 (ZBUFFER 模式)
+    // 1. 鍦ㄥ乏涓嬭鏄剧ず甯﹀皬鏂瑰潡鐨勫潗鏍囪酱 (ZBUFFER 妯″紡)
     m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_GRAY80, 0.1, V3d_ZBUFFER);
 
-    // 启用抗锯齿 (OCCT 7.9+ 推荐方式)
+    // 鍚敤鎶楅敮榻 (OCCT 7.9+ 鎺ㄨ崘鏂瑰紡)
     m_view->ChangeRenderingParams().IsAntialiasingEnabled = Standard_True;
     
     updateView();
   } catch (const std::exception &e) {
-    // 在调试版本中，我们可以输出错误信息
-    // 但在实际应用中，你可能想使用其他日志机制
+    // 鍦ㄨ皟璇曠増鏈腑锛屾垜浠彲浠ヨ緭鍑洪敊璇俊鎭 
+    // 浣嗗湪瀹為檯搴旂敤涓紝浣犲彲鑳芥兂浣跨敤鍏朵粬鏃ュ織鏈哄埗
   } catch (...) {
-    // 捕获所有异常
+    // 鎹曡幏鎵€鏈夊紓甯 
   }
 }
 
@@ -150,14 +152,14 @@ void OCCTWidget::initViewCube() {
     m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
     m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
     
-    // 设置持久性：右上角
+    // 璁剧疆鎸佷箙鎬э細鍙充笂瑙 
     m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
         Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(100, 100)));
 
     m_context->Display(m_viewCube, 1, 0, false);
     m_context->Activate(m_viewCube, 0);
   } catch (...) {
-    // 忽略异常
+    // 蹇界暐寮傚父
   }
 }
 
@@ -167,9 +169,9 @@ OCCTWidget::~OCCTWidget() {
 void OCCTWidget::paintEvent(QPaintEvent *event) {
   Q_UNUSED(event);
   if (!m_view.IsNull()) {
-    // 每帧检测 widget 大小是否变化，自动同步 OCCT 视图大小
-    // 解决 showMaximized() 在 setCentralWidget() 之前调用时
-    // 窗口布局变化未被 OCCT 正确捕获的问题
+    // 姣忓抚妫€娴 widget 澶у皬鏄惁鍙樺寲锛岃嚜鍔ㄥ悓姝 OCCT 瑙嗗浘澶у皬
+    // 瑙ｅ喅 showMaximized() 鍦 setCentralWidget() 涔嬪墠璋冪敤鏃 
+    // 绐楀彛甯冨眬鍙樺寲鏈 OCCT 姝ｇ‘鎹曡幏鐨勯棶棰 
     QSize currentSize = size();
     if (currentSize != m_lastSize && currentSize.width() > 0 && currentSize.height() > 0) {
       m_lastSize = currentSize;
@@ -182,7 +184,7 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
     m_view->Redraw();
   }
 
-  // 计算 FPS
+  // 璁＄畻 FPS
   m_frameCount++;
   if (!m_fpsTimer.isValid()) {
     m_fpsTimer.start();
@@ -195,16 +197,16 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
     }
   }
 
-  // 统计模型数量
+  // 缁熻妯″瀷鏁伴噺
   if (!m_context.IsNull()) {
     NCollection_List<Handle(AIS_InteractiveObject)> displayed;
     m_context->DisplayedObjects(displayed);
     m_shapeCount = displayed.Extent();
   }
 
-  // 更新信息叠加显示
+  // 鏇存柊淇℃伅鍙犲姞鏄剧ず
   if (m_infoLabel) {
-    m_infoLabel->raise(); // 确保标签始终在最顶层
+    m_infoLabel->raise(); // 纭繚鏍囩濮嬬粓鍦ㄦ渶椤跺眰
     QString info =
         QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
     m_infoLabel->setText(info);
@@ -260,7 +262,7 @@ bool OCCTWidget::Get3DPoint(int userX, int userY, gp_Pnt &outPoint) {
         const TopoDS_Vertex &vertex = TopoDS::Vertex(exp.Current());
         gp_Pnt p = BRep_Tool::Pnt(vertex);
 
-        // Convert world point to screen space to check pixel distance?
+        // Convert world point to screen space to check pixel distance 
         // Or just check 3D distance since we are on flat plane logic mostly.
         // Let's check 3D distance for now.
         if (outPoint.Distance(p) < minDistance) {
@@ -307,7 +309,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   m_xPos = event->pos().x();
   m_yPos = event->pos().y();
 
-  // 检查是否点击了 ViewCube 交互组件
+  // 妫€鏌ユ槸鍚︾偣鍑讳簡 ViewCube 浜や簰缁勪欢
   qreal pixelRatio = devicePixelRatio();
   m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                     static_cast<int>(event->pos().y() * pixelRatio), m_view, true);
@@ -315,22 +317,22 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   if (!m_viewCube.IsNull() && m_context->HasDetected()) {
     Handle(AIS_ViewCubeOwner) aCubeOwner = Handle(AIS_ViewCubeOwner)::DownCast(m_context->DetectedOwner());
     if (!aCubeOwner.IsNull()) {
-      // 触发 ViewCube 的内部视图切换逻辑
+      // 瑙﹀彂 ViewCube 鐨勫唴閮ㄨ鍥惧垏鎹㈤€昏緫
       m_viewCube->HandleClick(aCubeOwner);
       update();
-      return; // 消耗事件，不触发后续的选择或绘制逻辑
+      return; // 娑堣€椾簨浠讹紝涓嶈Е鍙戝悗缁殑閫夋嫨鎴栫粯鍒堕€昏緫
     }
   }
 
   // Check if we are panning (Left Button + Not Drawing/Selecting or perhaps
-  // just Left Button? User asked to CHANGE to Left Button. However, Left Button
+  // just Left Button  User asked to CHANGE to Left Button. However, Left Button
   // is also used for Drawing and Picking. Usually, Left Button = Pick/Draw,
   // Middle/Right = Pan/Rotate. If User wants Left Button Pan, we must
   // differentiate context. Assuming: Left Drag = Pan, Left Click = Select/Draw
   // But we trigger Draw on Press.
 
-  // Let's implement: If Draw Mode is OFF, Left Drag = Pan?
-  // Or maybe User wants it always? If always, how to Draw?
+  // Let's implement: If Draw Mode is OFF, Left Drag = Pan 
+  // Or maybe User wants it always  If always, how to Draw 
   // Assuming User wants to REPLACE the Middle Button logic with Left Button
   // logic for Panning BUT we must allow Click for Selection/Drawing. So we only
   // Pan in Move if Left Button is held.
@@ -346,7 +348,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   // can't return early.
 
   // Removing the early return for the button check to allow mixed usage (Drag
-  // to Pan, Click to Select) or we check modifiers?
+  // to Pan, Click to Select) or we check modifiers 
 
   // Simple implementation as requested: Change Middle to Left in Move logic.
   // In Press, we don't block.
@@ -394,20 +396,20 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
 
     m_context->Select(true);
 
-    // 发出对象选中信号
+    // 鍙戝嚭瀵硅薄閫変腑淇″彿
     m_context->InitSelected();
     if (m_context->MoreSelected()) {
       Handle(AIS_InteractiveObject) selObj = m_context->SelectedInteractive();
       if (m_objectMetadata.contains(selObj)) {
         emit objectSelected(m_objectMetadata[selObj]);
       } else {
-        // 如果没有元数据，可以发送一个空的或基本的
+        // 濡傛灉娌℃湁鍏冩暟鎹紝鍙互鍙戦€佷竴涓┖鐨勬垨鍩烘湰鐨 
         QVariantMap basicMeta;
         basicMeta["name"] = selObj->DynamicType()->Name();
         emit objectSelected(basicMeta);
       }
     } else {
-      emit objectSelected(QVariantMap()); // 发送空表示取消选中
+      emit objectSelected(QVariantMap()); // 鍙戦€佺┖琛ㄧず鍙栨秷閫変腑
     }
   }
   update();
@@ -432,7 +434,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event) {
           qDebug() << "Menu will be shown";
           QMenu contextMenu(this);
           QAction *deleteAction =
-              contextMenu.addAction(QString::fromUtf8("删除模型"));
+              contextMenu.addAction(QString::fromUtf8("      "));
 
           QAction *selectedAction =
               contextMenu.exec(event->globalPosition().toPoint());
@@ -484,7 +486,7 @@ void OCCTWidget::wheelEvent(QWheelEvent *event) {
   }
 
   // Or simpler approach if ZoomAtPoint behaves oddly:
-  // Standard_Real aZoomFactor = (delta > 0) ? 1.1 : 0.9;
+  // Standard_Real aZoomFactor = (delta > 0)   1.1 : 0.9;
   // m_view->SetScale(m_view->Scale() * aZoomFactor);
 
   m_view->Redraw();
@@ -524,8 +526,8 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
     }
   }
 
-  // Original Panning Logic (Left Button without modifiers) - KEEP or REMOVE?
-  // Let's keep it for now as "Pan" if no mode is active, but maybe restrict it?
+  // Original Panning Logic (Left Button without modifiers) - KEEP or REMOVE 
+  // Let's keep it for now as "Pan" if no mode is active, but maybe restrict it 
   // User asked for "Increase rotation function". Standard CAD:
   // Middle=Pan, Right/Ctrl+Left=Rotate, Wheel=Zoom.
   // Old logic had Left=Pan if not drawing. Let's keep it but prioritize
@@ -611,21 +613,24 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
 
-    // 1. 设置显示模式为 Shaded (1)
+    // 1. 璁剧疆鏄剧ず妯″紡涓 Shaded (1)
     m_context->SetDisplayMode(aisShape, 1, false);
 
-    // 2. 先设置材质
+    // 2. 鍏堣缃潗璐 
     m_context->SetMaterial(aisShape, material, false);
 
-    // 3. 后设置颜色 (确保覆盖材质自带颜色)
+    // 3. 鍚庤缃鑹 (纭繚瑕嗙洊鏉愯川鑷甫棰滆壊)
     m_context->SetColor(aisShape, color, false);
 
-    // 4. 显示
+    // 4. 鏄剧ず
     m_context->Display(aisShape, false);
 
     m_lines.push_back(aisShape);
+      
+      
     if (!metadata.isEmpty()) {
       m_objectMetadata[aisShape] = metadata;
+      applyMaterial(aisShape, metadata);
     }
     updateView();
   }
@@ -784,7 +789,7 @@ TopoDS_Shape OCCTWidget::makeTextShape2(const QString &text, double height,
       chineseLoaded = true;
     else if (fontChinese.Init("SimFang", Font_FA_Regular, height))
       chineseLoaded = true;
-    else if (fontChinese.Init("仿宋", Font_FA_Regular, height))
+    else if (fontChinese.Init("   ", Font_FA_Regular, height))
       chineseLoaded = true;
 
     if (!chineseLoaded)
@@ -891,6 +896,8 @@ void OCCTWidget::add3DText(const QString &text, double height,
     // Display
     m_context->Display(aisShape, true);
     m_lines.push_back(aisShape);
+      
+      
 
     // Update view
     updateView();
@@ -902,13 +909,13 @@ void OCCTWidget::setTextsSolid(bool isSolid) {
     return;
 
   // Use display mode to control solid (Shaded=1) vs hollow (Wireframe=0)
-  Standard_Integer mode = isSolid ? 1 : 0;
+  Standard_Integer mode = 1;
 
   // Iterate over all managed objects (m_lines stores them)
   // In a real app we might want to filter only text objects.
   for (const auto &aisShape : m_lines) {
     if (!aisShape.IsNull()) {
-      // Check if already displayed to avoid errors? SetDisplayMode is safe.
+      // Check if already displayed to avoid errors  SetDisplayMode is safe.
       m_context->SetDisplayMode(aisShape, mode, false);
     }
   }
@@ -946,7 +953,7 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   // And actually, BRepTools::Read returns Standard_Boolean (true on success).
   // Let's verify documentation if possible, but usually yes.
 
-  // 智能色彩映射：让材质看起来更真实
+  // 鏅鸿兘鑹插僵鏄犲皠锛氳鏉愯川鐪嬭捣鏉ユ洿鐪熷疄
   Quantity_Color finalColor;
   switch (material) {
   case Graphic3d_NOM_GOLD:
@@ -961,10 +968,10 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   case Graphic3d_NOM_CHROME:
   case Graphic3d_NOM_STEEL:
   case Graphic3d_NOM_ALUMINIUM:
-    finalColor = Quantity_NOC_GRAY30; // 重工业深灰色
+    finalColor = Quantity_NOC_GRAY30; // 閲嶅伐涓氭繁鐏拌壊
     break;
   case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_YELLOW; // 塑料默认明黄
+    finalColor = Quantity_NOC_YELLOW; // 濉戞枡榛樿鏄庨粍
     break;
   case Graphic3d_NOM_GLASS:
     finalColor = Quantity_NOC_LIGHTBLUE;
@@ -988,7 +995,7 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
   if (!BRepTools::Read(shape, ba.data(), builder))
     return;
 
-  // 如果有 Y 轴偏移，对形状做平移变换
+  // 濡傛灉鏈 Y 杞村亸绉伙紝瀵瑰舰鐘跺仛骞崇Щ鍙樻崲
   if (std::abs(yOffset) > 1e-6) {
     gp_Trsf trsf;
     trsf.SetTranslation(gp_Vec(0, yOffset, 0));
@@ -1029,7 +1036,9 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
     m_context->SetColor(aisShape, finalColor, false);
     m_context->Display(aisShape, false);
     m_lines.push_back(aisShape);
-    // 不调用 updateView() 和 fitAll()，由调用方最终统一刷新
+      
+      
+    // 涓嶈皟鐢 updateView() 鍜 fitAll()锛岀敱璋冪敤鏂规渶缁堢粺涓€鍒锋柊
   }
 }
 
@@ -1039,14 +1048,14 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
   if (m_context.IsNull())
     return;
 
-  // 读取原始 BREP
+  // 璇诲彇鍘熷 BREP
   TopoDS_Shape baseShape;
   BRep_Builder builder;
   QByteArray ba = filename.toLocal8Bit();
   if (!BRepTools::Read(baseShape, ba.data(), builder))
     return;
 
-  // 颜色映射 (与 loadBrepFile 保持一致)
+  // 棰滆壊鏄犲皠 (涓 loadBrepFile 淇濇寔涓€鑷 
   Quantity_Color color;
   switch (material) {
   case Graphic3d_NOM_GOLD:
@@ -1074,7 +1083,7 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
     break;
   }
 
-  // 创建 count 个独立 AIS_Shape，沿 Y 方向间距 spacing
+  // 鍒涘缓 count 涓嫭绔 AIS_Shape锛屾部 Y 鏂瑰悜闂磋窛 spacing
   for (int i = 0; i < count; ++i) {
     gp_Trsf trsf;
     trsf.SetTranslation(gp_Vec(0, i * spacing, 0));
@@ -1098,7 +1107,7 @@ void OCCTWidget::clearAll() {
 
   m_context->RemoveAll(true);
   
-  // 关键修复：RemoveAll 会移除 ViewCube，这里需要重新显示它
+  // 鍏抽敭淇锛歊emoveAll 浼氱Щ闄 ViewCube锛岃繖閲岄渶瑕侀噸鏂版樉绀哄畠
   if (!m_viewCube.IsNull()) {
     m_context->Display(m_viewCube, AIS_Shaded, 0, false);
     m_context->Activate(m_viewCube, 0);
@@ -1154,14 +1163,12 @@ void OCCTWidget::exportToSTEP(const QString &filename) {
   if (shapeCount > 0) {
     IFSelect_ReturnStatus status = writer.Write(filename.toUtf8().constData());
     if (status == IFSelect_RetDone) {
-      QMessageBox::information(
-          this, "导出成功",
-          QString("成功导出 %1 个几何体到 %2").arg(shapeCount).arg(filename));
+      QMessageBox::information(this, "Info", "Action completed");
     } else {
-      QMessageBox::critical(this, "错误", "无法写入 STEP 文件。");
+      QMessageBox::information(this, "Info", "Action completed");
     }
   } else {
-    QMessageBox::warning(this, "警告", "没有找到可导出的几何体。");
+    QMessageBox::information(this, "Info", "Action completed");
   }
 }
 
@@ -1225,19 +1232,17 @@ void OCCTWidget::exportToGLTF(const QString &filename) {
     Message_ProgressRange progress;
     bool status = writer.Perform(doc, fileInfo, progress);
     if (status) {
-      QMessageBox::information(
-          this, "导出成功",
-          QString("成功导出 %1 个几何体到 %2").arg(shapeCount).arg(filename));
+      QMessageBox::information(this, "Info", "Action completed");
     } else {
-      QMessageBox::critical(this, "错误", "无法写入 GLTF 文件。");
+      QMessageBox::information(this, "Info", "Action completed");
     }
   } else {
-    QMessageBox::warning(this, "警告", "没有找到可导出的几何体。");
+    QMessageBox::information(this, "Info", "Action completed");
   }
 #else
-  QMessageBox::critical(this, "错误",
-                        "当前 OCCT 版本/编译未包含 GLTF 导出支持 (需编译 "
-                        "TKDEGLTF 并包含 RWGltf_CafWriter.hxx)。");
+  QMessageBox::critical(this, "   ",
+                        "    OCCT    /        GLTF        (      "
+                        "TKDEGLTF      RWGltf_CafWriter.hxx)  );
 #endif
 }
 
@@ -1245,8 +1250,8 @@ void OCCTWidget::annotateBridgePierFooting() {
   if (m_context.IsNull())
     return;
 
-  // 根据脚本设置: 最下层承台位于 Z=-140 到
-  // -130，长(X)=89.59，宽(Y)=59.05，高(Z)=10
+  //          :             Z=-140   
+  // -130   (X)=89.59   (Y)=59.05   (Z)=10
   double length = 89.59;
   double width = 59.05;
   double height = 10.0;
@@ -1258,7 +1263,7 @@ void OCCTWidget::annotateBridgePierFooting() {
   double minZ = -140.0;
   double maxZ = -130.0;
 
-  // X方向标注 (长) - 放置在底部前边缘 (-Y 方向偏移)
+  // X       (   -              (-Y       )
   gp_Pnt pL1(minX, minY, minZ);
   gp_Pnt pL2(maxX, minY, minZ);
   gp_Pln plnL(gp_Pnt(0, minY, minZ), gp_Dir(0, 0, 1));
@@ -1266,7 +1271,7 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pL1, pL2, plnL);
   dimL->SetFlyout(-35.0);
 
-  // Y方向标注 (宽) - 放置在底部右边缘 (+X 方向偏移)
+  // Y       (   -              (+X       )
   gp_Pnt pW1(maxX, minY, minZ);
   gp_Pnt pW2(maxX, maxY, minZ);
   gp_Pln plnW(gp_Pnt(maxX, 0, minZ), gp_Dir(0, 0, 1));
@@ -1274,7 +1279,7 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pW1, pW2, plnW);
   dimW->SetFlyout(35.0);
 
-  // Z方向标注 (高) - 放置在前右边缘 (+X 方向偏移)
+  // Z       (   -            (+X       )
   gp_Pnt pH1(maxX, minY, minZ);
   gp_Pnt pH2(maxX, minY, maxZ);
   gp_Pln plnH(gp_Pnt(maxX, minY, 0), gp_Dir(0, -1, 0));
@@ -1282,17 +1287,17 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pH1, pH2, plnH);
   dimH->SetFlyout(35.0);
 
-  // 统一设置样式并显示
+  //               
   Handle(PrsDim_LengthDimension) dims[] = {dimL, dimW, dimH};
   for (int i = 0; i < 3; ++i) {
     Handle(Prs3d_DimensionAspect) aspect = dims[i]->DimensionAspect();
     if (!aspect.IsNull()) {
-      // 文字大小
+      //       
       aspect->TextAspect()->SetHeight(12.0);
       aspect->TextAspect()->SetColor(Quantity_NOC_BLACK);
-      // 标注线颜色
+      //         
       aspect->LineAspect()->SetColor(Quantity_NOC_BLACK);
-      // 箭头和文字放在外侧
+      //               
       aspect->SetArrowOrientation(Prs3d_DAO_External);
       aspect->SetTextHorizontalPosition(Prs3d_DTHP_Left);
       aspect->SetTextVerticalPosition(Prs3d_DTVP_Above);
@@ -1304,7 +1309,7 @@ void OCCTWidget::annotateBridgePierFooting() {
   m_context->UpdateCurrentViewer();
 }
 
-// ========== 桥墩绘制 ==========
+// ==========        ==========
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepFeat_MakePrism.hxx>
@@ -1319,10 +1324,10 @@ void OCCTWidget::drawBridgePier() {
   if (m_context.IsNull())
     return;
 
-  // 清空已有模型
+  //          
   clearAll();
 
-  //******流线型托盘******
+  //******        *****
   gp_Pnt P1(16, -14, 0);
   gp_Pnt P2(30, 0, 0);
   gp_Pnt P3(16, 14, 0);
@@ -1344,7 +1349,7 @@ void OCCTWidget::drawBridgePier() {
   gp_Pnt P3_6(-1, 13, 0);
   gp_Pnt P3_7(0, 12, 0);
 
-  // --- 截面1 (底部 Z=0) ---
+  // ---    1 (    Z=0) ---
   Handle(Geom_TrimmedCurve) anArcOfCircle1 =
       GC_MakeArcOfCircle(P1_1, P2_1, P3_1);
   Handle(Geom_TrimmedCurve) aSegment1 = GC_MakeSegment(P3_1, P1_6);
@@ -1389,7 +1394,7 @@ void OCCTWidget::drawBridgePier() {
   aWire = BRepBuilderAPI_MakeWire(aWire, anEdge11);
   aWire = BRepBuilderAPI_MakeWire(aWire, anEdge12);
 
-  // --- 截面2 (顶部 Z=27.5) ---
+  // ---    2 (    Z=27.5) ---
   P1.SetCoord(24, -15, 27.5);
   P2.SetCoord(39, 0, 27.5);
   P3.SetCoord(24, 15, 27.5);
@@ -1448,7 +1453,7 @@ void OCCTWidget::drawBridgePier() {
   bWire = BRepBuilderAPI_MakeWire(bWire, anEdge11);
   bWire = BRepBuilderAPI_MakeWire(bWire, anEdge12);
 
-  // --- 截面3 (中间 Z=13.75) ---
+  // ---    3 (    Z=13.75) ---
   P1.SetCoord(17.88, -14.095, 13.75);
   P2.SetCoord(31.905, 0, 13.75);
   P3.SetCoord(17.88, 14.095, 13.75);
@@ -1507,7 +1512,7 @@ void OCCTWidget::drawBridgePier() {
   mWire = BRepBuilderAPI_MakeWire(mWire, anEdge11);
   mWire = BRepBuilderAPI_MakeWire(mWire, anEdge12);
 
-  // 流线型托盘 - ThruSections 放样
+  //         - ThruSections    
   BRepOffsetAPI_ThruSections tuopan(true, false);
   tuopan.AddWire(aWire);
   tuopan.AddWire(mWire);
@@ -1522,7 +1527,7 @@ void OCCTWidget::drawBridgePier() {
   m_context->Display(ais, false);
   m_lines.push_back(ais);
 
-  // --- 顶帽 (Z=30) ---
+  // ---     (Z=30) ---
   P1.SetCoord(24, -15, 30);
   P2.SetCoord(39, 0, 30);
   P3.SetCoord(24, 15, 30);
@@ -1581,7 +1586,7 @@ void OCCTWidget::drawBridgePier() {
   dWire = BRepBuilderAPI_MakeWire(dWire, anEdge11);
   dWire = BRepBuilderAPI_MakeWire(dWire, anEdge12);
 
-  // 顶帽 - ThruSections 放样
+  //     - ThruSections    
   BRepOffsetAPI_ThruSections dingmao(true, false);
   dingmao.AddWire(bWire);
   dingmao.AddWire(dWire);
@@ -1595,7 +1600,7 @@ void OCCTWidget::drawBridgePier() {
   m_context->Display(ais1, false);
   m_lines.push_back(ais1);
 
-  // --- 裁剪 (Prism切割) ---
+  // ---     (Prism   ) ---
   gp_Dir D(0, 1, 0);
   gp_Pnt p1, p2;
   BRepBuilderAPI_MakeWire MW;
@@ -1635,7 +1640,7 @@ void OCCTWidget::drawBridgePier() {
   m_context->Redisplay(ais, false);
   m_context->Redisplay(ais1, false);
 
-  // --- 墩身 (Z=-120) ---
+  // ---     (Z=-120) ---
   P1.SetCoord(16, -16.67, -120);
   P2.SetCoord(32.67, 0, -120);
   P3.SetCoord(16, 16.67, -120);
@@ -1694,7 +1699,7 @@ void OCCTWidget::drawBridgePier() {
   sWire = BRepBuilderAPI_MakeWire(sWire, anEdge11);
   sWire = BRepBuilderAPI_MakeWire(sWire, anEdge12);
 
-  // 墩身 - ThruSections 放样
+  //     - ThruSections    
   BRepOffsetAPI_ThruSections dunshen(true, false);
   dunshen.AddWire(sWire);
   dunshen.AddWire(aWire);
@@ -1708,7 +1713,7 @@ void OCCTWidget::drawBridgePier() {
   m_context->Display(ais2, false);
   m_lines.push_back(ais2);
 
-  // --- 承台 (两层底座) ---
+  // ---     (      ) ---
   TopoDS_Shape S3 =
       BRepPrimAPI_MakeBox(gp_Pnt(-38.41, -22.22, -130), 76.82, 44.44, 10)
           .Shape();
@@ -1729,13 +1734,13 @@ void OCCTWidget::drawBridgePier() {
   m_context->Display(ais4, false);
   m_lines.push_back(ais4);
 
-  // 刷新视图
+  //       
   fitAll();
 }
 
 void OCCTWidget::drawFullBridgePier() {
-  // 此功能现已由 MainWindow::onDrawFullBridgePier 通过分项调用微服务脚本实现。
-  // 原本的 C++ 原生建模逻辑已移除，以确保构件定义统一由脚本驱动。
+  //           MainWindow::onDrawFullBridgePier                       
+  //      C++                                        
 }
 
 TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
@@ -1751,7 +1756,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
   if (data.isEmpty())
     return TopoDS_Shape();
 
-  // 格式检测
+  //        
   std::string dataStr(data.constData(), data.length());
   bool isStep = (dataStr.find("ISO-10303-21") != std::string::npos);
 
@@ -1779,7 +1784,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
     }
     return TopoDS_Shape();
   } else {
-    // 尝试作为 BREP 解析
+    //        BREP    
     TopoDS_Shape shape;
     BRep_Builder builder;
     std::stringstream ss(dataStr);
@@ -1788,7 +1793,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
       qWarning()
           << "BRepTools::Read failed to parse shape from memory! Data size:"
           << data.length();
-      // 调试: 打印前 50 个字符
+      //    :      50      
       qWarning() << "Data prefix:" << data.left(50);
     }
     return shape;
@@ -1819,7 +1824,7 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
     finalColor = Quantity_NOC_GRAY30;
     break;
   case Graphic3d_NOM_STONE:
-    finalColor = Quantity_NOC_GRAY80; // 石头材质模拟混凝土，颜色稍浅
+    finalColor = Quantity_NOC_GRAY80; //                      
     break;
   case Graphic3d_NOM_PLASTIC:
     finalColor = Quantity_NOC_GRAY75;
@@ -1848,8 +1853,10 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
   m_context->SetColor(aisShape, color, false);
   m_context->Display(aisShape, false);
   m_lines.push_back(aisShape);
+      
+      
   if (!metadata.isEmpty()) {
-    m_objectMetadata[aisShape] = metadata;
+    
   }
   if (fit)
     fitAll();
@@ -1865,11 +1872,11 @@ void OCCTWidget::buildFullBridgeFromParts(
   // 7:Bearing2, 8:Girder
   int partsAvailable = parts.size();
 
-  // 循环 count 次，分别计算 Y 轴 offset 进行桥墩移动
+  //     count           Y   offset          
   for (int i = 0; i < count; ++i) {
     double yOff = i * spacing;
 
-    // 绘制一座桥墩的所有部件 (及复制)
+    //                   (     
     for (int j = 0; j < qMin(8, partsAvailable); ++j) {
       if (parts[j].shape.IsNull())
         continue;
@@ -1877,7 +1884,7 @@ void OCCTWidget::buildFullBridgeFromParts(
       gp_Trsf pierTrsf;
       gp_Vec offset(0, yOff, 0);
 
-      // 特殊处理垫石和支座的 X/Z 位移
+      //                 X/Z    
       if (j == 4)
         offset += gp_Vec(-1650.0, 0, 3000.0); // Stone 1
       if (j == 5)
@@ -1892,9 +1899,9 @@ void OCCTWidget::buildFullBridgeFromParts(
       Handle(AIS_Shape) aisShape = new AIS_Shape(parts[j].shape);
       Quantity_Color color = Quantity_NOC_GRAY75;
       if (j >= 4 && j <= 5)
-        color = Quantity_NOC_WHITE; // 垫石白色
+        color = Quantity_NOC_WHITE; //       
       else if (j >= 6 && j <= 7)
-        color = Quantity_NOC_GRAY30; // 支座/钢材
+        color = Quantity_NOC_GRAY30; //    /   
 
       m_context->SetDisplayMode(aisShape, 1, false);
       m_context->SetMaterial(aisShape, parts[j].material, false);
@@ -1903,20 +1910,22 @@ void OCCTWidget::buildFullBridgeFromParts(
       m_context->Display(aisShape, false);
       m_lines.push_back(aisShape);
       
+      
+      
       if (!parts[j].metadata.isEmpty()) {
         m_objectMetadata[aisShape] = parts[j].metadata;
       }
     }
 
-    // 绘制连接当前墩到下一墩的箱梁
+    //                      
     if (partsAvailable > 8 && i < count - 1) {
       if (!parts[8].shape.IsNull()) {
         gp_Trsf rot;
         rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
 
         gp_Trsf trans;
-        // 梁放置在支座上方 Z=3650.0
-        // 墩间距 31.6m, 梁长 31.5m, 缝隙 100mm, 每端 50mm
+        //              Z=3650.0
+        //      31.6m,     31.5m,     100mm,     50mm
         trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0));
 
         gp_Trsf girderTrsf = trans * rot;
@@ -1982,4 +1991,55 @@ void OCCTWidget::buildFullBridgeFromBatch(
   }
 
   fitAll();
+}
+void OCCTWidget::setUsePbr(bool enabled) {
+    m_usePbr = enabled;
+    if (m_view.IsNull()) return;
+
+    // 切换着色模型 (PBR 或 传统的 Fragment/Phong)
+    m_view->SetShadingModel(enabled ? Graphic3d_TOSM_PBR : Graphic3d_TOSM_FRAGMENT);
+    
+    if (m_context.IsNull()) return;
+    
+    AIS_ListOfInteractive aList;
+    m_context->DisplayedObjects(aList);
+    for (AIS_ListIteratorOfListOfInteractive it(aList); it.More(); it.Next()) {
+        Handle(AIS_InteractiveObject) aisObj = it.Value();
+        if (!aisObj.IsNull()) {
+            applyMaterial(aisObj, m_objectMetadata.value(aisObj));
+        }
+    }
+    m_context->UpdateCurrentViewer();
+}
+
+void OCCTWidget::applyMaterial(const Handle(AIS_InteractiveObject)& aisObj, const QVariantMap& metadata) {
+    if (aisObj.IsNull()) return;
+
+    Graphic3d_MaterialAspect material(Graphic3d_NOM_PLASTIC);
+
+    if (m_usePbr && metadata.contains("Pset_MaterialPBR")) {
+        QVariantMap pbr = metadata["Pset_MaterialPBR"].toMap();
+        material.SetMaterialType(Graphic3d_MATERIAL_PHYSIC);
+        
+        Graphic3d_PBRMaterial pbrMat;
+        if (pbr.contains("BaseColor")) {
+            QVariantList colorList = pbr["BaseColor"].toList();
+            if (colorList.size() >= 3) {
+                pbrMat.SetColor(Quantity_Color(colorList[0].toDouble(), 
+                                             colorList[1].toDouble(), 
+                                             colorList[2].toDouble(), 
+                                             Quantity_TOC_RGB));
+            }
+        }
+        
+        if (pbr.contains("Metallic")) pbrMat.SetMetallic((float)pbr["Metallic"].toDouble());
+        if (pbr.contains("Roughness")) pbrMat.SetRoughness((float)pbr["Roughness"].toDouble());
+        
+        material.SetPBRMaterial(pbrMat);
+    } else {
+        material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
+        material.SetColor(Quantity_Color(Quantity_NOC_GRAY70));
+    }
+
+    m_context->SetMaterial(aisObj, material, false);
 }

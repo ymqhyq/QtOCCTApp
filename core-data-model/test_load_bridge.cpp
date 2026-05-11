@@ -9,6 +9,10 @@
 #include "generated/BrNode_adObject.h"
 #include "generated/BrNode_adPropertySet.h"
 #include "generated/BrNode_adProperty.h"
+#include "generated/BrNode_adModelRoot.h"
+#include "generated/BrNode_adGeometry.h"
+#include "generated/BrNode_adGeometricDef.h"
+
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
@@ -136,6 +140,7 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
     }
     if (objJson.contains("StructuralType")) adObj->SetStructuralType(objJson["StructuralType"].get<std::string>().c_str());
 
+    // --- Handle PropertySets ---
     if (objJson.contains("PropertySets")) {
         const auto& psetsJson = objJson["PropertySets"];
         for (auto it = psetsJson.begin(); it != psetsJson.end(); ++it) {
@@ -162,8 +167,22 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
                 for (auto pIt = propsJson.begin(); pIt != propsJson.end(); ++pIt) {
                     TCollection_AsciiString propKey = pIt.key().c_str();
                     std::string propVal;
-                    if (pIt.value().is_number()) propVal = std::to_string(pIt.value().get<double>());
-                    else propVal = pIt.value().get<std::string>();
+                    if (pIt.value().is_number()) {
+                        propVal = std::to_string(pIt.value().get<double>());
+                    } else if (pIt.value().is_array()) {
+                        // Handle array (e.g. BaseColor) as comma separated string
+                        std::string s;
+                        for (size_t i = 0; i < pIt.value().size(); ++i) {
+                            if (i > 0) s += ",";
+                            if (pIt.value()[i].is_number()) s += std::to_string(pIt.value()[i].get<double>());
+                            else s += pIt.value()[i].get<std::string>();
+                        }
+                        propVal = s;
+                    } else if (pIt.value().is_string()) {
+                        propVal = pIt.value().get<std::string>();
+                    } else {
+                        continue; // Skip other types
+                    }
 
                     bool found = false;
                     NCollection_Sequence<Handle(BrNode_adProperty)> props = targetPset->GetPropertiesList();
@@ -237,6 +256,7 @@ void BuildAllGeometry(const Handle(ActData_BaseModel)& model, const Handle(BrNod
 }
 
 int main(int argc, char** argv) {
+    std::cout << "--- TEST START ---" << std::endl;
     Handle(DataModel) model = new DataModel();
     model->NewEmpty();
     if (!model->Document().IsNull()) {
@@ -248,7 +268,13 @@ int main(int argc, char** argv) {
         std::cerr << "Cannot find bridge_data.json" << std::endl;
         return 1;
     }
-    json data = json::parse(f);
+    json data;
+    try {
+        f >> data;
+    } catch (const json::parse_error& e) {
+        std::cerr << "JSON Parse Error: " << e.what() << std::endl;
+        return 1;
+    }
 
     model->OpenCommand();
     try {

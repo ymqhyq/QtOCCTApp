@@ -48,15 +48,17 @@ public:
   void add3DText(const QString &text, double height, const gp_Pnt &position,
                  bool isSolid = false, double angle = 0.0);
   void setTextsSolid(bool isSolid);
-  void fitAll(); // 缩放到全部视图范围
+  void fitAll(); // 缂╂斁鍒板叏閮ㄨ鍥捐寖鍥?
   void loadBrepFile(const QString &filename,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
+  void setUsePbr(bool enabled);
+  void applyMaterial(const Handle(AIS_InteractiveObject)& aisShape, const QVariantMap& metadata);
   void exportToSTEP(const QString &filename);
   void exportToGLTF(const QString &filename);
-  void drawBridgePier();            // 绘制流线型桥墩
-  void drawFullBridgePier();        // 绘制完全体桥墩
-  void annotateBridgePierFooting(); // 标注桥墩承台尺寸
+  void drawBridgePier();            // 缁樺埗娴佺嚎鍨嬫ˉ澧?
+  void drawFullBridgePier();        // 缁樺埗瀹屽叏浣撴ˉ澧?
+  void annotateBridgePierFooting(); // 鏍囨敞妗ュⅸ鎵垮彴灏哄
   void loadBrepAsFullBridge(
       const QString &filename, int count, double spacing,
       Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
@@ -130,6 +132,7 @@ private:
   Handle(AIS_Shape) m_selectedLine;
 
   bool m_drawLineMode;
+  bool m_usePbr;
   gp_Pnt m_firstPoint;
   bool m_firstPointSet;
   Handle(AIS_Shape) m_dynamicLine;
@@ -144,7 +147,7 @@ private:
   QTimer m_refreshTimer;
 
   Handle(AIS_ViewCube) m_viewCube;
-  QSize m_lastSize; // 用于检测 widget 大小变化
+  QSize m_lastSize; // 鐢ㄤ簬妫€娴?widget 澶у皬鍙樺寲
 };
 
 #endif // OCCTWIDGET_H

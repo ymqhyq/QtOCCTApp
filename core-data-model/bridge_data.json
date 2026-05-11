@@ -5,7 +5,11 @@
     "ObjectType": "Bridge",
     "FunctionalType": "铁路桥",
     "StructuralType": "梁桥",
-    "ObjectPlacement": [0, 0, 0],
+    "ObjectPlacement": [
+      0,
+      0,
+      0
+    ],
     "PropertySets": {
       "Pset_Bridge": {}
     },
@@ -15,46 +19,344 @@
         "ObjectType": "Abutment",
         "FunctionalType": "端部支撑",
         "StructuralType": "一字台",
-        "ObjectPlacement": [0, 0, 0]
+        "ObjectPlacement": [
+          0,
+          0,
+          0
+        ]
       },
       {
         "Name": "1#桥墩",
         "ObjectType": "BridgePier",
         "FunctionalType": "普通墩",
         "StructuralType": "实体墩",
-        "ObjectPlacement": [32000, 0, 0, 0, 0, 90.0],
+        "ObjectPlacement": [
+          32000,
+          0,
+          0,
+          0,
+          0,
+          90
+        ],
         "PropertySets": {
-          "Pset_MaterialConcrete": { "StrengthGrade": "C35" }
+          "Pset_MaterialConcrete": {
+            "StrengthGrade": "C35"
+          }
         },
         "children": [
-          { "Name": "支座-1-1", "ObjectType": "Bearing", "ObjectPlacement": [1500, 800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-1-2", "ObjectType": "Bearing", "ObjectPlacement": [1500, -800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-2-1", "ObjectType": "Bearing", "ObjectPlacement": [-1500, 800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-2-2", "ObjectType": "Bearing", "ObjectPlacement": [-1500, -800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          
-          { "Name": "垫石-1-1", "ObjectType": "BedStone", "ObjectPlacement": [1500, 800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-1-2", "ObjectType": "BedStone", "ObjectPlacement": [1500, -800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-2-1", "ObjectType": "BedStone", "ObjectPlacement": [-1500, 800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-2-2", "ObjectType": "BedStone", "ObjectPlacement": [-1500, -800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          
-          { 
-            "Name": "托盘", "ObjectType": "PierTray",
-            "ObjectPlacement": [0, 0, 8000],
-            "PropertySets": { "Pset_PierTrayGeometry": { "ModelNumber": "TR-STD", "Height": 2750.0 }}
+          {
+            "Name": "支座-1-1",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              1500,
+              800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
           },
-          { 
-            "Name": "墩身", "ObjectType": "PierBody",
-            "ObjectPlacement": [0, 0, 0],
-            "PropertySets": { "Pset_PierBodyGeometry": { "ModelNumber": "PB-RECT-01", "Height": 8000.0 }}
+          {
+            "Name": "支座-1-2",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              1500,
+              -800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "支座-2-1",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              -1500,
+              800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "支座-2-2",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              -1500,
+              -800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-1-1",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              1500,
+              800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-1-2",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              1500,
+              -800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-2-1",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              -1500,
+              800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-2-2",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              -1500,
+              -800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "托盘",
+            "ObjectType": "PierTray",
+            "ObjectPlacement": [
+              0,
+              0,
+              8000
+            ],
+            "PropertySets": {
+              "Pset_PierTrayGeometry": {
+                "ModelNumber": "TR-STD",
+                "Height": 2750
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "Metallic": 0.1,
+                "Roughness": 0.8
+              }
+            }
+          },
+          {
+            "Name": "墩身",
+            "ObjectType": "PierBody",
+            "ObjectPlacement": [
+              0,
+              0,
+              0
+            ],
+            "PropertySets": {
+              "Pset_PierBodyGeometry": {
+                "ModelNumber": "PB-RECT-01",
+                "Height": 8000
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "Metallic": 0.1,
+                "Roughness": 0.8
+              }
+            }
           },
           {
             "Name": "桥基基础",
             "ObjectType": "BridgeFoundation",
             "StructuralType": "桩基础",
-            "ObjectPlacement": [0, 0, 0],
+            "ObjectPlacement": [
+              0,
+              0,
+              0
+            ],
             "children": [
-              { "Name": "承台", "ObjectType": "PileCap", "ObjectPlacement": [0, 0, -2000], "PropertySets": { "Pset_PileCapGeometry": { "ModelNumber": "PC-01", "Layers": 1, "Length": 7000.0, "Width": 5000.0, "Height": 2000.0 } } },
-              { "Name": "单桩组", "ObjectType": "SinglePile", "ObjectPlacement": [0, 0, -2000], "PropertySets": { "Pset_SinglePileGeometry": { "ModelNumber": "PILE-1000", "Diameter": 1000.0, "Length": 8000.0, "Layout": "2x3", "HSpacing": 2500.0, "VSpacing": 3000.0 } } }
+              {
+                "Name": "承台",
+                "ObjectType": "PileCap",
+                "ObjectPlacement": [
+                  0,
+                  0,
+                  -2000
+                ],
+                "PropertySets": {
+                  "Pset_PileCapGeometry": {
+                    "ModelNumber": "PC-01",
+                    "Layers": 1,
+                    "Length": 7000,
+                    "Width": 5000,
+                    "Height": 2000
+                  },
+                  "Pset_MaterialPBR": {
+                    "BaseColor": [
+                      0.6,
+                      0.6,
+                      0.6
+                    ],
+                    "Metallic": 0.1,
+                    "Roughness": 0.8
+                  }
+                }
+              },
+              {
+                "Name": "单桩组",
+                "ObjectType": "SinglePile",
+                "ObjectPlacement": [
+                  0,
+                  0,
+                  -2000
+                ],
+                "PropertySets": {
+                  "Pset_SinglePileGeometry": {
+                    "ModelNumber": "PILE-1000",
+                    "Diameter": 1000,
+                    "Length": 8000,
+                    "Layout": "2x3",
+                    "HSpacing": 2500,
+                    "VSpacing": 3000
+                  },
+                  "Pset_MaterialPBR": {
+                    "BaseColor": [
+                      0.6,
+                      0.6,
+                      0.6
+                    ],
+                    "Metallic": 0.1,
+                    "Roughness": 0.8
+                  }
+                }
+              }
             ]
           }
         ]
@@ -62,27 +364,327 @@
       {
         "Name": "2#桥墩",
         "ObjectType": "BridgePier",
-        "ObjectPlacement": [64000, 0, 0, 0, 0, 90.0],
+        "ObjectPlacement": [
+          64000,
+          0,
+          0,
+          0,
+          0,
+          90
+        ],
         "children": [
-          { "Name": "支座-1-1", "ObjectType": "Bearing", "ObjectPlacement": [1500, 800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-1-2", "ObjectType": "Bearing", "ObjectPlacement": [1500, -800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-2-1", "ObjectType": "Bearing", "ObjectPlacement": [-1500, 800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          { "Name": "支座-2-2", "ObjectType": "Bearing", "ObjectPlacement": [-1500, -800, 11150, 0, 0, 90.0], "PropertySets": { "Pset_BearingGeometry": { "ModelNumber": "BRG-STD" }} },
-          
-          { "Name": "垫石-1-1", "ObjectType": "BedStone", "ObjectPlacement": [1500, 800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-1-2", "ObjectType": "BedStone", "ObjectPlacement": [1500, -800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-2-1", "ObjectType": "BedStone", "ObjectPlacement": [-1500, 800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-          { "Name": "垫石-2-2", "ObjectType": "BedStone", "ObjectPlacement": [-1500, -800, 10750], "PropertySets": { "Pset_BedStoneGeometry": { "ModelNumber": "BS-STD", "Height": 400.0 }} },
-
-          { "Name": "托盘", "ObjectType": "PierTray", "ObjectPlacement": [0, 0, 8000], "PropertySets": { "Pset_PierTrayGeometry": { "ModelNumber": "TR-STD", "Height": 2750.0 } } },
-          { "Name": "墩身", "ObjectType": "PierBody", "ObjectPlacement": [0, 0, 0], "PropertySets": { "Pset_PierBodyGeometry": { "ModelNumber": "PB-RECT-01", "Height": 8000.0 } } },
+          {
+            "Name": "支座-1-1",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              1500,
+              800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "支座-1-2",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              1500,
+              -800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "支座-2-1",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              -1500,
+              800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "支座-2-2",
+            "ObjectType": "Bearing",
+            "ObjectPlacement": [
+              -1500,
+              -800,
+              11150,
+              0,
+              0,
+              90
+            ],
+            "PropertySets": {
+              "Pset_BearingGeometry": {
+                "ModelNumber": "BRG-STD"
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-1-1",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              1500,
+              800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-1-2",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              1500,
+              -800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-2-1",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              -1500,
+              800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "垫石-2-2",
+            "ObjectType": "BedStone",
+            "ObjectPlacement": [
+              -1500,
+              -800,
+              10750
+            ],
+            "PropertySets": {
+              "Pset_BedStoneGeometry": {
+                "ModelNumber": "BS-STD",
+                "Height": 400
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.3,
+                  0.3,
+                  0.3
+                ],
+                "Metallic": 1.0,
+                "Roughness": 0.2
+              }
+            }
+          },
+          {
+            "Name": "托盘",
+            "ObjectType": "PierTray",
+            "ObjectPlacement": [
+              0,
+              0,
+              8000
+            ],
+            "PropertySets": {
+              "Pset_PierTrayGeometry": {
+                "ModelNumber": "TR-STD",
+                "Height": 2750
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "Metallic": 0.1,
+                "Roughness": 0.8
+              }
+            }
+          },
+          {
+            "Name": "墩身",
+            "ObjectType": "PierBody",
+            "ObjectPlacement": [
+              0,
+              0,
+              0
+            ],
+            "PropertySets": {
+              "Pset_PierBodyGeometry": {
+                "ModelNumber": "PB-RECT-01",
+                "Height": 8000
+              },
+              "Pset_MaterialPBR": {
+                "BaseColor": [
+                  0.6,
+                  0.6,
+                  0.6
+                ],
+                "Metallic": 0.1,
+                "Roughness": 0.8
+              }
+            }
+          },
           {
             "Name": "桥基基础",
             "ObjectType": "BridgeFoundation",
-            "ObjectPlacement": [0, 0, 0],
+            "ObjectPlacement": [
+              0,
+              0,
+              0
+            ],
             "children": [
-              { "Name": "承台", "ObjectType": "PileCap", "ObjectPlacement": [0, 0, -2000], "PropertySets": { "Pset_PileCapGeometry": { "ModelNumber": "PC-01", "Layers": 1, "Length": 7000.0, "Width": 5000.0, "Height": 2000.0 } } },
-              { "Name": "单桩组", "ObjectType": "SinglePile", "ObjectPlacement": [0, 0, -2000], "PropertySets": { "Pset_SinglePileGeometry": { "ModelNumber": "PILE-1000", "Diameter": 1000.0, "Length": 8000.0, "Layout": "2x3", "HSpacing": 2500.0, "VSpacing": 3000.0 } } }
+              {
+                "Name": "承台",
+                "ObjectType": "PileCap",
+                "ObjectPlacement": [
+                  0,
+                  0,
+                  -2000
+                ],
+                "PropertySets": {
+                  "Pset_PileCapGeometry": {
+                    "ModelNumber": "PC-01",
+                    "Layers": 1,
+                    "Length": 7000,
+                    "Width": 5000,
+                    "Height": 2000
+                  },
+                  "Pset_MaterialPBR": {
+                    "BaseColor": [
+                      0.6,
+                      0.6,
+                      0.6
+                    ],
+                    "Metallic": 0.1,
+                    "Roughness": 0.8
+                  }
+                }
+              },
+              {
+                "Name": "单桩组",
+                "ObjectType": "SinglePile",
+                "ObjectPlacement": [
+                  0,
+                  0,
+                  -2000
+                ],
+                "PropertySets": {
+                  "Pset_SinglePileGeometry": {
+                    "ModelNumber": "PILE-1000",
+                    "Diameter": 1000,
+                    "Length": 8000,
+                    "Layout": "2x3",
+                    "HSpacing": 2500,
+                    "VSpacing": 3000
+                  },
+                  "Pset_MaterialPBR": {
+                    "BaseColor": [
+                      0.6,
+                      0.6,
+                      0.6
+                    ],
+                    "Metallic": 0.1,
+                    "Roughness": 0.8
+                  }
+                }
+              }
             ]
           }
         ]
@@ -91,22 +693,86 @@
         "Name": "3#桥台",
         "ObjectType": "Abutment",
         "StructuralType": "T台",
-        "ObjectPlacement": [96000, 0, 0]
+        "ObjectPlacement": [
+          96000,
+          0,
+          0
+        ]
       },
-      { 
-        "Name": "1跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁",
-        "ObjectPlacement": [16000, 0, 11350],
-        "PropertySets": { "Pset_GirderGeometry": { "ModelNumber": "GIRD-32", "Length": 31500.0 }}
+      {
+        "Name": "1跨主梁",
+        "ObjectType": "Girder",
+        "StructuralType": "箱梁",
+        "ObjectPlacement": [
+          16000,
+          0,
+          11350
+        ],
+        "PropertySets": {
+          "Pset_GirderGeometry": {
+            "ModelNumber": "GIRD-32",
+            "Length": 31500
+          },
+          "Pset_MaterialPBR": {
+            "BaseColor": [
+              0.6,
+              0.6,
+              0.6
+            ],
+            "Metallic": 0.1,
+            "Roughness": 0.8
+          }
+        }
       },
-      { 
-        "Name": "2跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁",
-        "ObjectPlacement": [48000, 0, 11350],
-        "PropertySets": { "Pset_GirderGeometry": { "ModelNumber": "GIRD-32", "Length": 31500.0 }}
+      {
+        "Name": "2跨主梁",
+        "ObjectType": "Girder",
+        "StructuralType": "箱梁",
+        "ObjectPlacement": [
+          48000,
+          0,
+          11350
+        ],
+        "PropertySets": {
+          "Pset_GirderGeometry": {
+            "ModelNumber": "GIRD-32",
+            "Length": 31500
+          },
+          "Pset_MaterialPBR": {
+            "BaseColor": [
+              0.6,
+              0.6,
+              0.6
+            ],
+            "Metallic": 0.1,
+            "Roughness": 0.8
+          }
+        }
       },
-      { 
-        "Name": "3跨主梁", "ObjectType": "Girder", "StructuralType": "箱梁",
-        "ObjectPlacement": [80000, 0, 11350],
-        "PropertySets": { "Pset_GirderGeometry": { "ModelNumber": "GIRD-32", "Length": 31500.0 }}
+      {
+        "Name": "3跨主梁",
+        "ObjectType": "Girder",
+        "StructuralType": "箱梁",
+        "ObjectPlacement": [
+          80000,
+          0,
+          11350
+        ],
+        "PropertySets": {
+          "Pset_GirderGeometry": {
+            "ModelNumber": "GIRD-32",
+            "Length": 31500
+          },
+          "Pset_MaterialPBR": {
+            "BaseColor": [
+              0.6,
+              0.6,
+              0.6
+            ],
+            "Metallic": 0.1,
+            "Roughness": 0.8
+          }
+        }
       }
     ]
   }

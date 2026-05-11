@@ -18,6 +18,8 @@
 #include <gp_Dir.hxx>
 #include <gp_Vec.hxx>
 #include <gp_Trsf.hxx>
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 
 // Windows HTTP (WinHTTP) - 轻量级 HTTP 客户端
 // 以后迁移为微服务时，此部分可替换为 gRPC/Dapr SDK
@@ -164,6 +166,9 @@ static std::string HttpPost(const std::string& host, int port,
         WinHttpCloseHandle(hSession);
         return "";
     }
+
+    // 设置较短的超时时间 (2秒)，避免在服务不可用时加载过慢
+    WinHttpSetTimeouts(hRequest, 2000, 2000, 2000, 2000);
 
     std::wstring wContentType(contentType.begin(), contentType.end());
     std::wstring headers = L"Content-Type: " + wContentType;
@@ -446,6 +451,15 @@ GeometryService::BuildGeometry(const Handle(BrNode_adObject)& adObj)
 {
     if (adObj.IsNull()) return nullptr;
 
+    // 0. 离线加载优化：优先检查对象是否已经关联了有效的几何定义
+    Handle(BrNode_adGeometry) existingGeom = Handle(BrNode_adGeometry)::DownCast(adObj->GetGeometry());
+    if (!existingGeom.IsNull()) {
+        Handle(BrNode_adGeometricDef) linkedDef = Handle(BrNode_adGeometricDef)::DownCast(existingGeom->GetGeometryRef());
+        if (!linkedDef.IsNull() && !linkedDef->GetShape().IsNull()) {
+            return linkedDef;
+        }
+    }
+
     // 1. 提取参数
     ExtractedParams ep = ExtractGeoParams(adObj);
     if (ep.geoPset.IsNull()) {
@@ -471,8 +485,23 @@ GeometryService::BuildGeometry(const Handle(BrNode_adObject)& adObj)
     std::cout << "[GeometryService] Cache MISS, calling service..." << std::endl;
     ServiceResult sr = CallModelingService(ep.modelType, ep.params);
     if (!sr.success) {
-        std::cerr << "[GeometryService] Service call failed: " << sr.error << std::endl;
-        return nullptr;
+        std::cerr << "[GeometryService] Fallback to dummy geometry for " << ep.modelType << std::endl;
+        
+        // 根据类型创建不同的占位几何
+        TopoDS_Shape fallbackShape;
+        try {
+            if (ep.modelType == "SinglePile" || ep.modelType == "Pile") {
+                fallbackShape = BRepPrimAPI_MakeCylinder(500, 5000).Shape();
+            } else if (ep.modelType == "Bearing") {
+                fallbackShape = BRepPrimAPI_MakeBox(200, 200, 100).Shape();
+            } else {
+                fallbackShape = BRepPrimAPI_MakeBox(1000, 1000, 1000).Shape();
+            }
+        } catch(...) {
+            fallbackShape = BRepPrimAPI_MakeBox(500, 500, 500).Shape();
+        }
+        
+        return CreateGeoDef(paramGeoId, ep.params, fallbackShape);
     }
 
     // 5. 解析 BREP
@@ -577,9 +606,42 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject)& rootObj,
             vs.shape = shape;
             vs.name = ToStdString(rootObj->GetName());
             vs.transform = currentTrsf;
-            // 提取所有参数作为元数据
-            ExtractedParams ep = ExtractGeoParams(rootObj);
-            vs.metadata = ep.params;
+            // Extract all PropertySets as metadata
+            NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = rootObj->GetPropertySetsList();
+            for (int i = 1; i <= psets.Length(); ++i) {
+                Handle(BrNode_adPropertySet) ps = psets.Value(i);
+                if (ps.IsNull()) continue;
+                std::string psName = ToStdString(ps->GetName());
+                json psJson;
+                NCollection_Sequence<Handle(BrNode_adProperty)> props = ps->GetPropertiesList();
+                for (int j = 1; j <= props.Length(); ++j) {
+                    Handle(BrNode_adProperty) p = props.Value(j);
+                    if (p.IsNull()) continue;
+                    
+                    std::string key = ToStdString(p->GetPropertyName());
+                    std::string val = ToStdString(p->GetPropertyValue());
+                    
+                    // Special handling for BaseColor (comma separated string to list)
+                    if (key == "BaseColor" && psName == "Pset_MaterialPBR") {
+                        std::stringstream ss(val);
+                        std::string segment;
+                        json colorList = json::array();
+                        while (std::getline(ss, segment, ',')) {
+                            try { colorList.push_back(std::stod(segment)); } catch(...) {}
+                        }
+                        psJson[key] = colorList;
+                    } else {
+                        // Try to parse as number if possible
+                        try {
+                            if (val.find('.') != std::string::npos) psJson[key] = std::stod(val);
+                            else psJson[key] = std::stol(val);
+                        } catch (...) {
+                            psJson[key] = val;
+                        }
+                    }
+                }
+                vs.metadata[psName] = psJson;
+            }
             outShapes.push_back(vs);
         }
     }
