@@ -2043,3 +2043,35 @@ void OCCTWidget::applyMaterial(const Handle(AIS_InteractiveObject)& aisObj, cons
 
     m_context->SetMaterial(aisObj, material, false);
 }
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
+
+void OCCTWidget::selectAndCenterObject(const QString& key, const QVariant& value) {
+    if (m_context.IsNull() || m_view.IsNull()) return;
+
+    m_context->ClearSelected(false);
+    Handle(AIS_InteractiveObject) targetObj;
+
+    for (auto it = m_objectMetadata.begin(); it != m_objectMetadata.end(); ++it) {
+        if (it.value().contains(key) && it.value()[key] == value) {
+            targetObj = it.key();
+            break;
+        }
+    }
+
+    if (!targetObj.IsNull()) {
+        m_context->SetSelected(targetObj, true);
+        
+        // Calculate bounding box
+        Bnd_Box bbox;
+        Handle(AIS_Shape) aisShape = Handle(AIS_Shape)::DownCast(targetObj);
+        if (!aisShape.IsNull()) {
+            BRepBndLib::Add(aisShape->Shape(), bbox);
+        }
+        
+        if (!bbox.IsVoid()) {
+            m_view->FitAll(bbox, 0.1, Standard_True);
+        }
+    }
+    m_view->Redraw();
+}

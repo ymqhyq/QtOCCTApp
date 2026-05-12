@@ -23,13 +23,13 @@
 #include <memory>
 
 #include "OCCTWidget.h"
-
 #include "DataModel.h"
 
 class ShxTextGenerator;
 class QLabel;
 class QTextEdit;
 class PythonSyntaxHighlighter;
+class ModelExplorerPanel;
 #include <Graphic3d_NameOfMaterial.hxx>
 
 class MainWindow : public SARibbonMainWindow {
@@ -46,7 +46,7 @@ private slots:
   void onDrawLineClicked();
   void onAddShxText();
   void onDrawBridgePier();            // 绘制桥墩
-  void onDrawFullBridgePier();        // 绘制完全体桥�?
+  void onDrawFullBridgePier();        // 绘制完全体桥墩
   void onAnnotateBridgePierFooting(); // 标注标注桥墩承台尺寸
   void onDrawFoundation();            // 绘制避雷针基础
   void onDrawBedStone();              // 绘制垫石
@@ -55,8 +55,9 @@ private slots:
   void onExportGltfClicked();         // 导出为GLTF
   void onExportIfcClicked();
   void onMousePositionChanged(double x, double y, double z);
+  void onExplorerNodeSelected(Handle(BrNode_adObject) node);
   void onObjectSelected(const QVariantMap &metadata);
-  void onLoadAsiModel();             // 加载ASI模型并显�?
+  void onLoadAsiModel();             // 加载ASI模型并显示
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
@@ -74,6 +75,7 @@ private:
   OCCTWidget *m_occtWidget;
   QDockWidget *m_dockCq;
   QDockWidget *m_propertyDock;
+  ModelExplorerPanel *m_modelExplorerDock;
   QWidget *m_propertyWidget;
   QVBoxLayout *m_propertyLayout;
   QTextEdit *m_cqScriptEditor;

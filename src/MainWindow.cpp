@@ -8,6 +8,7 @@
 
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
+#include "../include/ModelExplorerPanel.h"
 #include "IfcExportService.h"
 #include <QApplication>
 #include <QCheckBox>
@@ -48,7 +49,7 @@ MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_solidTextCheckbox(nullptr), m_pbrCheckbox(nullptr), m_coordLabel(nullptr),
       m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC),
-      m_propertyDock(nullptr), m_propertyWidget(nullptr),
+      m_propertyDock(nullptr), m_modelExplorerDock(nullptr), m_propertyWidget(nullptr),
       m_propertyLayout(nullptr), m_currentModelType("BridgePier2") {
   setWindowTitle("Qt OCCT Application - Schema Enabled");
   setMinimumSize(1024, 768);
@@ -168,7 +169,71 @@ void MainWindow::setupCadQueryUi() {
   scroll->setWidgetResizable(true);
   scroll->setWidget(m_propertyWidget);
   m_propertyDock->setWidget(scroll);
-  addDockWidget(Qt::LeftDockWidgetArea, m_propertyDock);
+  addDockWidget(Qt::RightDockWidgetArea, m_propertyDock);
+  
+  // Tabify Properties and CadQuery on the right
+  tabifyDockWidget(m_dockCq, m_propertyDock);
+  m_propertyDock->raise(); // Show Properties by default
+
+  m_modelExplorerDock = new ModelExplorerPanel(this);
+  addDockWidget(Qt::LeftDockWidgetArea, m_modelExplorerDock);
+
+  // Set initial dock widths for a balanced look
+  QList<QDockWidget*> docks;
+  docks << m_modelExplorerDock << m_propertyDock;
+  QList<int> sizes;
+  sizes << 300 << 350;
+  resizeDocks(docks, sizes, Qt::Horizontal);
+
+  connect(m_modelExplorerDock, &ModelExplorerPanel::nodeSelected, this, &MainWindow::onExplorerNodeSelected);
+
+  // Move dock titles/tabs to the bottom for a cleaner CAD-like look
+  setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::South);
+  setTabPosition(Qt::RightDockWidgetArea, QTabWidget::South);
+}
+
+void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
+    if (node.IsNull()) return;
+
+    auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
+        QByteArray bytes;
+        const Standard_ExtCharacter* p = extStr.ToExtString();
+        for (int i = 0; i < extStr.Length(); ++i) {
+            bytes.append((char)(p[i] & 0xFF));
+        }
+        return QString::fromUtf8(bytes);
+    };
+
+    // 1. Extract properties from the node for the Property Panel
+    QVariantMap metaMap;
+    // Basic info
+    metaMap["_Name"] = convertToUtf8(node->GetName());
+    metaMap["_Type"] = convertToUtf8(node->GetObjectType());
+
+    // Iterate through all PropertySets
+    NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = node->GetPropertySetsList();
+    for (int i = 1; i <= psets.Length(); ++i) {
+        Handle(BrNode_adPropertySet) ps = psets.Value(i);
+        if (ps.IsNull()) continue;
+        
+        QString psName = convertToUtf8(ps->GetName());
+        
+        NCollection_Sequence<Handle(BrNode_adProperty)> props = ps->GetPropertiesList();
+        for (int j = 1; j <= props.Length(); ++j) {
+            Handle(BrNode_adProperty) p = props.Value(j);
+            if (p.IsNull()) continue;
+            
+            QString key = convertToUtf8(p->GetPropertyName());
+            QString val = convertToUtf8(p->GetPropertyValue());
+            metaMap[psName + "." + key] = val;
+        }
+    }
+
+    // Refresh Property Panel
+    onObjectSelected(metaMap);
+
+    // 2. Highlighting and Focusing in OCCT View
+    m_occtWidget->selectAndCenterObject("_adNodeId", node->GetId().ToCString());
 }
 
 void MainWindow::initializeCqNetwork() {
@@ -206,18 +271,139 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
     QLayoutItem *child;
     while ((child = m_propertyLayout->takeAt(0)) != nullptr) {
         if (child->widget()) child->widget()->deleteLater();
+        else if (child->layout()) {
+             // Deep clear for nested layouts
+             QLayout* subLayout = child->layout();
+             QLayoutItem* subChild;
+             while ((subChild = subLayout->takeAt(0)) != nullptr) {
+                 if (subChild->widget()) subChild->widget()->deleteLater();
+                 delete subChild;
+             }
+        }
         delete child;
     }
 
     if (metadata.isEmpty()) {
-        m_propertyLayout->addWidget(new QLabel("No object selected"));
+        QLabel* emptyLabel = new QLabel("No object selected");
+        emptyLabel->setAlignment(Qt::AlignCenter);
+        emptyLabel->setStyleSheet("color: #666; padding: 20px; font-style: italic;");
+        m_propertyLayout->addWidget(emptyLabel);
         return;
     }
 
+    // Organize by groups
+    // Map: GroupName -> Map<PropertyName, Value>
+    QMap<QString, QMap<QString, QString>> groups;
+    
     for (auto it = metadata.begin(); it != metadata.end(); ++it) {
-        m_propertyLayout->addWidget(new QLabel(QString("<b>%1:</b> %2").arg(it.key()).arg(it.value().toString())));
+        QString fullKey = it.key();
+        QString val = it.value().toString();
+        
+        if (fullKey.startsWith("_")) {
+            groups["Basic Information"][fullKey.mid(1)] = val;
+        } else if (fullKey.contains(".")) {
+            int dotIdx = fullKey.indexOf('.');
+            QString group = fullKey.left(dotIdx);
+            QString key = fullKey.mid(dotIdx + 1);
+            
+            if (group.startsWith("Pset_")) group = group.mid(5);
+            
+            // Normalize Geometry and Material names for sorting
+            if (group.contains("Geometry", Qt::CaseInsensitive)) group = "Geometry (" + group + ")";
+            else if (group.contains("Material", Qt::CaseInsensitive)) group = "Material (" + group + ")";
+
+            groups[group][key] = val;
+        } else {
+            groups["Attributes"][fullKey] = val;
+        }
     }
+
+    // Sort groups according to priority: Basic Information > Geometry > Material > Others
+    QStringList groupPriority = {"Basic Information", "Geometry", "Material", "Attributes"};
+    QStringList sortedGroupKeys = groups.keys();
+    std::sort(sortedGroupKeys.begin(), sortedGroupKeys.end(), [&](const QString& a, const QString& b) {
+        auto getPriority = [&](const QString& name) {
+            for (int i = 0; i < groupPriority.size(); ++i) {
+                if (name.contains(groupPriority[i], Qt::CaseInsensitive)) return i;
+            }
+            return static_cast<int>(groupPriority.size());
+        };
+        int pA = getPriority(a);
+        int pB = getPriority(b);
+        if (pA != pB) return pA < pB;
+        return a < b;
+    });
+
+    // Create UI elements for each group in sorted order
+    for (const QString& groupName : sortedGroupKeys) {
+        // Section Header Widget
+        QWidget* headerContainer = new QWidget();
+        headerContainer->setStyleSheet("background-color: #333; border-left: 4px solid #00aaff; border-radius: 2px; margin-top: 5px;");
+        QHBoxLayout* headerLayout = new QHBoxLayout(headerContainer);
+        headerLayout->setContentsMargins(8, 4, 8, 4);
+        
+        QLabel* headerLabel = new QLabel(groupName.toUpper());
+        headerLabel->setStyleSheet("color: #00aaff; font-weight: bold; font-size: 11px;");
+        headerLayout->addWidget(headerLabel);
+        
+        m_propertyLayout->addWidget(headerContainer);
+        
+        // Property Grid
+        QFrame* groupFrame = new QFrame();
+        groupFrame->setStyleSheet("background-color: transparent;");
+        QGridLayout* grid = new QGridLayout(groupFrame);
+        grid->setContentsMargins(10, 5, 10, 10);
+        grid->setSpacing(8);
+        grid->setColumnStretch(0, 1);
+        grid->setColumnStretch(1, 2);
+
+        // Sort properties within the group
+        QStringList propKeys = groups[groupName].keys();
+        if (groupName.contains("Geometry", Qt::CaseInsensitive)) {
+            // Priority: ModelNumber (模型ID) > Length (长) > Width (宽) > Height (高)
+            QStringList propPriority = {"ModelNumber", "Length", "Width", "Height"};
+            std::sort(propKeys.begin(), propKeys.end(), [&](const QString& a, const QString& b) {
+                auto getPropPriority = [&](const QString& name) {
+                    for (int i = 0; i < propPriority.size(); ++i) {
+                        if (name == propPriority[i]) return i;
+                    }
+                    return static_cast<int>(propPriority.size());
+                };
+                int pA = getPropPriority(a);
+                int pB = getPropPriority(b);
+                if (pA != pB) return pA < pB;
+                return a < b;
+            });
+        }
+
+        int row = 0;
+        for (const QString& propKey : propKeys) {
+            QString propValue = groups[groupName][propKey];
+            QLabel* propLabel = new QLabel(propKey);
+            propLabel->setStyleSheet("color: #999; font-size: 12px;");
+            
+            QLabel* valLabel = new QLabel(propValue);
+            valLabel->setStyleSheet("color: #eee; font-size: 12px; font-family: 'Consolas', monospace;");
+            valLabel->setWordWrap(true);
+            valLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+
+            grid->addWidget(propLabel, row, 0, Qt::AlignTop);
+            grid->addWidget(valLabel, row, 1, Qt::AlignTop);
+            row++;
+        }
+        m_propertyLayout->addWidget(groupFrame);
+        
+        // Separator
+        QFrame* line = new QFrame();
+        line->setFrameShape(QFrame::HLine);
+        line->setStyleSheet("background-color: #222;");
+        m_propertyLayout->addWidget(line);
+    }
+    
+    m_propertyLayout->addStretch();
 }
+
+
 
 void MainWindow::onLoadAsiModel() {
     QString fileName = QFileDialog::getOpenFileName(this, "Open", "", "ASI Files (*.asi *.asi.cbf);;All Files (*.*)");
@@ -260,6 +446,7 @@ void MainWindow::onLoadAsiModel() {
         }
     }
     m_occtWidget->fitAll();
+    m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Model loaded: " + fileName, 3000);
 }
 

@@ -711,6 +711,7 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
         }
         vs.metadata[psName] = psJson;
       }
+      vs.metadata["_adNodeId"] = rootObj->GetId().ToCString();
       outShapes.push_back(vs);
     }
   }

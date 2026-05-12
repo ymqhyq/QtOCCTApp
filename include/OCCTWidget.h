@@ -42,13 +42,14 @@ public:
            const Quantity_Color &color = Quantity_Color(Quantity_NOC_YELLOW),
            Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
            const QVariantMap &metadata = QVariantMap());
+  void selectAndCenterObject(const QString& key, const QVariant& value);
   void selectLine(const gp_Pnt &point);
   void setDrawLineMode(bool enabled) { m_drawLineMode = enabled; }
   void generateRandomLines(int count);
   void add3DText(const QString &text, double height, const gp_Pnt &position,
                  bool isSolid = false, double angle = 0.0);
   void setTextsSolid(bool isSolid);
-  void fitAll(); // 缂╂斁鍒板叏閮ㄨ鍥捐寖鍥?
+  void fitAll(); // 缩放到全部视图范围
   void loadBrepFile(const QString &filename,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
@@ -56,9 +57,9 @@ public:
   void applyMaterial(const Handle(AIS_InteractiveObject)& aisShape, const QVariantMap& metadata);
   void exportToSTEP(const QString &filename);
   void exportToGLTF(const QString &filename);
-  void drawBridgePier();            // 缁樺埗娴佺嚎鍨嬫ˉ澧?
-  void drawFullBridgePier();        // 缁樺埗瀹屽叏浣撴ˉ澧?
-  void annotateBridgePierFooting(); // 鏍囨敞妗ュⅸ鎵垮彴灏哄
+  void drawBridgePier();            // 绘制流线型桥墩
+  void drawFullBridgePier();        // 绘制完整体桥墩
+  void annotateBridgePierFooting(); // 标注桥墩承台尺寸
   void loadBrepAsFullBridge(
       const QString &filename, int count, double spacing,
       Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
@@ -147,7 +148,7 @@ private:
   QTimer m_refreshTimer;
 
   Handle(AIS_ViewCube) m_viewCube;
-  QSize m_lastSize; // 鐢ㄤ簬妫€娴?widget 澶у皬鍙樺寲
+  QSize m_lastSize; // 用于检测 widget 大小变化
 };
 
 #endif // OCCTWIDGET_H
