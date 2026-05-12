@@ -37,8 +37,12 @@
 // ============================================================
 
 static std::string ToStdString(const TCollection_ExtendedString &es) {
-  TCollection_AsciiString as(es);
-  return std::string(as.ToCString());
+  std::string result;
+  const Standard_ExtCharacter* p = es.ToExtString();
+  for (int i = 0; i < es.Length(); ++i) {
+    result += (char)(p[i] & 0xFF);
+  }
+  return result;
 }
 
 static TCollection_ExtendedString ToExtString(const std::string &s) {
