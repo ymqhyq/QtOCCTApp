@@ -1,4 +1,4 @@
-﻿#ifndef MAINWINDOW_H
+#ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
 #include "SARibbonMainWindow.h"
@@ -45,17 +45,18 @@ public slots:
 private slots:
   void onDrawLineClicked();
   void onAddShxText();
-  void onDrawBridgePier();            // 缁樺埗妗ュⅸ
-  void onDrawFullBridgePier();        // 缁樺埗瀹屽叏浣撴ˉ澧?
-  void onAnnotateBridgePierFooting(); // 鏍囨敞鏍囨敞妗ュⅸ鎵垮彴灏哄
-  void onDrawFoundation();            // 缁樺埗閬块浄閽堝熀纭€
-  void onDrawBedStone();              // 缁樺埗鍨煶
-  void onDrawBearing();               // 缁樺埗鏀骇
-  void onExportStepClicked();         // 瀵煎嚭涓篠TEP
-  void onExportGltfClicked();         // 瀵煎嚭涓篏LTF
+  void onDrawBridgePier();            // 绘制桥墩
+  void onDrawFullBridgePier();        // 绘制完全体桥�?
+  void onAnnotateBridgePierFooting(); // 标注标注桥墩承台尺寸
+  void onDrawFoundation();            // 绘制避雷针基础
+  void onDrawBedStone();              // 绘制垫石
+  void onDrawBearing();               // 绘制支座
+  void onExportStepClicked();         // 导出为STEP
+  void onExportGltfClicked();         // 导出为GLTF
+  void onExportIfcClicked();
   void onMousePositionChanged(double x, double y, double z);
   void onObjectSelected(const QVariantMap &metadata);
-  void onLoadAsiModel();             // 鍔犺浇ASI妯″瀷骞舵樉绀?
+  void onLoadAsiModel();             // 加载ASI模型并显�?
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);

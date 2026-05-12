@@ -8,9 +8,9 @@
 file(GLOB_RECURSE SOURCES "generated/*.cpp")
 file(GLOB_RECURSE HEADERS "generated/*.h")
 
-# GeometryService (manual classes)
-list(APPEND SOURCES "GeometryService.cpp")
-list(APPEND HEADERS "GeometryService.h")
+# GeometryService & IfcExportService (manual classes)
+list(APPEND SOURCES "GeometryService.cpp" "IfcExportService.cpp")
+list(APPEND HEADERS "GeometryService.h" "IfcExportService.h")
 
 # -----------------------------------------------------------------------------
 # Target Definition
@@ -26,7 +26,11 @@ set_target_properties(core_data_model PROPERTIES
 # -----------------------------------------------------------------------------
 # Compile Definitions & Options
 # -----------------------------------------------------------------------------
-target_compile_definitions(core_data_model PRIVATE BR_EXPORT_EXPORTS)
+target_compile_definitions(core_data_model PRIVATE 
+    BR_EXPORT_EXPORTS
+    HAS_SCHEMA_4x3_add2
+    BOOST_LIB_TOOLSET=vc142
+)
 
 if(MSVC)
     target_compile_options(core_data_model PRIVATE /FIStandard_Boolean.hxx /utf-8)
@@ -47,15 +51,24 @@ target_include_directories(core_data_model PUBLIC
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh"
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh/DS"
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools"
+    "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2019-x64/include"
+    "D:/IfcOpenShell/_deps/boost_1_86_0"
+    "D:/IfcOpenShell/_deps-vs2019-x64-installed/Eigen"
 )
 
 # -----------------------------------------------------------------------------
 # Link Libraries
 # -----------------------------------------------------------------------------
+target_link_directories(core_data_model PUBLIC "D:/IfcOpenShell/_deps/boost_1_86_0/stage/vs2019-x64/lib")
 target_link_libraries(core_data_model PUBLIC 
     ${OpenCASCADE_LIBRARIES}
     asiActiveData
     TBB::tbb
+    IfcParse
+    IfcGeom
+    Serializers
+    geometry_serializer
+    geometry_kernel_opencascade
 )
 
 # -----------------------------------------------------------------------------

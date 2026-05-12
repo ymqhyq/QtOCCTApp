@@ -8,6 +8,7 @@
 
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
+#include "IfcExportService.h"
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -89,9 +90,9 @@ void MainWindow::createRibbon() {
   connect(randLineAction, &QAction::triggered, [this]() { m_occtWidget->generateRandomLines(10000); });
   panelBasic->addLargeAction(randLineAction);
 
-  QAction *exportStepAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Export STEP", this);
-  connect(exportStepAction, &QAction::triggered, this, &MainWindow::onExportStepClicked);
-  panelBasic->addLargeAction(exportStepAction);
+  QAction *exportIfcAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Export IFC", this);
+  connect(exportIfcAction, &QAction::triggered, this, &MainWindow::onExportIfcClicked);
+  panelBasic->addLargeAction(exportIfcAction);
 
   QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/random.svg"), "Load ASI", this);
   connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
@@ -305,3 +306,20 @@ void MainWindow::onDrawBearing() {}
 void MainWindow::onExportStepClicked() {}
 void MainWindow::onExportGltfClicked() {}
 void MainWindow::dispatchTask(int) {}
+
+void MainWindow::onExportIfcClicked() {
+  if (m_currentModel.IsNull()) {
+    QMessageBox::warning(this, "Export IFC", "No model loaded.");
+    return;
+  }
+
+  QString filename = QFileDialog::getSaveFileName(this, "Export IFC 4x3", "", "IFC Files (*.ifc)");
+  if (filename.isEmpty()) return;
+
+  QMessageBox::information(this, "Export IFC", "Triggering Export...");
+  if (IfcExportService::Export(m_currentModel, filename.toStdString())) {
+    QMessageBox::information(this, "Export IFC", "Successfully exported to " + filename);
+  } else {
+    QMessageBox::critical(this, "Export IFC", "Failed to export IFC. Please check logs.");
+  }
+}

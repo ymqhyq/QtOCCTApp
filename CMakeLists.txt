@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set Qt6 root directory
-set(CMAKE_PREFIX_PATH "D:/Qt/6.10.1/msvc2022_64")
+set(CMAKE_PREFIX_PATH "D:/Qt/6.7.0/msvc2019_64")
 
 # Find required packages
 find_package(Qt6 COMPONENTS Core Widgets Gui OpenGL Svg QUIET)
@@ -36,6 +36,18 @@ find_package(VTK REQUIRED)
 # Set TBB directory
 set(TBB_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/3rdparty-vc14-64/tbb-2021.13.0-x64/lib/cmake/TBB")
 find_package(TBB CONFIG REQUIRED)
+
+# Set IfcOpenShell directory
+set(IFCOPENSHELL_DIR "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2019-x64")
+set(BOOST_ROOT "D:/IfcOpenShell/_deps/boost_1_86_0")
+
+include_directories(${IFCOPENSHELL_DIR}/include)
+include_directories(${BOOST_ROOT})
+
+# Define IfcOpenShell schemas
+add_definitions(-DHAS_SCHEMA_4x3_add2)
+
+link_directories(${IFCOPENSHELL_DIR}/lib)
 
 # Enable automatic MOC, UIC and RCC processing for Qt
 set(CMAKE_AUTOMOC ON)
@@ -136,6 +148,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${OpenCASCADE_LIBRARIES}
     ${VTK_LIBRARIES}
     TBB::tbb
+    IfcParse
+    IfcGeom
+    Serializers
 )
 
 # Set C++ properties for OCCT
