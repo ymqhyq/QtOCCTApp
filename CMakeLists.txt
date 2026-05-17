@@ -38,7 +38,7 @@ set(TBB_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug
 find_package(TBB CONFIG REQUIRED)
 
 # Set IfcOpenShell directory
-set(IFCOPENSHELL_DIR "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2019-x64")
+set(IFCOPENSHELL_DIR "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2026-x64-v142")
 set(BOOST_ROOT "D:/IfcOpenShell/_deps/boost_1_86_0")
 
 include_directories(${IFCOPENSHELL_DIR}/include)
@@ -68,6 +68,8 @@ add_executable(${PROJECT_NAME}
     src/ShxTextGenerator.cpp
     include/PythonSyntaxHighlighter.h
     src/PythonSyntaxHighlighter.cpp
+    include/ModelExplorerPanel.h
+    src/ModelExplorerPanel.cpp
     resources.qrc
 )
 
@@ -177,3 +179,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         ${CMAKE_SOURCE_DIR}/run_cq.py
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/run_cq.py
 )
+
+# Add test directory
+add_subdirectory(test)

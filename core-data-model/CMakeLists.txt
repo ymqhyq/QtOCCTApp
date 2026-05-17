@@ -51,7 +51,7 @@ target_include_directories(core_data_model PUBLIC
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh"
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh/DS"
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools"
-    "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2019-x64/include"
+    "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2026-x64-v142/include"
     "D:/IfcOpenShell/_deps/boost_1_86_0"
     "D:/IfcOpenShell/_deps-vs2019-x64-installed/Eigen"
 )
@@ -70,6 +70,10 @@ target_link_libraries(core_data_model PUBLIC
     geometry_serializer
     geometry_kernel_opencascade
 )
+
+if(MSVC)
+    target_link_options(core_data_model PUBLIC "/WHOLEARCHIVE:IfcParse")
+endif()
 
 # -----------------------------------------------------------------------------
 # Test Programs

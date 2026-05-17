@@ -3,3 +3,4 @@ call "D:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\v
 cd /d D:\QtOCCTApp
 cmake --build build --config Debug --target QtOCCTApp
 pause
+ 
