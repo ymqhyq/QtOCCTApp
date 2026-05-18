@@ -9,6 +9,9 @@
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
 #include "../include/ModelExplorerPanel.h"
+#include <BRepTools.hxx>
+#include <BRep_Builder.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
 #include "IfcExportService.h"
 #include <QApplication>
 #include <QCheckBox>
@@ -98,6 +101,10 @@ void MainWindow::createRibbon() {
   QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/random.svg"), "Load ASI", this);
   connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
   panelBasic->addLargeAction(loadAsiAction);
+
+  QAction *importBrepAction = new QAction(QIcon(":/resources/icons/random.svg"), "Import BREP", this);
+  connect(importBrepAction, &QAction::triggered, this, &MainWindow::onImportBrep);
+  panelBasic->addLargeAction(importBrepAction);
 
   SARibbonPanel *panelView = categoryMain->addPanel("View");
   QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Fit All", this);
@@ -448,6 +455,33 @@ void MainWindow::onLoadAsiModel() {
     m_occtWidget->fitAll();
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Model loaded: " + fileName, 3000);
+}
+
+void MainWindow::onImportBrep() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Import BREP", "", "BREP Files (*.brep *.occ);;All Files (*.*)");
+    if (fileName.isEmpty()) return;
+
+    TopoDS_Shape shape;
+    BRep_Builder builder;
+    if (!BRepTools::Read(shape, fileName.toStdString().c_str(), builder)) {
+        QMessageBox::critical(this, "Error", "Failed to read BREP file: " + fileName);
+        return;
+    }
+
+    if (shape.IsNull()) {
+        QMessageBox::warning(this, "Warning", "The imported shape is empty.");
+        return;
+    }
+
+    // Add metadata with filename
+    QVariantMap meta;
+    meta["Basic Information.Name"] = QFileInfo(fileName).fileName();
+    meta["Basic Information.Path"] = fileName;
+
+    m_occtWidget->addShape(shape, Quantity_Color(Quantity_NOC_GRAY70), Graphic3d_NOM_PLASTIC, meta);
+    m_occtWidget->fitAll();
+    
+    statusBar()->showMessage("BREP imported: " + fileName, 3000);
 }
 
 void MainWindow::onRunCqScript() {

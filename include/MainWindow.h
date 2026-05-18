@@ -58,6 +58,7 @@ private slots:
   void onExplorerNodeSelected(Handle(BrNode_adObject) node);
   void onObjectSelected(const QVariantMap &metadata);
   void onLoadAsiModel();             // 加载ASI模型并显示
+  void onImportBrep();               // 导入BREP文件
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
