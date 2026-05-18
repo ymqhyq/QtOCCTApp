@@ -68,8 +68,10 @@ if not exist "%APP_BIN%\brep_to_ifc.exe" (
 
 echo Running: "%APP_BIN%\brep_to_ifc.exe" %ARGS%
 "%APP_BIN%\brep_to_ifc.exe" %ARGS%
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo Application exited with error code: %ERRORLEVEL%
-    pause
-)
+set "EXIT_CODE=%ERRORLEVEL%"
+
+echo.
+echo =======================================================
+echo  brep_to_ifc execution finished with code: %EXIT_CODE%
+echo =======================================================
+pause
