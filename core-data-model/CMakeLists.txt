@@ -72,7 +72,7 @@ target_link_libraries(core_data_model PUBLIC
 )
 
 if(MSVC)
-    target_link_options(core_data_model PUBLIC "/WHOLEARCHIVE:IfcParse")
+    target_link_options(core_data_model PUBLIC "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
 endif()
 
 # -----------------------------------------------------------------------------

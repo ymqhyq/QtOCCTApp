@@ -49,6 +49,6 @@ target_link_libraries(test_crash PRIVATE
 )
 
 if(MSVC)
-    target_link_options(brep_to_ifc PRIVATE "/WHOLEARCHIVE:IfcParse")
-    target_link_options(test_crash PRIVATE "/WHOLEARCHIVE:IfcParse")
+    target_link_options(brep_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
+    target_link_options(test_crash PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
 endif()
