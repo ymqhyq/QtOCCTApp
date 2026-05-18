@@ -10,6 +10,7 @@ set "OCCT_BIN_DIR=%OCCT_DIR%\win64\vc14\bind"
 set "IFC_BIN_DIR=%ROOT_DIR%3rpart\ifcopenshell-vs2026-x64-v142\bind"
 set "ASIACTIVE_BIN=%ROOT_DIR%3rpart\asiActiveData\build\Debug"
 set "QT_BIN=%QT_DIR%\bin"
+set "RIBBON_BIN=%ROOT_DIR%3rpart\SARibbon_qt6.7.0_MSVC_x64_v142\bin"
 
 set "TP=%THIRDPARTY_DIR%"
 set "ANGLE=%TP%\angle-gles2-2.1.0-vc14-64\bin"
@@ -31,7 +32,7 @@ set "APP_BIN=%ROOT_DIR%build_v142\Debug"
 set "CORE_BIN=%ROOT_DIR%build_v142\core-data-model\Debug"
 
 :: Combine PATH
-set "PATH=%QT_BIN%;%OCCT_BIN_DIR%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%IFC_BIN_DIR%;%ASIACTIVE_BIN%;%CORE_BIN%;%APP_BIN%;%PATH%"
+set "PATH=%QT_BIN%;%OCCT_BIN_DIR%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%IFC_BIN_DIR%;%ASIACTIVE_BIN%;%RIBBON_BIN%;%CORE_BIN%;%APP_BIN%;%PATH%"
 
 :: Direct synchronous launch with all incoming arguments forwarded
 "%APP_BIN%\QtOCCTApp.exe" %*
