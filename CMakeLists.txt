@@ -62,6 +62,12 @@ find_library(IFC_GEOM_DEBUG    NAMES IfcGeom_d PATHS "${IFCOPENSHELL_DIR}/libd" 
 find_library(SERIALIZERS_RELEASE NAMES Serializers PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
 find_library(SERIALIZERS_DEBUG   NAMES Serializers_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
 
+find_library(GEOM_SER_RELEASE NAMES geometry_serializer PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
+find_library(GEOM_SER_DEBUG   NAMES geometry_serializer_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
+
+find_library(GEOM_KER_RELEASE NAMES geometry_kernel_opencascade PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
+find_library(GEOM_KER_DEBUG   NAMES geometry_kernel_opencascade_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
+
 # Find precompiled asiActiveData libraries individually for Debug and Release
 set(ASIACTIVEDATA_DIR "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData")
 find_library(ASIACTIVEDATA_RELEASE NAMES asiActiveData PATHS "${ASIACTIVEDATA_DIR}/build/Release" NO_DEFAULT_PATH)

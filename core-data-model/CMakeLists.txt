@@ -52,23 +52,23 @@ target_include_directories(core_data_model PUBLIC
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Mesh/DS"
     "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools"
     "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2026-x64-v142/include"
-    "D:/IfcOpenShell/_deps/boost_1_86_0"
-    "D:/IfcOpenShell/_deps-vs2019-x64-installed/Eigen"
+    "${CMAKE_SOURCE_DIR}/3rpart/boost_1_86_0"
+    "${CMAKE_SOURCE_DIR}/3rpart/Eigen"
 )
 
 # -----------------------------------------------------------------------------
 # Link Libraries
 # -----------------------------------------------------------------------------
-target_link_directories(core_data_model PUBLIC "D:/IfcOpenShell/_deps/boost_1_86_0/stage/vs2019-x64/lib")
+target_link_directories(core_data_model PUBLIC "${CMAKE_SOURCE_DIR}/3rpart/boost_1_86_0/stage/vs2026-x64-v142/lib")
 target_link_libraries(core_data_model PUBLIC 
     ${OpenCASCADE_LIBRARIES}
-    asiActiveData
     TBB::tbb
-    IfcParse
-    IfcGeom
-    Serializers
-    geometry_serializer
-    geometry_kernel_opencascade
+    debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
+    debug ${IFC_GEOM_DEBUG}    optimized ${IFC_GEOM_RELEASE}
+    debug ${SERIALIZERS_DEBUG} optimized ${SERIALIZERS_RELEASE}
+    debug ${GEOM_SER_DEBUG}    optimized ${GEOM_SER_RELEASE}
+    debug ${GEOM_KER_DEBUG}    optimized ${GEOM_KER_RELEASE}
+    debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
 )
 
 if(MSVC)
@@ -82,7 +82,7 @@ add_executable(test_load_bridge test_load_bridge.cpp)
 target_link_libraries(test_load_bridge PRIVATE 
     core_data_model 
     ${OpenCASCADE_LIBRARIES} 
-    asiActiveData
+    debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
 )
 
 add_executable(test_minimal test_minimal.cpp)
