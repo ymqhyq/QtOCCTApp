@@ -1,6 +1,10 @@
 #define HAS_SCHEMA_4x3_add2
 #include "IfcExportService.h"
 #include <BRepTools.hxx>
+#include <gp_Trsf.hxx>
+#include <gp_Ax1.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
 #include <BRep_Builder.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TopoDS_Compound.hxx>
@@ -381,22 +385,59 @@ void IfcExportService::TraverseAndExport(
   if (adObj.IsNull())
     return;
 
-  // 1. Calculate Local Placement
+  // 1. Calculate Local Placement (including precise Euler rotations rx, ry, rz)
   auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
   origin->setCoordinates(std::vector<double>{0.0, 0.0, 0.0});
+
+  gp_Dir dirZDir(0.0, 0.0, 1.0);
+  gp_Dir dirXDir(1.0, 0.0, 0.0);
 
   Handle(ActAPI_IUserParameter) p = adObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
   Handle(ActData_RealArrayParameter) typedP = ActData_ParameterFactory::AsRealArray(p);
   if (!typedP.IsNull() && typedP->NbElements() >= 3) {
     origin->setCoordinates(std::vector<double>{
         typedP->GetElement(0), typedP->GetElement(1), typedP->GetElement(2)});
+
+    if (typedP->NbElements() >= 6) {
+      double rx = typedP->GetElement(3);
+      double ry = typedP->GetElement(4);
+      double rz = typedP->GetElement(5);
+
+      gp_Trsf rot;
+      if (std::abs(rz) > 1e-6) {
+        gp_Trsf r;
+        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
+                      rz * 3.14159265358979323846 / 180.0);
+        rot.Multiply(r);
+      }
+      if (std::abs(ry) > 1e-6) {
+        gp_Trsf r;
+        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 1, 0)),
+                      ry * 3.14159265358979323846 / 180.0);
+        rot.Multiply(r);
+      }
+      if (std::abs(rx) > 1e-6) {
+        gp_Trsf r;
+        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)),
+                      rx * 3.14159265358979323846 / 180.0);
+        rot.Multiply(r);
+      }
+
+      gp_Dir transformedX(1.0, 0.0, 0.0);
+      transformedX.Transform(rot);
+      gp_Dir transformedZ(0.0, 0.0, 1.0);
+      transformedZ.Transform(rot);
+
+      dirXDir = transformedX;
+      dirZDir = transformedZ;
+    }
   }
 
   auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-  dirZ->setDirectionRatios(std::vector<double>{0.0, 0.0, 1.0});
+  dirZ->setDirectionRatios(std::vector<double>{dirZDir.X(), dirZDir.Y(), dirZDir.Z()});
   
   auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-  dirX->setDirectionRatios(std::vector<double>{1.0, 0.0, 0.0});
+  dirX->setDirectionRatios(std::vector<double>{dirXDir.X(), dirXDir.Y(), dirXDir.Z()});
   
   auto axis2 = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
   axis2->setLocation(origin);
