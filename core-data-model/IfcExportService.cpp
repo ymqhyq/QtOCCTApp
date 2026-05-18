@@ -320,80 +320,53 @@ void IfcExportService::AddGeometryToProduct(
     
     IfcUtil::IfcBaseClass* serialized = nullptr;
     
-    // 多级回退策略
+    // Stable serialization fallback sequence (aligned 100% with brep_to_ifc.cpp)
     try {
-        serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, true);
+        serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, false);
     } catch (...) {}
     
     if (!serialized) {
         try {
-            serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, false);
-        } catch (...) {}
-    }
-    
-    if (!serialized) {
-        try {
-            serialized = IfcGeom::tesselate("IFC4X3_ADD2", shape, 1.0);
+            serialized = IfcGeom::tesselate("IFC4X3_ADD2", shape, 2.0);
         } catch (...) {}
     }
 
     if (!serialized) return;
 
-    // 提取所有几何项 (RepresentationItems)
-    auto items = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcRepresentationItem>>();
+    // 2. High-fidelity entity registration and ContextOfItems binding (aligned with brep_to_ifc.cpp)
+    file.addEntity(serialized);
     
-    try {
-        if (serialized->declaration().is("IfcProductDefinitionShape")) {
-            auto prodRep = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
-            if (prodRep && prodRep->Representations()) {
-                auto reps = prodRep->Representations();
-                for (auto it = reps->begin(); it != reps->end(); ++it) {
-                    try {
-                        auto rep = *it;
-                        if (rep && rep->Items()) {
+    if (serialized->declaration().is("IfcProductDefinitionShape")) {
+        auto pds = (Ifc4x3_add2::IfcProductDefinitionShape*)serialized;
+        if (pds->Representations()) {
+            auto reps = pds->Representations();
+            for (auto it = reps->begin(); it != reps->end(); ++it) {
+                try {
+                    auto rep = *it;
+                    if (rep) {
+                        rep->setContextOfItems(context); // Bind representation context
+                        file.addEntity(rep);
+                        if (rep->Items()) {
                             auto repItems = rep->Items();
                             for (auto it2 = repItems->begin(); it2 != repItems->end(); ++it2) {
                                 try {
-                                    auto repItem = *it2;
-                                    if (repItem) {
-                                        items->push(repItem);
-                                        file.addEntity(repItem);
+                                    if (*it2) {
+                                        file.addEntity(*it2);
                                     }
                                 } catch (...) {}
                             }
                         }
-                    } catch (...) {}
-                }
-            }
-        } else if (serialized->declaration().is("IfcRepresentationItem")) {
-            auto repItem = (Ifc4x3_add2::IfcRepresentationItem *)serialized;
-            if (repItem) {
-                items->push(repItem);
-                file.addEntity(repItem);
+                    }
+                } catch (...) {}
             }
         }
-    } catch (...) {}
-
-    if (items->size() == 0) return;
-
-    // 手动构建表达层级，确保 ContextOfItems 绝对正确
-    auto shapeRep = new Ifc4x3_add2::IfcShapeRepresentation(
-        context, 
-        boost::optional<std::string>("Body"),
-        boost::optional<std::string>("Brep"), 
-        items);
-    file.addEntity(shapeRep);
-
-    auto reps = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcRepresentation>>();
-    reps->push(shapeRep);
-
-    auto productRep = new Ifc4x3_add2::IfcProductDefinitionShape(boost::none, boost::none, reps);
-    file.addEntity(productRep);
-    
-    product->setRepresentation(productRep);
-
-    // 2. Cache successful representation for instancing
-    g_geomInstanceCache[geoDefPtr] = productRep;
+        
+        // Directly assign the complete serialized representation shape!
+        product->setRepresentation(pds);
+        
+        // Cache successful representation for instancing
+        g_geomInstanceCache[geoDefPtr] = pds;
+    }
   } catch (...) {}
 }
 
