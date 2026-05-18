@@ -23,11 +23,9 @@ add_definitions(-D_UNICODE)
 add_definitions(-DUNICODE)
 
 add_executable(brep_to_ifc brep_to_ifc.cpp)
-add_executable(test_crash test_crash.cpp)
 
 if(MSVC)
     target_compile_options(brep_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
-    target_compile_options(test_crash PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
 endif()
 
 # Link brep_to_ifc using robust multi-config precompiled Debug/Release IfcOpenShell targets
@@ -43,12 +41,6 @@ target_link_libraries(brep_to_ifc PRIVATE
     TKTopAlgo
 )
 
-# Link test_crash
-target_link_libraries(test_crash PRIVATE
-    debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
-)
-
 if(MSVC)
     target_link_options(brep_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
-    target_link_options(test_crash PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
 endif()

@@ -537,7 +537,6 @@ void MainWindow::onExportIfcClicked() {
   QString filename = QFileDialog::getSaveFileName(this, "Export IFC 4x3", "", "IFC Files (*.ifc)");
   if (filename.isEmpty()) return;
 
-  QMessageBox::information(this, "Export IFC", "Triggering Export...");
   if (IfcExportService::Export(m_currentModel, filename.toStdString())) {
     QMessageBox::information(this, "Export IFC", "Successfully exported to " + filename);
   } else {

@@ -85,12 +85,8 @@ target_link_libraries(test_load_bridge PRIVATE
     debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
 )
 
-add_executable(test_minimal test_minimal.cpp)
-target_link_libraries(test_minimal PRIVATE core_data_model)
-
 # -----------------------------------------------------------------------------
 # Output Paths
 # -----------------------------------------------------------------------------
 set_target_properties(core_data_model PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(test_load_bridge PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set_target_properties(test_minimal PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

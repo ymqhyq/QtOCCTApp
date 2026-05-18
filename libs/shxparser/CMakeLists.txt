@@ -75,3 +75,30 @@ install(TARGETS shxparser
     RUNTIME DESTINATION bin
     PUBLIC_HEADER DESTINATION include
 )
+
+# =============================================================
+# 组织 IDE 中的项目结构（Visual Studio 解决方案文件夹/项目筛选器）
+# =============================================================
+# 启用解决方案文件夹功能
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+# 将主库 shxparser 放入 "ShxParser" 文件夹下
+set_target_properties(shxparser PROPERTIES FOLDER "ShxParser")
+
+# 将所有示例可执行程序放入 "ShxParser/Examples" 文件夹下
+if(SHX_BUILD_EXAMPLES)
+    set(SHX_EXAMPLES shx_example bigfont_test chinese_test mixed_test dual_font_test ascii_diag)
+    foreach(target IN LISTS SHX_EXAMPLES)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES FOLDER "ShxParser/Examples")
+        endif()
+    endforeach()
+endif()
+
+# 将测试程序放入 "ShxParser/Tests" 文件夹下
+if(SHX_BUILD_TESTS)
+    if(TARGET shx_test)
+        set_target_properties(shx_test PROPERTIES FOLDER "ShxParser/Tests")
+    endif()
+endif()
+
