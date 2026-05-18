@@ -1,24 +1,27 @@
 #define HAS_SCHEMA_4x3_add2
 #include "IfcExportService.h"
 #include <BRepTools.hxx>
-#include <gp_Trsf.hxx>
-#include <gp_Ax1.hxx>
-#include <gp_Dir.hxx>
-#include <gp_Pnt.hxx>
 #include <BRep_Builder.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TopoDS_Compound.hxx>
 #include <boost/make_shared.hpp>
-#include <fstream>
-#include <iostream>
-#include <random>
-#include <vector>
 #include <ctime>
-#include <sstream>
+#include <fstream>
+#include <gp_Ax1.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Trsf.hxx>
+#include <iostream>
 #include <map>
+#include <random>
+#include <sstream>
+#include <vector>
 
-// Thread-safe cache to store generated product representations per unique geometry definition
-static thread_local std::map<void*, Ifc4x3_add2::IfcProductDefinitionShape*> g_geomInstanceCache;
+
+// Thread-safe cache to store generated product representations per unique
+// geometry definition
+static thread_local std::map<void *, Ifc4x3_add2::IfcProductDefinitionShape *>
+    g_geomInstanceCache;
 
 // IfcOpenShell headers
 #include <ifcgeom/Serialization/Serialization.h>
@@ -39,204 +42,223 @@ void throw_exception(std::exception const &e) {
 
 static std::string GenerateIfcGuid();
 
-
-bool IfcExportService::ExportShapeToFile(const TopoDS_Shape& shape, const std::string& filename) {
-    if (shape.IsNull()) return false;
-
-    try {
-        const IfcParse::schema_definition* schema = IfcParse::schema_by_name("Ifc4x3_add2");
-        if (!schema) return false;
-        
-        IfcParse::register_schema(const_cast<IfcParse::schema_definition*>(schema));
-
-        IfcParse::IfcFile file(schema, IfcParse::FT_IFCSPF);
-
-        auto person = CreateEntity<Ifc4x3_add2::IfcPerson>(file);
-        person->setGivenName(std::string("User"));
-
-        auto org = CreateEntity<Ifc4x3_add2::IfcOrganization>(file);
-        org->setName(std::string("QtOCCTApp"));
-
-        auto personOrg = CreateEntity<Ifc4x3_add2::IfcPersonAndOrganization>(file);
-        personOrg->setThePerson(person);
-        personOrg->setTheOrganization(org);
-
-        auto app = CreateEntity<Ifc4x3_add2::IfcApplication>(file);
-        app->setApplicationDeveloper(org);
-        app->setVersion(std::string("1.0"));
-        app->setApplicationFullName(std::string("QtOCCTApp"));
-        app->setApplicationIdentifier(std::string("QtOCCTApp"));
-
-        auto ownerHist = CreateEntity<Ifc4x3_add2::IfcOwnerHistory>(file);
-        ownerHist->setOwningUser(personOrg);
-        ownerHist->setOwningApplication(app);
-        ownerHist->setChangeAction(Ifc4x3_add2::IfcChangeActionEnum::IfcChangeAction_NOCHANGE);
-        ownerHist->setCreationDate((int)time(NULL));
-
-        auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
-        origin->setCoordinates(std::vector<double>{0.0, 0.0, 0.0});
-
-        auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-        dirZ->setDirectionRatios(std::vector<double>{0.0, 0.0, 1.0});
-
-        auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-        dirX->setDirectionRatios(std::vector<double>{1.0, 0.0, 0.0});
-
-        auto worldCS = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
-        worldCS->setLocation(origin);
-        worldCS->setAxis(dirZ);
-        worldCS->setRefDirection(dirX);
-
-        auto context = CreateEntity<Ifc4x3_add2::IfcGeometricRepresentationContext>(file);
-        context->setContextType(std::string("Model"));
-        context->setContextIdentifier(std::string("Model"));
-        context->setCoordinateSpaceDimension(3);
-        context->setPrecision(1e-5);
-        context->setWorldCoordinateSystem(worldCS);
-
-        auto siLength = CreateEntity<Ifc4x3_add2::IfcSIUnit>(file);
-        siLength->setUnitType(Ifc4x3_add2::IfcUnitEnum::IfcUnit_LENGTHUNIT);
-        siLength->setPrefix(Ifc4x3_add2::IfcSIPrefix::IfcSIPrefix_MILLI);
-        siLength->setName(Ifc4x3_add2::IfcSIUnitName::IfcSIUnitName_METRE);
-
-        auto units = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcUnit>>();
-        units->push(siLength);
-        
-        auto unitAssign = CreateEntity<Ifc4x3_add2::IfcUnitAssignment>(file);
-        unitAssign->setUnits(units);
-
-        auto contexts = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcRepresentationContext>>();
-        contexts->push(context);
-        
-        auto project = CreateEntity<Ifc4x3_add2::IfcProject>(file);
-        project->setGlobalId(GenerateIfcGuid());
-        project->setOwnerHistory(ownerHist);
-        project->setName(std::string("BRep Project"));
-        project->setRepresentationContexts(contexts);
-        project->setUnitsInContext(unitAssign);
-
-        auto sitePlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
-        sitePlacement->setRelativePlacement(worldCS);
-
-        auto site = CreateEntity<Ifc4x3_add2::IfcSite>(file);
-        site->setGlobalId(GenerateIfcGuid());
-        site->setOwnerHistory(ownerHist);
-        site->setName(std::string("Site"));
-        site->setObjectPlacement(sitePlacement);
-        site->setCompositionType(Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
-
-        auto siteSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
-        siteSet->push(site);
-        
-        auto relProjSite = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
-        relProjSite->setGlobalId(GenerateIfcGuid());
-        relProjSite->setOwnerHistory(ownerHist);
-        relProjSite->setRelatingObject(project);
-        relProjSite->setRelatedObjects(siteSet);
-
-        auto buildingPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
-        buildingPlacement->setPlacementRelTo(sitePlacement);
-        buildingPlacement->setRelativePlacement(worldCS);
-
-        auto building = CreateEntity<Ifc4x3_add2::IfcBuilding>(file);
-        building->setGlobalId(GenerateIfcGuid());
-        building->setOwnerHistory(ownerHist);
-        building->setName(std::string("Building"));
-        building->setObjectPlacement(buildingPlacement);
-        building->setCompositionType(Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
-
-        auto buildingSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
-        buildingSet->push(building);
-        
-        auto relSiteBuilding = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
-        relSiteBuilding->setGlobalId(GenerateIfcGuid());
-        relSiteBuilding->setOwnerHistory(ownerHist);
-        relSiteBuilding->setRelatingObject(site);
-        relSiteBuilding->setRelatedObjects(buildingSet);
-
-        IfcUtil::IfcBaseClass* serialized = nullptr;
-        try {
-            serialized = IfcGeom::serialise(schema->name(), shape, true);
-        } catch (...) {}
-        if (!serialized) {
-            try {
-                serialized = IfcGeom::serialise(schema->name(), shape, false);
-            } catch (...) {}
-        }
-        if (!serialized) {
-            try {
-                serialized = IfcGeom::tesselate(schema->name(), shape, 2.0);
-            } catch (...) {}
-        }
-
-        if (!serialized) return false;
-
-        file.addEntity(serialized);
-        if (serialized->declaration().is("IfcProductDefinitionShape")) {
-            auto pds = (Ifc4x3_add2::IfcProductDefinitionShape*)serialized;
-            if (pds->Representations()) {
-                auto reps = pds->Representations();
-                for (auto it = reps->begin(); it != reps->end(); ++it) {
-                    auto rep = *it;
-                    if (rep) {
-                        rep->setContextOfItems(context);
-                        file.addEntity(rep);
-                        if (rep->Items()) {
-                            auto repItems = rep->Items();
-                            for (auto it2 = repItems->begin(); it2 != repItems->end(); ++it2) {
-                                if (*it2) {
-                                    file.addEntity(*it2);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        auto proxyPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
-        proxyPlacement->setPlacementRelTo(buildingPlacement);
-        proxyPlacement->setRelativePlacement(worldCS);
-
-        auto proxy = CreateEntity<Ifc4x3_add2::IfcBuildingElementProxy>(file);
-        proxy->setGlobalId(GenerateIfcGuid());
-        proxy->setOwnerHistory(ownerHist);
-        proxy->setName(std::string("BRep Proxy Element"));
-        proxy->setObjectType(std::string("Proxy"));
-        proxy->setObjectPlacement(proxyPlacement);
-        
-        if (serialized->declaration().is("IfcProductDefinitionShape")) {
-            proxy->setRepresentation((Ifc4x3_add2::IfcProductDefinitionShape*)serialized);
-        }
-
-        auto productSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
-        productSet->push(proxy);
-
-        auto relContained = CreateEntity<Ifc4x3_add2::IfcRelContainedInSpatialStructure>(file);
-        relContained->setGlobalId(GenerateIfcGuid());
-        relContained->setOwnerHistory(ownerHist);
-        relContained->setRelatedElements(productSet);
-        relContained->setRelatingStructure(building);
-
-        std::stringstream ss;
-        ss << file;
-        std::string content = ss.str();
-
-        size_t pos = content.find("FILE_SCHEMA(('IFC4X3_ADD2'));");
-        if (pos != std::string::npos) {
-            content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
-        }
-
-        std::ofstream ofs(filename);
-        if (ofs.is_open()) {
-            ofs << content;
-            ofs.close();
-            return true;
-        }
-    } catch (...) {
-        return false;
-    }
+bool IfcExportService::ExportShapeToFile(const TopoDS_Shape &shape,
+                                         const std::string &filename) {
+  if (shape.IsNull())
     return false;
+
+  try {
+    const IfcParse::schema_definition *schema =
+        IfcParse::schema_by_name("Ifc4x3_add2");
+    if (!schema)
+      return false;
+
+    IfcParse::register_schema(
+        const_cast<IfcParse::schema_definition *>(schema));
+
+    IfcParse::IfcFile file(schema, IfcParse::FT_IFCSPF);
+
+    auto person = CreateEntity<Ifc4x3_add2::IfcPerson>(file);
+    person->setGivenName(std::string("User"));
+
+    auto org = CreateEntity<Ifc4x3_add2::IfcOrganization>(file);
+    org->setName(std::string("QtOCCTApp"));
+
+    auto personOrg = CreateEntity<Ifc4x3_add2::IfcPersonAndOrganization>(file);
+    personOrg->setThePerson(person);
+    personOrg->setTheOrganization(org);
+
+    auto app = CreateEntity<Ifc4x3_add2::IfcApplication>(file);
+    app->setApplicationDeveloper(org);
+    app->setVersion(std::string("1.0"));
+    app->setApplicationFullName(std::string("QtOCCTApp"));
+    app->setApplicationIdentifier(std::string("QtOCCTApp"));
+
+    auto ownerHist = CreateEntity<Ifc4x3_add2::IfcOwnerHistory>(file);
+    ownerHist->setOwningUser(personOrg);
+    ownerHist->setOwningApplication(app);
+    ownerHist->setChangeAction(
+        Ifc4x3_add2::IfcChangeActionEnum::IfcChangeAction_NOCHANGE);
+    ownerHist->setCreationDate((int)time(NULL));
+
+    auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
+    origin->setCoordinates(std::vector<double>{0.0, 0.0, 0.0});
+
+    auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+    dirZ->setDirectionRatios(std::vector<double>{0.0, 0.0, 1.0});
+
+    auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+    dirX->setDirectionRatios(std::vector<double>{1.0, 0.0, 0.0});
+
+    auto worldCS = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
+    worldCS->setLocation(origin);
+    worldCS->setAxis(dirZ);
+    worldCS->setRefDirection(dirX);
+
+    auto context =
+        CreateEntity<Ifc4x3_add2::IfcGeometricRepresentationContext>(file);
+    context->setContextType(std::string("Model"));
+    context->setContextIdentifier(std::string("Model"));
+    context->setCoordinateSpaceDimension(3);
+    context->setPrecision(1e-5);
+    context->setWorldCoordinateSystem(worldCS);
+
+    auto siLength = CreateEntity<Ifc4x3_add2::IfcSIUnit>(file);
+    siLength->setUnitType(Ifc4x3_add2::IfcUnitEnum::IfcUnit_LENGTHUNIT);
+    siLength->setPrefix(Ifc4x3_add2::IfcSIPrefix::IfcSIPrefix_MILLI);
+    siLength->setName(Ifc4x3_add2::IfcSIUnitName::IfcSIUnitName_METRE);
+
+    auto units = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcUnit>>();
+    units->push(siLength);
+
+    auto unitAssign = CreateEntity<Ifc4x3_add2::IfcUnitAssignment>(file);
+    unitAssign->setUnits(units);
+
+    auto contexts = boost::make_shared<
+        aggregate_of<Ifc4x3_add2::IfcRepresentationContext>>();
+    contexts->push(context);
+
+    auto project = CreateEntity<Ifc4x3_add2::IfcProject>(file);
+    project->setGlobalId(GenerateIfcGuid());
+    project->setOwnerHistory(ownerHist);
+    project->setName(std::string("BRep Project"));
+    project->setRepresentationContexts(contexts);
+    project->setUnitsInContext(unitAssign);
+
+    auto sitePlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
+    sitePlacement->setRelativePlacement(worldCS);
+
+    auto site = CreateEntity<Ifc4x3_add2::IfcSite>(file);
+    site->setGlobalId(GenerateIfcGuid());
+    site->setOwnerHistory(ownerHist);
+    site->setName(std::string("Site"));
+    site->setObjectPlacement(sitePlacement);
+    site->setCompositionType(
+        Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
+
+    auto siteSet =
+        boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
+    siteSet->push(site);
+
+    auto relProjSite = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
+    relProjSite->setGlobalId(GenerateIfcGuid());
+    relProjSite->setOwnerHistory(ownerHist);
+    relProjSite->setRelatingObject(project);
+    relProjSite->setRelatedObjects(siteSet);
+
+    auto buildingPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
+    buildingPlacement->setPlacementRelTo(sitePlacement);
+    buildingPlacement->setRelativePlacement(worldCS);
+
+    auto building = CreateEntity<Ifc4x3_add2::IfcBuilding>(file);
+    building->setGlobalId(GenerateIfcGuid());
+    building->setOwnerHistory(ownerHist);
+    building->setName(std::string("Building"));
+    building->setObjectPlacement(buildingPlacement);
+    building->setCompositionType(
+        Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
+
+    auto buildingSet =
+        boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
+    buildingSet->push(building);
+
+    auto relSiteBuilding = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
+    relSiteBuilding->setGlobalId(GenerateIfcGuid());
+    relSiteBuilding->setOwnerHistory(ownerHist);
+    relSiteBuilding->setRelatingObject(site);
+    relSiteBuilding->setRelatedObjects(buildingSet);
+
+    IfcUtil::IfcBaseClass *serialized = nullptr;
+    try {
+      serialized = IfcGeom::serialise(schema->name(), shape, true);
+    } catch (...) {
+    }
+    if (!serialized) {
+      try {
+        serialized = IfcGeom::serialise(schema->name(), shape, false);
+      } catch (...) {
+      }
+    }
+    if (!serialized) {
+      try {
+        serialized = IfcGeom::tesselate(schema->name(), shape, 2.0);
+      } catch (...) {
+      }
+    }
+
+    if (!serialized)
+      return false;
+
+    file.addEntity(serialized);
+    if (serialized->declaration().is("IfcProductDefinitionShape")) {
+      auto pds = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
+      if (pds->Representations()) {
+        auto reps = pds->Representations();
+        for (auto it = reps->begin(); it != reps->end(); ++it) {
+          auto rep = *it;
+          if (rep) {
+            rep->setContextOfItems(context);
+            file.addEntity(rep);
+            if (rep->Items()) {
+              auto repItems = rep->Items();
+              for (auto it2 = repItems->begin(); it2 != repItems->end();
+                   ++it2) {
+                if (*it2) {
+                  file.addEntity(*it2);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    auto proxyPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
+    proxyPlacement->setPlacementRelTo(buildingPlacement);
+    proxyPlacement->setRelativePlacement(worldCS);
+
+    auto proxy = CreateEntity<Ifc4x3_add2::IfcBuildingElementProxy>(file);
+    proxy->setGlobalId(GenerateIfcGuid());
+    proxy->setOwnerHistory(ownerHist);
+    proxy->setName(std::string("BRep Proxy Element"));
+    proxy->setObjectType(std::string("Proxy"));
+    proxy->setObjectPlacement(proxyPlacement);
+
+    if (serialized->declaration().is("IfcProductDefinitionShape")) {
+      proxy->setRepresentation(
+          (Ifc4x3_add2::IfcProductDefinitionShape *)serialized);
+    }
+
+    auto productSet =
+        boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
+    productSet->push(proxy);
+
+    auto relContained =
+        CreateEntity<Ifc4x3_add2::IfcRelContainedInSpatialStructure>(file);
+    relContained->setGlobalId(GenerateIfcGuid());
+    relContained->setOwnerHistory(ownerHist);
+    relContained->setRelatedElements(productSet);
+    relContained->setRelatingStructure(building);
+
+    std::stringstream ss;
+    ss << file;
+    std::string content = ss.str();
+
+    size_t pos = content.find("FILE_SCHEMA(('IFC4X3_ADD2'));");
+    if (pos != std::string::npos) {
+      content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
+    }
+
+    std::ofstream ofs(filename);
+    if (ofs.is_open()) {
+      ofs << content;
+      ofs.close();
+      return true;
+    }
+  } catch (...) {
+    return false;
+  }
+  return false;
 }
 
 std::string
@@ -309,69 +331,80 @@ void IfcExportService::AddGeometryToProduct(
     return;
 
   // 1. Precise Geometry Instancing via OpenCASCADE TShape Pointer
-  void* tshapePtr = shape.TShape().get();
+  void *tshapePtr = shape.TShape().get();
   if (g_geomInstanceCache.find(tshapePtr) != g_geomInstanceCache.end()) {
-      auto cachedRep = g_geomInstanceCache[tshapePtr];
-      if (cachedRep) {
-          product->setRepresentation(cachedRep);
-          return; // Perfect zero-cost geometrical instancing share
-      }
+    auto cachedRep = g_geomInstanceCache[tshapePtr];
+    if (cachedRep) {
+      product->setRepresentation(cachedRep);
+      return; // Perfect zero-cost geometrical instancing share
+    }
   }
 
   try {
-    const IfcParse::schema_definition* schema = &Ifc4x3_add2::get_schema();
-    IfcParse::register_schema(const_cast<IfcParse::schema_definition*>(schema));
-    
-    IfcUtil::IfcBaseClass* serialized = nullptr;
-    
-    // Stable serialization fallback sequence (aligned 100% with brep_to_ifc.cpp)
+    const IfcParse::schema_definition *schema = &Ifc4x3_add2::get_schema();
+    IfcParse::register_schema(
+        const_cast<IfcParse::schema_definition *>(schema));
+
+    IfcUtil::IfcBaseClass *serialized = nullptr;
+
+    // Stable serialization fallback sequence (aligned 100% with
+    // brep_to_ifc.cpp)
     try {
-        serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, false);
-    } catch (...) {}
-    
+      serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, false);
+    } catch (...) {
+    }
+
     if (!serialized) {
-        try {
-            serialized = IfcGeom::tesselate("IFC4X3_ADD2", shape, 2.0);
-        } catch (...) {}
+      try {
+        serialized = IfcGeom::tesselate("IFC4X3_ADD2", shape, 2.0);
+      } catch (...) {
+      }
     }
 
-    if (!serialized) return;
+    if (!serialized)
+      return;
 
-    // 2. High-fidelity entity registration and ContextOfItems binding (aligned with brep_to_ifc.cpp)
+    // 2. High-fidelity entity registration and ContextOfItems binding (aligned
+    // with brep_to_ifc.cpp)
     file.addEntity(serialized);
-    
+
     if (serialized->declaration().is("IfcProductDefinitionShape")) {
-        auto pds = (Ifc4x3_add2::IfcProductDefinitionShape*)serialized;
-        if (pds->Representations()) {
-            auto reps = pds->Representations();
-            for (auto it = reps->begin(); it != reps->end(); ++it) {
-                try {
-                    auto rep = *it;
-                    if (rep) {
-                        rep->setContextOfItems(context); // Bind representation context
-                        file.addEntity(rep);
-                        if (rep->Items()) {
-                            auto repItems = rep->Items();
-                            for (auto it2 = repItems->begin(); it2 != repItems->end(); ++it2) {
-                                try {
-                                    if (*it2) {
-                                        file.addEntity(*it2);
-                                    }
-                                } catch (...) {}
-                            }
-                        }
+      auto pds = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
+      if (pds->Representations()) {
+        auto reps = pds->Representations();
+        for (auto it = reps->begin(); it != reps->end(); ++it) {
+          try {
+            auto rep = *it;
+            if (rep) {
+              rep->setContextOfItems(context); // Bind representation context
+              file.addEntity(rep);
+              if (rep->Items()) {
+                auto repItems = rep->Items();
+                for (auto it2 = repItems->begin(); it2 != repItems->end();
+                     ++it2) {
+                  try {
+                    if (*it2) {
+                      file.addEntity(*it2);
                     }
-                } catch (...) {}
+                  } catch (...) {
+                  }
+                }
+              }
             }
+          } catch (...) {
+          }
         }
-        
-        // Directly assign the complete serialized representation shape!
-        product->setRepresentation(pds);
-        
-        // Cache successful representation for instancing via its unique TShape address
-        g_geomInstanceCache[tshapePtr] = pds;
+      }
+
+      // Directly assign the complete serialized representation shape!
+      product->setRepresentation(pds);
+
+      // Cache successful representation for instancing via its unique TShape
+      // address
+      g_geomInstanceCache[tshapePtr] = pds;
     }
-  } catch (...) {}
+  } catch (...) {
+  }
 }
 
 void IfcExportService::TraverseAndExport(
@@ -392,8 +425,10 @@ void IfcExportService::TraverseAndExport(
   gp_Dir dirZDir(0.0, 0.0, 1.0);
   gp_Dir dirXDir(1.0, 0.0, 0.0);
 
-  Handle(ActAPI_IUserParameter) p = adObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
-  Handle(ActData_RealArrayParameter) typedP = ActData_ParameterFactory::AsRealArray(p);
+  Handle(ActAPI_IUserParameter) p =
+      adObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
+  Handle(ActData_RealArrayParameter) typedP =
+      ActData_ParameterFactory::AsRealArray(p);
   if (!typedP.IsNull() && typedP->NbElements() >= 3) {
     origin->setCoordinates(std::vector<double>{
         typedP->GetElement(0), typedP->GetElement(1), typedP->GetElement(2)});
@@ -434,11 +469,13 @@ void IfcExportService::TraverseAndExport(
   }
 
   auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-  dirZ->setDirectionRatios(std::vector<double>{dirZDir.X(), dirZDir.Y(), dirZDir.Z()});
-  
+  dirZ->setDirectionRatios(
+      std::vector<double>{dirZDir.X(), dirZDir.Y(), dirZDir.Z()});
+
   auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-  dirX->setDirectionRatios(std::vector<double>{dirXDir.X(), dirXDir.Y(), dirXDir.Z()});
-  
+  dirX->setDirectionRatios(
+      std::vector<double>{dirXDir.X(), dirXDir.Y(), dirXDir.Z()});
+
   auto axis2 = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
   axis2->setLocation(origin);
   axis2->setAxis(dirZ);
@@ -449,29 +486,34 @@ void IfcExportService::TraverseAndExport(
   localPlacement->setRelativePlacement(axis2);
 
   // 2. Create IFC Product
-  Ifc4x3_add2::IfcProduct *product = CreateIfcProduct(adObj, file, ownerHist, localPlacement);
-  
+  Ifc4x3_add2::IfcProduct *product =
+      CreateIfcProduct(adObj, file, ownerHist, localPlacement);
+
   exportedCount++;
 
   // 3. Add Geometry
   AddGeometryToProduct(adObj, file, product, context);
 
   // 4. Link to Parent (Spatial Aggregation vs Contained in Spatial Structure)
-  auto childSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
+  auto childSet =
+      boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
   childSet->push(product);
 
   // 4. Link to Parent & Spatial Container
-  // 核心逻辑：如果当前产品不是空间元素（Site, Bridge等），则必须被包含在空间容器中
+  // 核心逻辑：如果当前产品不是空间元素（Site,
+  // Bridge等），则必须被包含在空间容器中
   if (!product->declaration().is("IfcSpatialElement")) {
-      auto productSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
-      productSet->push(product);
+    auto productSet =
+        boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
+    productSet->push(product);
 
-      auto relContained = CreateEntity<Ifc4x3_add2::IfcRelContainedInSpatialStructure>(file);
-      relContained->setGlobalId(GenerateIfcGuid());
-      relContained->setOwnerHistory(ownerHist);
-      relContained->setRelatedElements(productSet);
-      relContained->setRelatingStructure(spatialContainer);
-  } 
+    auto relContained =
+        CreateEntity<Ifc4x3_add2::IfcRelContainedInSpatialStructure>(file);
+    relContained->setGlobalId(GenerateIfcGuid());
+    relContained->setOwnerHistory(ownerHist);
+    relContained->setRelatedElements(productSet);
+    relContained->setRelatingStructure(spatialContainer);
+  }
 
   // 始终建立聚合/嵌套关系，以构建完整的装配树
   auto relAgg = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
@@ -481,15 +523,16 @@ void IfcExportService::TraverseAndExport(
   relAgg->setRelatedObjects(childSet);
 
   // 5. Recursive Children
-  Ifc4x3_add2::IfcSpatialElement* nextSpatial = spatialContainer;
+  Ifc4x3_add2::IfcSpatialElement *nextSpatial = spatialContainer;
   if (product->declaration().is("IfcSpatialElement")) {
-      nextSpatial = (Ifc4x3_add2::IfcSpatialElement*)product;
+    nextSpatial = (Ifc4x3_add2::IfcSpatialElement *)product;
   }
 
-  NCollection_Sequence<Handle(BrNode_adObject)> children = adObj->GetSubObjectsList();
+  NCollection_Sequence<Handle(BrNode_adObject)> children =
+      adObj->GetSubObjectsList();
   for (int i = 1; i <= children.Length(); ++i) {
-    TraverseAndExport(children.Value(i), file, product, nextSpatial, localPlacement,
-                      ownerHist, context, exportedCount);
+    TraverseAndExport(children.Value(i), file, product, nextSpatial,
+                      localPlacement, ownerHist, context, exportedCount);
   }
 }
 
@@ -515,14 +558,14 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     // OwnerHistory
     auto person = CreateEntity<Ifc4x3_add2::IfcPerson>(file);
     person->setGivenName(std::string("User"));
-    
+
     auto org = CreateEntity<Ifc4x3_add2::IfcOrganization>(file);
     org->setName(std::string("QtOCCTApp"));
-    
+
     auto personOrg = CreateEntity<Ifc4x3_add2::IfcPersonAndOrganization>(file);
     personOrg->setThePerson(person);
     personOrg->setTheOrganization(org);
-    
+
     auto app = CreateEntity<Ifc4x3_add2::IfcApplication>(file);
     app->setApplicationDeveloper(org);
     app->setVersion(std::string("1.0"));
@@ -531,25 +574,27 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     auto ownerHist = CreateEntity<Ifc4x3_add2::IfcOwnerHistory>(file);
     ownerHist->setOwningUser(personOrg);
     ownerHist->setOwningApplication(app);
-    ownerHist->setChangeAction(Ifc4x3_add2::IfcChangeActionEnum::IfcChangeAction_NOCHANGE);
+    ownerHist->setChangeAction(
+        Ifc4x3_add2::IfcChangeActionEnum::IfcChangeAction_NOCHANGE);
     ownerHist->setCreationDate((int)time(NULL));
 
     // Context
     auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
     origin->setCoordinates(std::vector<double>{0.0, 0.0, 0.0});
-    
+
     auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
     dirZ->setDirectionRatios(std::vector<double>{0.0, 0.0, 1.0});
-    
+
     auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
     dirX->setDirectionRatios(std::vector<double>{1.0, 0.0, 0.0});
-    
+
     auto worldCS = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
     worldCS->setLocation(origin);
     worldCS->setAxis(dirZ);
     worldCS->setRefDirection(dirX);
 
-    auto context = CreateEntity<Ifc4x3_add2::IfcGeometricRepresentationContext>(file);
+    auto context =
+        CreateEntity<Ifc4x3_add2::IfcGeometricRepresentationContext>(file);
     context->setContextType(std::string("Model"));
     context->setContextIdentifier(std::string("Model"));
     context->setCoordinateSpaceDimension(3);
@@ -570,7 +615,7 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     auto contexts = boost::make_shared<
         aggregate_of<Ifc4x3_add2::IfcRepresentationContext>>();
     contexts->push(context);
-    
+
     auto project = CreateEntity<Ifc4x3_add2::IfcProject>(file);
     project->setGlobalId(GenerateIfcGuid());
     project->setOwnerHistory(ownerHist);
@@ -581,13 +626,14 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     // Site
     auto sitePlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
     sitePlacement->setRelativePlacement(worldCS);
-    
+
     auto site = CreateEntity<Ifc4x3_add2::IfcSite>(file);
     site->setGlobalId(GenerateIfcGuid());
     site->setOwnerHistory(ownerHist);
     site->setName(std::string("Site"));
     site->setObjectPlacement(sitePlacement);
-    site->setCompositionType(Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
+    site->setCompositionType(
+        Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
 
     auto siteSet =
         boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
@@ -607,7 +653,8 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     building->setOwnerHistory(ownerHist);
     building->setName(std::string("Building"));
     building->setObjectPlacement(buildingPlacement);
-    building->setCompositionType(Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
+    building->setCompositionType(
+        Ifc4x3_add2::IfcElementCompositionEnum::IfcElementComposition_ELEMENT);
 
     auto buildingSet =
         boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
@@ -627,17 +674,12 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
         Handle(BrNode_adObject) obj =
             Handle(BrNode_adObject)::DownCast(it->Value());
         if (!obj.IsNull()) {
-          TraverseAndExport(obj, file, building, building, buildingPlacement, ownerHist,
-                            context, exportedCount);
+          TraverseAndExport(obj, file, building, building, buildingPlacement,
+                            ownerHist, context, exportedCount);
         }
       }
-      std::cout << "[IfcExportService] Exported " << exportedCount << " nodes. (VERSION: 2026-05-14-FIXED)"
-                << std::endl;
-    }
-
-    std::string final_filename = filename;
-    if (final_filename.find("111.ifc") != std::string::npos) {
-        final_filename = "D:/QtOCCTApp/111_v2.ifc";
+      std::cout << "[IfcExportService] Exported " << exportedCount
+                << " nodes. (VERSION: 2026-05-14-FIXED)" << std::endl;
     }
 
     std::stringstream ss;
@@ -647,14 +689,14 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     // Stream rewrite schema to IFC4 for general compatibility
     size_t pos = content.find("FILE_SCHEMA(('IFC4X3_ADD2'));");
     if (pos != std::string::npos) {
-        content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
+      content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
     }
 
-    std::ofstream f(final_filename);
+    std::ofstream f(filename);
     if (f.is_open()) {
       f << content;
       f.close();
-      std::cout << "[IfcExportService] File saved: " << final_filename << std::endl;
+      std::cout << "[IfcExportService] File saved: " << filename << std::endl;
     }
 
     return true;
