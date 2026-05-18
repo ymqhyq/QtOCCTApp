@@ -3,7 +3,7 @@ set "ROOT_DIR=D:\QtOCCTApp\"
 set "OCCT_ROOT=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined"
 set "THIRDPARTY_DIR=%OCCT_ROOT%\3rdparty-vc14-64"
 set "OCCT_DIR=%OCCT_ROOT%\opencascade-8.0.0-vc14-64"
-set "QT_DIR=D:\Qt\6.7.0\msvc2019_64"
+set "QT_DIR=%ROOT_DIR%3rpart\QT6.7.0\msvc2019_64"
 
 echo --- Compiling QtOCCTApp in v142 RELEASE mode ---
 cmake --build D:\QtOCCTApp\build_v142 --config Release --parallel 8
@@ -14,8 +14,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo --- Setting Environment Variables ---
-set "QT_BIN=D:\Qt\6.7.0\msvc2019_64\bin"
-set "QT_PLUGIN_PATH=D:\Qt\6.7.0\msvc2019_64\plugins"
+set "QT_BIN=%QT_DIR%\bin"
+set "QT_PLUGIN_PATH=%QT_DIR%\plugins"
 set "OCCT_BIN=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64\win64\vc14\bin"
 set "OCCT_BIND=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64\win64\vc14\bind"
 

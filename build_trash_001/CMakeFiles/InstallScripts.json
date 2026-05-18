@@ -1,8 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"D:/QtOCCTApp/build/cmake_install.cmake",
-		"D:/QtOCCTApp/build/libs/shxparser/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

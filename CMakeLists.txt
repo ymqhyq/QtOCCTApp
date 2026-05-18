@@ -10,11 +10,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/Debug")
 
+# Set output directory for Release builds
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/Release")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set Qt6 root directory
-set(CMAKE_PREFIX_PATH "D:/Qt/6.7.0/msvc2019_64")
+set(CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/3rpart/QT6.7.0/msvc2019_64")
 
 # Find required packages
 find_package(Qt6 COMPONENTS Core Widgets Gui OpenGL Svg QUIET)
@@ -39,7 +44,7 @@ find_package(TBB CONFIG REQUIRED)
 
 # Set IfcOpenShell directory
 set(IFCOPENSHELL_DIR "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2026-x64-v142")
-set(BOOST_ROOT "D:/IfcOpenShell/_deps/boost_1_86_0")
+set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/3rpart/boost_1_86_0")
 
 include_directories(${IFCOPENSHELL_DIR}/include)
 include_directories(${BOOST_ROOT})
@@ -47,7 +52,15 @@ include_directories(${BOOST_ROOT})
 # Define IfcOpenShell schemas
 add_definitions(-DHAS_SCHEMA_4x3_add2)
 
-link_directories(${IFCOPENSHELL_DIR}/lib)
+# Find IfcOpenShell Debug and Release libraries individually for robust multi-config builds
+find_library(IFC_PARSE_RELEASE NAMES IfcParse PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
+find_library(IFC_PARSE_DEBUG   NAMES IfcParse_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
+
+find_library(IFC_GEOM_RELEASE  NAMES IfcGeom PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
+find_library(IFC_GEOM_DEBUG    NAMES IfcGeom_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
+
+find_library(SERIALIZERS_RELEASE NAMES Serializers PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
+find_library(SERIALIZERS_DEBUG   NAMES Serializers_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
 
 # Enable automatic MOC, UIC and RCC processing for Qt
 set(CMAKE_AUTOMOC ON)
@@ -106,10 +119,9 @@ endif()
 add_subdirectory(libs/shxparser)
 target_link_libraries(${PROJECT_NAME} PRIVATE shxparser)
 
-# Add SARibbonBar library
-set(SARIBBON_BUILD_EXAMPLES OFF CACHE BOOL "Disable SARibbon examples" FORCE)
-add_subdirectory("D:/GitHub_Ymqhyq/SARibbon" "${CMAKE_BINARY_DIR}/SARibbon")
-target_link_libraries(${PROJECT_NAME} PRIVATE SARibbonBar)
+# Add SARibbonBar library from local 3rpart pre-compiled package
+set(SARibbonBar_DIR "${CMAKE_SOURCE_DIR}/3rpart/SARibbon_qt6.7.0_MSVC_x64_v142/lib/cmake/SARibbonBar")
+find_package(SARibbonBar REQUIRED)
 
 # Add Qt OpenGL module if needed
 if(QT_VERSION STREQUAL "Qt6")
@@ -145,14 +157,15 @@ else()
     )
 endif()
 
-# Link the OCCT and VTK libraries
+# Link the OCCT, VTK, TBB, IfcOpenShell, and SARibbonBar libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     ${OpenCASCADE_LIBRARIES}
     ${VTK_LIBRARIES}
     TBB::tbb
-    IfcParse
-    IfcGeom
-    Serializers
+    debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
+    debug ${IFC_GEOM_DEBUG}    optimized ${IFC_GEOM_RELEASE}
+    debug ${SERIALIZERS_DEBUG} optimized ${SERIALIZERS_RELEASE}
+    SARibbonBar::SARibbonBar
 )
 
 # Set C++ properties for OCCT
