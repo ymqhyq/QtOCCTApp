@@ -300,19 +300,19 @@ void IfcExportService::AddGeometryToProduct(
   if (geoDef.IsNull())
     return;
 
-  // 1. Instant Geometry Instancing Check
-  void* geoDefPtr = geoDef.get();
-  if (g_geomInstanceCache.find(geoDefPtr) != g_geomInstanceCache.end()) {
-      auto cachedRep = g_geomInstanceCache[geoDefPtr];
-      if (cachedRep) {
-          product->setRepresentation(cachedRep);
-          return; // Zero-cost share, instantly return to bypass memory pollution
-      }
-  }
-
   TopoDS_Shape shape = geoDef->GetShape();
   if (shape.IsNull())
     return;
+
+  // 1. Precise Geometry Instancing via OpenCASCADE TShape Pointer
+  void* tshapePtr = shape.TShape().get();
+  if (g_geomInstanceCache.find(tshapePtr) != g_geomInstanceCache.end()) {
+      auto cachedRep = g_geomInstanceCache[tshapePtr];
+      if (cachedRep) {
+          product->setRepresentation(cachedRep);
+          return; // Perfect zero-cost geometrical instancing share
+      }
+  }
 
   try {
     const IfcParse::schema_definition* schema = &Ifc4x3_add2::get_schema();
@@ -364,8 +364,8 @@ void IfcExportService::AddGeometryToProduct(
         // Directly assign the complete serialized representation shape!
         product->setRepresentation(pds);
         
-        // Cache successful representation for instancing
-        g_geomInstanceCache[geoDefPtr] = pds;
+        // Cache successful representation for instancing via its unique TShape address
+        g_geomInstanceCache[tshapePtr] = pds;
     }
   } catch (...) {}
 }
