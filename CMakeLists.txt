@@ -62,6 +62,11 @@ find_library(IFC_GEOM_DEBUG    NAMES IfcGeom_d PATHS "${IFCOPENSHELL_DIR}/libd" 
 find_library(SERIALIZERS_RELEASE NAMES Serializers PATHS "${IFCOPENSHELL_DIR}/lib" NO_DEFAULT_PATH)
 find_library(SERIALIZERS_DEBUG   NAMES Serializers_d PATHS "${IFCOPENSHELL_DIR}/libd" NO_DEFAULT_PATH)
 
+# Find precompiled asiActiveData libraries individually for Debug and Release
+set(ASIACTIVEDATA_DIR "${CMAKE_SOURCE_DIR}/3rpart/asiActiveData")
+find_library(ASIACTIVEDATA_RELEASE NAMES asiActiveData PATHS "${ASIACTIVEDATA_DIR}/build/Release" NO_DEFAULT_PATH)
+find_library(ASIACTIVEDATA_DEBUG   NAMES asiActiveData PATHS "${ASIACTIVEDATA_DIR}/build/Debug" NO_DEFAULT_PATH)
+
 # Enable automatic MOC, UIC and RCC processing for Qt
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
@@ -103,8 +108,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_SOURCE_DIR}/3rpart/asiActiveData/Tools
 )
 
-# Add asiActiveData
-add_subdirectory(3rpart/asiActiveData)
+
 
 # Add core-data-model
 add_subdirectory(core-data-model)
@@ -142,7 +146,6 @@ if(QT_VERSION STREQUAL "Qt6")
         Qt6::Svg
         Qt6::Network
         core_data_model
-        asiActiveData
     )
 else()
     target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -153,11 +156,10 @@ else()
         Qt5::Svg
         Qt5::Network
         core_data_model
-        asiActiveData
     )
 endif()
 
-# Link the OCCT, VTK, TBB, IfcOpenShell, and SARibbonBar libraries
+# Link the OCCT, VTK, TBB, IfcOpenShell, asiActiveData, and SARibbonBar libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     ${OpenCASCADE_LIBRARIES}
     ${VTK_LIBRARIES}
@@ -165,6 +167,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
     debug ${IFC_GEOM_DEBUG}    optimized ${IFC_GEOM_RELEASE}
     debug ${SERIALIZERS_DEBUG} optimized ${SERIALIZERS_RELEASE}
+    debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
     SARibbonBar::SARibbonBar
 )
 
