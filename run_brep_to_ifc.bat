@@ -44,10 +44,17 @@ set "TCLTK=%TP%\tcltk-8.6.15-x64\bin"
 set "VTK=%TP%\vtk-9.4.1-x64\bin"
 set "ZLIB=%TP%\zlib-1.2.8-vc14-64\bin"
 
-set "APP_BIN=%ROOT_DIR%build_v142\bin\%CONFIG%"
+set "APP_BIN=%ROOT_DIR%build_v142\%CONFIG%"
 set "CORE_BIN=%ROOT_DIR%build_v142\core-data-model\%CONFIG%"
 
 set "PATH=%QT_BIN%;%OCCT_BIN_DIR%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%IFC_BIN_DIR%;%ASIACTIVE_BIN%;%CORE_BIN%;%APP_BIN%;%PATH%"
+
+set "ARGS=%*"
+
+if "%ARGS%"=="" (
+    echo.
+    set /p "ARGS=Please enter command line arguments (or press Enter to skip): "
+)
 
 echo --- Launching brep_to_ifc.exe (%CONFIG%) ---
 if not exist "%APP_BIN%\brep_to_ifc.exe" (
@@ -59,7 +66,8 @@ if not exist "%APP_BIN%\brep_to_ifc.exe" (
     exit /b 1
 )
 
-"%APP_BIN%\brep_to_ifc.exe"
+echo Running: "%APP_BIN%\brep_to_ifc.exe" %ARGS%
+"%APP_BIN%\brep_to_ifc.exe" %ARGS%
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo Application exited with error code: %ERRORLEVEL%
