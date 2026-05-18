@@ -11,6 +11,10 @@
 #include <vector>
 #include <ctime>
 #include <sstream>
+#include <map>
+
+// Thread-safe cache to store generated product representations per unique geometry definition
+static thread_local std::map<void*, Ifc4x3_add2::IfcProductDefinitionShape*> g_geomInstanceCache;
 
 // IfcOpenShell headers
 #include <ifcgeom/Serialization/Serialization.h>
@@ -296,6 +300,16 @@ void IfcExportService::AddGeometryToProduct(
   if (geoDef.IsNull())
     return;
 
+  // 1. Instant Geometry Instancing Check
+  void* geoDefPtr = geoDef.get();
+  if (g_geomInstanceCache.find(geoDefPtr) != g_geomInstanceCache.end()) {
+      auto cachedRep = g_geomInstanceCache[geoDefPtr];
+      if (cachedRep) {
+          product->setRepresentation(cachedRep);
+          return; // Zero-cost share, instantly return to bypass memory pollution
+      }
+  }
+
   TopoDS_Shape shape = geoDef->GetShape();
   if (shape.IsNull())
     return;
@@ -328,24 +342,37 @@ void IfcExportService::AddGeometryToProduct(
     // 提取所有几何项 (RepresentationItems)
     auto items = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcRepresentationItem>>();
     
-    if (serialized->declaration().is("IfcProductDefinitionShape")) {
-        auto prodRep = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
-        if (prodRep->Representations()) {
-            for (auto it = prodRep->Representations()->begin(); it != prodRep->Representations()->end(); ++it) {
-                auto rep = *it;
-                if (rep->Items()) {
-                    for (auto it2 = rep->Items()->begin(); it2 != rep->Items()->end(); ++it2) {
-                        items->push(*it2);
-                        file.addEntity(*it2);
-                    }
+    try {
+        if (serialized->declaration().is("IfcProductDefinitionShape")) {
+            auto prodRep = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
+            if (prodRep && prodRep->Representations()) {
+                auto reps = prodRep->Representations();
+                for (auto it = reps->begin(); it != reps->end(); ++it) {
+                    try {
+                        auto rep = *it;
+                        if (rep && rep->Items()) {
+                            auto repItems = rep->Items();
+                            for (auto it2 = repItems->begin(); it2 != repItems->end(); ++it2) {
+                                try {
+                                    auto repItem = *it2;
+                                    if (repItem) {
+                                        items->push(repItem);
+                                        file.addEntity(repItem);
+                                    }
+                                } catch (...) {}
+                            }
+                        }
+                    } catch (...) {}
                 }
             }
+        } else if (serialized->declaration().is("IfcRepresentationItem")) {
+            auto repItem = (Ifc4x3_add2::IfcRepresentationItem *)serialized;
+            if (repItem) {
+                items->push(repItem);
+                file.addEntity(repItem);
+            }
         }
-    } else if (serialized->declaration().is("IfcRepresentationItem")) {
-        auto repItem = (Ifc4x3_add2::IfcRepresentationItem *)serialized;
-        items->push(repItem);
-        file.addEntity(repItem);
-    }
+    } catch (...) {}
 
     if (items->size() == 0) return;
 
@@ -364,6 +391,9 @@ void IfcExportService::AddGeometryToProduct(
     file.addEntity(productRep);
     
     product->setRepresentation(productRep);
+
+    // 2. Cache successful representation for instancing
+    g_geomInstanceCache[geoDefPtr] = productRep;
   } catch (...) {}
 }
 
@@ -446,6 +476,8 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
                               const std::string &filename) {
   if (model.IsNull())
     return false;
+
+  g_geomInstanceCache.clear(); // Initialize cache at export boundary
 
   try {
     std::cout << "[IfcExportService] Starting advanced IFC 4x3 export..."
@@ -602,9 +634,11 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
 
     return true;
   } catch (const std::exception &e) {
+    g_geomInstanceCache.clear();
     std::cerr << "[IfcExportService] ERROR: " << e.what() << std::endl;
     return false;
   } catch (...) {
+    g_geomInstanceCache.clear();
     std::cerr << "[IfcExportService] UNKNOWN ERROR" << std::endl;
     return false;
   }
