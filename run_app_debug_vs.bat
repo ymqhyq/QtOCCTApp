@@ -1,5 +1,5 @@
 @echo off
-set "ROOT_DIR=%~dp0"
+set "ROOT_DIR=D:\QtOCCTApp\"
 set "OCCT_ROOT=%ROOT_DIR%3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined"
 set "THIRDPARTY_DIR=%OCCT_ROOT%\3rdparty-vc14-64"
 set "OCCT_DIR=%OCCT_ROOT%\opencascade-8.0.0-vc14-64"
