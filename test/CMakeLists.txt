@@ -5,13 +5,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Match main project settings via relative paths in local 3rpart folder
-set(IFCOPENSHELL_DIR "${CMAKE_SOURCE_DIR}/3rpart/ifcopenshell-vs2026-x64-v142")
-set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/3rpart/boost_1_86_0")
-set(OCCT_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/opencascade-8.0.0-vc14-64")
+set(IFCOPENSHELL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/ifcopenshell-vs2026-x64-v142")
+set(BOOST_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/boost_1_86_0")
+set(OCCT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/opencascade-8.0.0-vc14-64")
 
 include_directories(${IFCOPENSHELL_DIR}/include)
 include_directories(${BOOST_ROOT})
 include_directories(${OCCT_DIR}/inc)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../3rpart)
 
 add_definitions(-DHAS_SCHEMA_4x3_add2)
 add_definitions(-DWNT)
@@ -23,9 +24,11 @@ add_definitions(-D_UNICODE)
 add_definitions(-DUNICODE)
 
 add_executable(brep_to_ifc brep_to_ifc.cpp)
+add_executable(recipe_to_ifc recipe_to_ifc.cpp)
 
 if(MSVC)
     target_compile_options(brep_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
+    target_compile_options(recipe_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
 endif()
 
 # Link brep_to_ifc using robust multi-config precompiled Debug/Release IfcOpenShell targets
@@ -41,6 +44,19 @@ target_link_libraries(brep_to_ifc PRIVATE
     TKTopAlgo
 )
 
+target_link_libraries(recipe_to_ifc PRIVATE
+    debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
+    debug ${IFC_GEOM_DEBUG}    optimized ${IFC_GEOM_RELEASE}
+    debug ${SERIALIZERS_DEBUG} optimized ${SERIALIZERS_RELEASE}
+    debug ${GEOM_SER_DEBUG}    optimized ${GEOM_SER_RELEASE}
+    debug ${GEOM_KER_DEBUG}    optimized ${GEOM_KER_RELEASE}
+    TKernel
+    TKMath
+    TKBRep
+    TKTopAlgo
+)
+
 if(MSVC)
     target_link_options(brep_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
+    target_link_options(recipe_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
 endif()

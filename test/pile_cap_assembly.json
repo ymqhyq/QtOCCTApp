@@ -1,0 +1,541 @@
+{
+  "protocol_version": "1.2.0",
+  "metadata": {
+    "generator": "CadQuery-CIPR-AutoTracker v1.2",
+    "model_name": "Bridge_Structure_Recorded"
+  },
+  "parameters": {},
+  "declarations": {
+    "profiles": [
+      {
+        "id": "Profile_Rect_1",
+        "type": "IfcRectangleProfileDef",
+        "ProfileType": "AREA",
+        "XDim": 7000.0,
+        "YDim": 5000.0
+      },
+      {
+        "id": "Profile_Circle_2",
+        "type": "IfcCircleProfileDef",
+        "ProfileType": "AREA",
+        "Radius": 500.0
+      },
+      {
+        "id": "Profile_Rect_3",
+        "type": "IfcRectangleProfileDef",
+        "ProfileType": "AREA",
+        "XDim": 2700.0,
+        "YDim": 2700.0
+      },
+      {
+        "id": "Profile_Rect_4",
+        "type": "IfcRectangleProfileDef",
+        "ProfileType": "AREA",
+        "XDim": 500.0,
+        "YDim": 500.0
+      },
+      {
+        "id": "Profile_Polyline_5",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              1600.0,
+              -1400.0
+            ],
+            [
+              -1600.0,
+              -1400.0
+            ]
+          ]
+        }
+      },
+      {
+        "id": "Profile_Sketch_6",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              -1600.0,
+              -1400.0
+            ],
+            [
+              -1600.0,
+              1400.0
+            ],
+            [
+              1600.0,
+              1400.0
+            ],
+            [
+              1600.0,
+              -1400.0
+            ],
+            [
+              -1600.0,
+              -1400.0
+            ]
+          ]
+        }
+      },
+      {
+        "id": "Profile_Polyline_7",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              2400.0,
+              -1500.0
+            ],
+            [
+              -2400.0,
+              -1500.0
+            ]
+          ]
+        }
+      },
+      {
+        "id": "Profile_Sketch_8",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              -2400.0,
+              -1500.0
+            ],
+            [
+              -2400.0,
+              1500.0
+            ],
+            [
+              2400.0,
+              1500.0
+            ],
+            [
+              2400.0,
+              -1500.0
+            ],
+            [
+              -2400.0,
+              -1500.0
+            ]
+          ]
+        }
+      },
+      {
+        "id": "Profile_Polyline_9",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              500.0,
+              1000.0
+            ],
+            [
+              -500.0,
+              1000.0
+            ]
+          ]
+        }
+      },
+      {
+        "id": "Profile_Sketch_10",
+        "type": "IfcArbitraryClosedProfileDef",
+        "ProfileType": "AREA",
+        "OuterCurve": {
+          "type": "IfcPolyline",
+          "Points": [
+            [
+              -500.0,
+              1000.0
+            ],
+            [
+              -500.0,
+              2000.0
+            ],
+            [
+              500.0,
+              2000.0
+            ],
+            [
+              500.0,
+              1000.0
+            ],
+            [
+              -500.0,
+              1000.0
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  "features": [
+    {
+      "id": "Feature_Extrude_1",
+      "type": "IfcExtrudedAreaSolid",
+      "SweptArea": "Profile_Rect_1",
+      "Position": {
+        "type": "IfcAxis2Placement3D",
+        "Location": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "RefDirection": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "ExtrudedDirection": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Depth": 2000.0
+    },
+    {
+      "id": "Single_Solid_2",
+      "type": "IfcExtrudedAreaSolid",
+      "SweptArea": "Profile_Circle_2",
+      "Position": {
+        "type": "IfcAxis2Placement3D",
+        "Location": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Axis": [
+          -0.0,
+          -0.0,
+          -1.0
+        ],
+        "RefDirection": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "ExtrudedDirection": [
+        -0.0,
+        -0.0,
+        -1.0
+      ],
+      "Depth": 15000.0
+    },
+    {
+      "id": "Mapped_Item_3",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        -2500.0,
+        -1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_4",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        -2500.0,
+        1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_5",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        0.0,
+        -1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_6",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        0.0,
+        1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_7",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        2500.0,
+        -1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_8",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_2",
+      "TargetLocation": [
+        2500.0,
+        1500.0,
+        -2000.0
+      ]
+    },
+    {
+      "id": "Feature_Extrude_9",
+      "type": "IfcExtrudedAreaSolid",
+      "SweptArea": "Profile_Rect_3",
+      "Position": {
+        "type": "IfcAxis2Placement3D",
+        "Location": [
+          0.0,
+          0.0,
+          -2000.0
+        ],
+        "Axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "RefDirection": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "ExtrudedDirection": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Depth": 1000.0
+    },
+    {
+      "id": "Single_Solid_10",
+      "type": "IfcExtrudedAreaSolid",
+      "SweptArea": "Profile_Rect_4",
+      "Position": {
+        "type": "IfcAxis2Placement3D",
+        "Location": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "RefDirection": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "ExtrudedDirection": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "Depth": 900.0
+    },
+    {
+      "id": "Mapped_Item_11",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_10",
+      "TargetLocation": [
+        647.5,
+        647.5,
+        -1000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_12",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_10",
+      "TargetLocation": [
+        647.5,
+        -647.5,
+        -1000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_13",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_10",
+      "TargetLocation": [
+        -647.5,
+        647.5,
+        -1000.0
+      ]
+    },
+    {
+      "id": "Mapped_Item_14",
+      "type": "IfcMappedItem",
+      "SourceGeometry": "Single_Solid_10",
+      "TargetLocation": [
+        -647.5,
+        -647.5,
+        -1000.0
+      ]
+    },
+    {
+      "id": "Feature_Loft_15",
+      "type": "IfcSectionedSpine",
+      "SpineCurve": {
+        "type": "IfcPolyline",
+        "Points": [
+          [
+            0.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            3000.0
+          ]
+        ]
+      },
+      "CrossSections": [
+        "Profile_Sketch_6",
+        "Profile_Sketch_8"
+      ],
+      "Positions": [
+        {
+          "type": "IfcAxis2Placement3D",
+          "Location": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "Axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "RefDirection": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "type": "IfcAxis2Placement3D",
+          "Location": [
+            0.0,
+            0.0,
+            3000.0
+          ],
+          "Axis": [
+            0.0,
+            0.0,
+            1.0
+          ],
+          "RefDirection": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Feature_Extrude_16",
+      "type": "IfcExtrudedAreaSolid",
+      "SweptArea": "Profile_Sketch_10",
+      "Position": {
+        "type": "IfcAxis2Placement3D",
+        "Location": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "Axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "RefDirection": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "ExtrudedDirection": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "Depth": 10000.0
+    },
+    {
+      "id": "Feature_Boolean_17",
+      "type": "IfcBooleanResult",
+      "operator": "DIFFERENCE",
+      "first_operand": "Feature_Loft_15",
+      "second_operand": "Feature_Extrude_16"
+    }
+  ],
+  "products": [
+    {
+      "id": "Product_Cap_01",
+      "ifc_type": "IfcFooting",
+      "predefined_type": "PILE_CAP",
+      "name": "承台_C35",
+      "representations": [
+        "Feature_Extrude_1"
+      ]
+    },
+    {
+      "id": "Product_Pile_01",
+      "ifc_type": "IfcPile",
+      "predefined_type": "BORED",
+      "name": "基础灌注桩组",
+      "representations": [
+        "Mapped_Item_3",
+        "Mapped_Item_4",
+        "Mapped_Item_5",
+        "Mapped_Item_6",
+        "Mapped_Item_7",
+        "Mapped_Item_8"
+      ]
+    },
+    {
+      "id": "Product_Group_01",
+      "ifc_type": "IfcBuildingElementProxy",
+      "predefined_type": "NOTDEFINED",
+      "name": "Auto_Recorded_Product",
+      "representations": [
+        "Single_Solid_2",
+        "Feature_Extrude_9",
+        "Single_Solid_10",
+        "Mapped_Item_11",
+        "Mapped_Item_12",
+        "Mapped_Item_13",
+        "Mapped_Item_14",
+        "Feature_Loft_15",
+        "Feature_Extrude_16",
+        "Feature_Boolean_17"
+      ]
+    }
+  ]
+}
