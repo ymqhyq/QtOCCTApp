@@ -571,16 +571,17 @@ int main(int argc, char** argv) {
                     // 1. Try to load high-fidelity BRep geometry from local files
                     TopoDS_Shape pierShape;
                     BRep_Builder builder;
+                    std::string expectedBrep = "export_" + scriptBase + ".brep";
                     std::vector<std::string> pathsToTry = {
-                        "d:\\QtOCCTApp\\export_pier_body.brep",
-                        "export_pier_body.brep"
+                        "d:\\QtOCCTApp\\" + expectedBrep,
+                        expectedBrep
                     };
                     
                     size_t lastSlash = inputPath.find_last_of("\\/");
                     if (lastSlash != std::string::npos) {
                         std::string baseDir = inputPath.substr(0, lastSlash);
-                        pathsToTry.push_back(baseDir + "\\..\\export_pier_body.brep");
-                        pathsToTry.push_back(baseDir + "\\export_pier_body.brep");
+                        pathsToTry.push_back(baseDir + "\\..\\" + expectedBrep);
+                        pathsToTry.push_back(baseDir + "\\" + expectedBrep);
                     }
                     
                     bool brepLoaded = false;
