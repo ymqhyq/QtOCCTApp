@@ -81,14 +81,129 @@ static Ifc4x3_add2::IfcAxis2Placement3D* CreateAxis2Placement3D(
     return placement;
 }
 
+#include <cstdlib>
+
+// 辅助函数：解析路径的目录和文件名不含后缀
+static void ParsePath(const std::string& path, std::string& dir, std::string& baseName) {
+    size_t lastSlash = path.find_last_of("\\/");
+    if (lastSlash == std::string::npos) {
+        dir = ".";
+        baseName = path;
+    } else {
+        dir = path.substr(0, lastSlash);
+        baseName = path.substr(lastSlash + 1);
+    }
+    
+    size_t lastDot = baseName.find_last_of(".");
+    if (lastDot != std::string::npos) {
+        baseName = baseName.substr(0, lastDot);
+    }
+}
+
 int main(int argc, char** argv) {
-    if (argc < 3) {
-        std::cout << "Usage: recipe_to_ifc <input_recipe.json> <output.ifc>" << std::endl;
+    if (argc < 2) {
+        std::cout << "Usage: recipe_to_ifc <modeling_script.py> [modeling_script_args...]" << std::endl;
         return 1;
     }
 
-    std::string inputPath = argv[1];
-    std::string outputPath = argv[2];
+    std::string scriptPath = argv[1];
+
+    // 解析目录和基本名字
+    std::string scriptDir = "";
+    std::string scriptBase = "";
+    ParsePath(scriptPath, scriptDir, scriptBase);
+
+    // 组合命名：脚本名称与后续输入参数的组合
+    std::string combinedName = scriptBase;
+    for (int i = 2; i < argc; ++i) {
+        std::string arg = argv[i];
+        std::string cleanArg = "";
+        for (char c : arg) {
+            // 清洗非法文件名字符
+            if (c == '\\' || c == '/' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
+                cleanArg += '_';
+            } else {
+                cleanArg += c;
+            }
+        }
+        if (!cleanArg.empty()) {
+            combinedName += "_" + cleanArg;
+        }
+    }
+
+    std::string jsonPath = scriptDir + "/" + combinedName + ".json";
+    std::string ifcPath = scriptDir + "/" + combinedName + ".ifc";
+
+    std::cout << "=== Auto Modeling & IFC Generation Suite ===" << std::endl;
+    std::cout << "[INFO] Script: " << scriptPath << std::endl;
+    std::cout << "[INFO] Target JSON: " << jsonPath << std::endl;
+    std::cout << "[INFO] Target IFC: " << ifcPath << std::endl;
+
+    // 组装 python 命令行，原样传递其余输入参数
+    std::string cmd = "python \"" + scriptPath + "\"";
+    for (int i = 2; i < argc; ++i) {
+        cmd += " \"" + std::string(argv[i]) + "\"";
+    }
+
+    std::cout << "[INFO] Executing modeling script: " << cmd << std::endl;
+    int retCode = std::system(cmd.c_str());
+    if (retCode != 0) {
+        std::cerr << "[ERROR] Modeling script failed with exit code: " << retCode << std::endl;
+        return retCode;
+    }
+    std::cout << "[OK] Modeling script execution completed." << std::endl;
+
+    // 处理 JSON 文件的重命名/复制流转逻辑 (不修改建模脚本本身，只在 C++ 端对它产生的文件做流转)
+    std::string defaultJson1 = scriptDir + "/pile_cap_assembly.json";
+    std::string defaultJson2 = scriptDir + "/" + scriptBase + ".json";
+    std::string sourceJson = "";
+
+    // 检查默认生成的文件是否存在
+    {
+        std::ifstream f1(defaultJson1);
+        if (f1.good()) {
+            sourceJson = defaultJson1;
+        }
+    }
+    if (sourceJson.empty()) {
+        std::ifstream f2(defaultJson2);
+        if (f2.good()) {
+            sourceJson = defaultJson2;
+        }
+    }
+
+    if (sourceJson.empty()) {
+        std::cerr << "[ERROR] Could not find generated JSON from modeling script. Checked:" << std::endl;
+        std::cerr << "  - " << defaultJson1 << std::endl;
+        std::cerr << "  - " << defaultJson2 << std::endl;
+        return 1;
+    }
+
+    if (sourceJson != jsonPath) {
+        std::cout << "[INFO] Aligning generated JSON to: " << jsonPath << std::endl;
+        std::remove(jsonPath.c_str()); // 移除旧的目标文件
+        if (std::rename(sourceJson.c_str(), jsonPath.c_str()) != 0) {
+            // 如果重命名失败，采用复制文件的方法
+            std::ifstream src(sourceJson, std::ios::binary);
+            std::ofstream dst(jsonPath, std::ios::binary);
+            if (src.good() && dst.good()) {
+                dst << src.rdbuf();
+                src.close();
+                dst.close();
+                std::remove(sourceJson.c_str());
+                std::cout << "[OK] JSON aligned via copy and delete." << std::endl;
+            } else {
+                std::cerr << "[ERROR] Failed to copy/rename source JSON to target path." << std::endl;
+                return 1;
+            }
+        } else {
+            std::cout << "[OK] JSON aligned via rename." << std::endl;
+        }
+    }
+
+    // 设置为原流程所使用的 inputPath 与 outputPath
+    std::string inputPath = jsonPath;
+    std::string outputPath = ifcPath;
 
     std::cout << "=== Recipe JSON to IFC Parametric Converter ===" << std::endl;
     std::cout << "[INFO] Loading Recipe JSON: " << inputPath << std::endl;
