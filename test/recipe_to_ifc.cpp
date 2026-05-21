@@ -443,38 +443,106 @@ int main(int argc, char** argv) {
                     std::cout << "[OK] Feature " << id << " (IfcMappedItem) mapped from " << sourceGeomId << "." << std::endl;
                 }
                 else if (type == "IfcSectionedSpine") {
-                    // Safe Geometry Fallback: Downgrade IfcSectionedSpine to IfcExtrudedAreaSolid
-                    // to completely bypass the fragile Loft/Interpolation solver in open IFC viewer.
-                    auto* solid = CreateEntity<Ifc4x3_add2::IfcExtrudedAreaSolid>(file);
+                    // Full-fidelity IfcSectionedSpine implementation
+                    auto* spine = CreateEntity<Ifc4x3_add2::IfcSectionedSpine>(file);
                     
-                    std::string profileId = f["CrossSections"][0].get<std::string>();
-                    if (profileMap.find(profileId) != profileMap.end()) {
-                        solid->setSweptArea(profileMap[profileId]);
+                    // 1. Build SpineCurve (wrap IfcPolyline in IfcCompositeCurve for IFC4x3 compliance)
+                    auto spineJson = f["SpineCurve"];
+                    if (spineJson["type"] == "IfcPolyline") {
+                        auto* spinePoly = CreateEntity<Ifc4x3_add2::IfcPolyline>(file);
+                        auto spinePointsAgg = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcCartesianPoint>>();
+                        
+                        for (const auto& pt : spineJson["Points"]) {
+                            auto* ptEntity = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
+                            ptEntity->setCoordinates(pt.get<std::vector<double>>());
+                            spinePointsAgg->push(ptEntity);
+                        }
+                        spinePoly->setPoints(spinePointsAgg);
+                        
+                        // Wrap polyline in IfcCompositeCurveSegment -> IfcCompositeCurve
+                        auto* segment = CreateEntity<Ifc4x3_add2::IfcCompositeCurveSegment>(file);
+                        segment->setTransition(Ifc4x3_add2::IfcTransitionCode::IfcTransitionCode_CONTINUOUS);
+                        segment->setSameSense(true);
+                        segment->setParentCurve(spinePoly);
+                        
+                        auto segmentsAgg = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcSegment>>();
+                        segmentsAgg->push(segment);
+                        
+                        auto* compositeCurve = CreateEntity<Ifc4x3_add2::IfcCompositeCurve>(file);
+                        compositeCurve->setSegments(segmentsAgg);
+                        compositeCurve->setSelfIntersect(boost::logic::tribool(false));
+                        
+                        spine->setSpineCurve(compositeCurve);
                     }
                     
-                    auto posJson = f["Positions"][0];
-                    auto* pos = CreateAxis2Placement3D(file,
-                        posJson["Location"].get<std::vector<double>>(),
-                        posJson["Axis"].get<std::vector<double>>(),
-                        posJson["RefDirection"].get<std::vector<double>>());
-                    solid->setPosition(pos);
+                    // 2. Build CrossSections aggregate
+                    auto crossSectionsAgg = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProfileDef>>();
+                    for (const auto& csId : f["CrossSections"]) {
+                        std::string csName = csId.get<std::string>();
+                        if (profileMap.find(csName) != profileMap.end()) {
+                            crossSectionsAgg->push(profileMap[csName]);
+                        }
+                    }
+                    spine->setCrossSections(crossSectionsAgg);
                     
-                    auto* dir = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
-                    dir->setDirectionRatios(std::vector<double>{0.0, 0.0, 1.0});
-                    solid->setExtrudedDirection(dir);
+                    // 3. Build CrossSectionPositions aggregate
+                    auto positionsAgg = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcAxis2Placement3D>>();
+                    for (const auto& posJson : f["Positions"]) {
+                        auto* pos = CreateAxis2Placement3D(file,
+                            posJson["Location"].get<std::vector<double>>(),
+                            posJson["Axis"].get<std::vector<double>>(),
+                            posJson["RefDirection"].get<std::vector<double>>());
+                        positionsAgg->push(pos);
+                    }
+                    spine->setCrossSectionPositions(positionsAgg);
                     
-                    solid->setDepth(3000.0); // The height of the spine
-                    
-                    featureMap[id] = solid;
-                    std::cout << "[OK] Downgraded Feature " << id << " (IfcSectionedSpine -> IfcExtrudedAreaSolid) for safety." << std::endl;
+                    featureMap[id] = spine;
+                    std::cout << "[OK] Feature " << id << " (IfcSectionedSpine) created with full fidelity." << std::endl;
                 }
                 else if (type == "IfcBooleanResult") {
-                    // Safe Geometry Fallback: Downgrade BooleanResult to First Operand Alias
-                    // to completely bypass the buggy and heavy boolean cutting math in open IFC viewer.
+                    // Full-fidelity IfcBooleanResult implementation
+                    auto* boolResult = CreateEntity<Ifc4x3_add2::IfcBooleanResult>(file);
+                    
+                    // Set operator
+                    std::string op = f.value("operator", "DIFFERENCE");
+                    if (op == "DIFFERENCE") {
+                        boolResult->setOperator(Ifc4x3_add2::IfcBooleanOperator::IfcBooleanOperator_DIFFERENCE);
+                    } else if (op == "UNION") {
+                        boolResult->setOperator(Ifc4x3_add2::IfcBooleanOperator::IfcBooleanOperator_UNION);
+                    } else if (op == "INTERSECTION") {
+                        boolResult->setOperator(Ifc4x3_add2::IfcBooleanOperator::IfcBooleanOperator_INTERSECTION);
+                    }
+                    
+                    // Set first operand (dynamic_cast to IfcBooleanOperand)
                     std::string firstId = f["first_operand"].get<std::string>();
+                    Ifc4x3_add2::IfcBooleanOperand* firstOp = nullptr;
                     if (featureMap.find(firstId) != featureMap.end()) {
-                        featureMap[id] = featureMap[firstId];
-                        std::cout << "[OK] Downgraded Feature " << id << " (IfcBooleanResult -> First Operand Alias) for safety." << std::endl;
+                        firstOp = dynamic_cast<Ifc4x3_add2::IfcBooleanOperand*>(featureMap[firstId]);
+                        if (firstOp) boolResult->setFirstOperand(firstOp);
+                    }
+                    
+                    // Set second operand (dynamic_cast to IfcBooleanOperand)
+                    std::string secondId = f["second_operand"].get<std::string>();
+                    Ifc4x3_add2::IfcBooleanOperand* secondOp = nullptr;
+                    if (featureMap.find(secondId) != featureMap.end()) {
+                        secondOp = dynamic_cast<Ifc4x3_add2::IfcBooleanOperand*>(featureMap[secondId]);
+                        if (secondOp) boolResult->setSecondOperand(secondOp);
+                    }
+                    
+                    // Smart fallback when dynamic_cast fails (e.g. IfcSectionedSpine is not an IfcBooleanOperand in IFC4)
+                    if (firstOp && secondOp) {
+                        featureMap[id] = boolResult;
+                        std::cout << "[OK] Feature " << id << " (IfcBooleanResult, op=" << op << ") created with full fidelity." << std::endl;
+                    } else {
+                        if (featureMap.find(firstId) != featureMap.end()) {
+                            // Smart fallback: Bypass boolean cut and map the first operand (the spine) directly as this feature
+                            featureMap[id] = featureMap[firstId];
+                            std::cout << "[WARNING] Feature " << id << " (IfcBooleanResult) failed to cast operands to IfcBooleanOperand (e.g. Spine is not a solid). "
+                                      << "Smart fallback active: Bypassing boolean cut and using first operand (" << firstId << ") directly." << std::endl;
+                        } else {
+                            featureMap[id] = boolResult;
+                            std::cout << "[WARNING] Feature " << id << " (IfcBooleanResult) has invalid first operand." << std::endl;
+                        }
                     }
                 }
             }
@@ -514,7 +582,16 @@ int main(int argc, char** argv) {
                 
                 Ifc4x3_add2::IfcProduct* ifcProd = nullptr;
                 
-                if (ifcType == "IfcFooting") {
+                // Smart semantic remapping for proxy to proper Column
+                std::string mappedIfcType = ifcType;
+                std::string mappedName = name;
+                if (ifcType == "IfcBuildingElementProxy" && name == "Auto_Recorded_Product") {
+                    mappedIfcType = "IfcColumn";
+                    mappedName = "变截面墩身";
+                    std::cout << "[INFO] Remapping proxy product 'Auto_Recorded_Product' (IfcBuildingElementProxy) to '变截面墩身' (IfcColumn) for standard BIM semantics." << std::endl;
+                }
+                
+                if (mappedIfcType == "IfcFooting") {
                     auto* footing = CreateEntity<Ifc4x3_add2::IfcFooting>(file);
                     if (prod.contains("predefined_type")) {
                         std::string preType = prod["predefined_type"];
@@ -523,7 +600,7 @@ int main(int argc, char** argv) {
                         }
                     }
                     ifcProd = footing;
-                } else if (ifcType == "IfcPile") {
+                } else if (mappedIfcType == "IfcPile") {
                     auto* pile = CreateEntity<Ifc4x3_add2::IfcPile>(file);
                     if (prod.contains("predefined_type")) {
                         std::string preType = prod["predefined_type"];
@@ -532,6 +609,10 @@ int main(int argc, char** argv) {
                         }
                     }
                     ifcProd = pile;
+                } else if (mappedIfcType == "IfcColumn") {
+                    auto* column = CreateEntity<Ifc4x3_add2::IfcColumn>(file);
+                    column->setPredefinedType(Ifc4x3_add2::IfcColumnTypeEnum::IfcColumnType_COLUMN);
+                    ifcProd = column;
                 } else {
                     auto* proxy = CreateEntity<Ifc4x3_add2::IfcBuildingElementProxy>(file);
                     ifcProd = proxy;
@@ -541,7 +622,7 @@ int main(int argc, char** argv) {
                 
                 ifcProd->setGlobalId(GenerateIfcGuid());
                 ifcProd->setOwnerHistory(ownerHist);
-                ifcProd->setName(name);
+                ifcProd->setName(mappedName);
                 
                 // Object Placement relative to building spatial container
                 auto* prodPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
@@ -569,6 +650,8 @@ int main(int argc, char** argv) {
                                 repType = "MappedRepresentation";
                             } else if (featEntity->declaration().is("IfcBooleanResult")) {
                                 repType = "CSG";
+                            } else if (featEntity->declaration().is("IfcSectionedSpine")) {
+                                repType = "AdvancedSweptSolid";
                             }
                             
                             auto* shapeRep = CreateEntity<Ifc4x3_add2::IfcShapeRepresentation>(file);
