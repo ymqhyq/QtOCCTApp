@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set QT_BIN=D:\Qt\6.10.1\msvc2022_64\bin
+set QT_BIN=D:\QtOCCTApp\3rpart\QT6.7.0\msvc2019_64\bin
 set OCCT_BIN=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\opencascade-8.0.0-vc14-64\win64\vc14\bin
 set OCCT_3RD_FREETYE=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64\freetype-2.13.3-x64\bin
 set OCCT_3RD_TBB=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64\tbb-2021.13.0-x64\bin
@@ -12,8 +12,8 @@ set OCCT_3RD_TCLTK=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-
 set OCCT_3RD_OPENVR=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64\openvr-1.14.15-64\bin\win64
 set OCCT_3RD_FFMPEG=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64\ffmpeg-3.3.4-64\bin
 set VTK_BIN=D:\QtOCCTApp\3rpart\opencascade-8.0.0-vc14-64-pch-with-debug-combined\3rdparty-vc14-64\vtk-9.4.1-x64\bin
-set ACTDATA_BIN=D:\QtOCCTApp\build\3rpart\asiActiveData
-set TEST_BIN=D:\QtOCCTApp\build\bin
+set ACTDATA_BIN=D:\QtOCCTApp\build_v142\3rpart\asiActiveData\Release
+set TEST_BIN=D:\QtOCCTApp\build_v142\bin\Release
 set MSVC_REDIST=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Redist\MSVC\14.44.35112\x64\Microsoft.VC143.CRT
 
 set PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_3RD_FREETYE%;%OCCT_3RD_TBB%;%OCCT_3RD_FREEIMAGE%;%OCCT_3RD_LZMA%;%OCCT_3RD_ZLIB%;%OCCT_3RD_TCLTK%;%OCCT_3RD_OPENVR%;%OCCT_3RD_FFMPEG%;%VTK_BIN%;%ACTDATA_BIN%;%TEST_BIN%;%MSVC_REDIST%;%PATH%
