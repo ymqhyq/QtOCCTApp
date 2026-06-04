@@ -17,6 +17,19 @@
 #include <sstream>
 #include <vector>
 
+// XCAF OCAF & TDF Tool Headers
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+#include <XCAFDoc_ColorTool.hxx>
+#include <XCAFDoc_LayerTool.hxx>
+#include <XCAFDoc_VisMaterialTool.hxx>
+#include <XCAFDoc_VisMaterial.hxx>
+#include <TDF_ChildIterator.hxx>
+#include <TDF_Tool.hxx>
+#include <TDF_LabelSequence.hxx>
+#include <TColStd_SequenceOfExtendedString.hxx>
+#include <TDataStd_Name.hxx>
+
 
 // Thread-safe cache to store generated product representations per unique
 // geometry definition
@@ -276,6 +289,257 @@ static std::string GenerateIfcGuid() {
   for (int i = 0; i < 22; ++i)
     res += charset[dis(gen)];
   return res;
+}
+
+void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
+                                         IfcParse::IfcFile& file,
+                                         Ifc4x3_add2::IfcObjectDefinition* parentIfc,
+                                         Ifc4x3_add2::IfcSpatialElement* spatialContainer,
+                                         Ifc4x3_add2::IfcObjectPlacement* parentPlacement,
+                                         Ifc4x3_add2::IfcOwnerHistory* ownerHist,
+                                         Ifc4x3_add2::IfcGeometricRepresentationContext* context,
+                                         int& exportedCount,
+                                         std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *>& protoCache)
+{
+    Handle(TDocStd_Document) doc = TDocStd_Document::Get(instLabel);
+    if (doc.IsNull()) return;
+    Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+    Handle(XCAFDoc_LayerTool) layerTool = XCAFDoc_DocumentTool::LayerTool(doc->Main());
+    Handle(XCAFDoc_ColorTool) colorTool = XCAFDoc_DocumentTool::ColorTool(doc->Main());
+    Handle(XCAFDoc_VisMaterialTool) matTool = XCAFDoc_DocumentTool::VisMaterialTool(doc->Main());
+
+    // 1. 获取原型 Label
+    TDF_Label protoLabel;
+    if (!shapeTool->GetReferredShape(instLabel, protoLabel)) return;
+
+    // 2. 提取名称
+    std::string name = "Unnamed Component";
+    Handle(TDataStd_Name) nameAttr;
+    if (instLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+        name = ToStdString(nameAttr->Get());
+    }
+
+    // 3. 提取业务对象类型 ObjectType (优先根据图层名称前缀推导)
+    std::string type = "Proxy";
+    auto layerNames = layerTool->GetLayers(instLabel);
+    if (!layerNames.IsNull() && layerNames->Length() > 0) {
+        std::string layerStr = ToStdString(layerNames->Value(1));
+        if (layerStr.size() > 6 && layerStr.substr(layerStr.size() - 6) == "_Layer") {
+            type = layerStr.substr(0, layerStr.size() - 6);
+        }
+    }
+
+    // 4. 创建 Local Placement
+    gp_Trsf localTrsf = shapeTool->GetLocation(instLabel).Transformation();
+    auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
+    gp_Pnt pnt = localTrsf.TranslationPart();
+    origin->setCoordinates(std::vector<double>{pnt.X(), pnt.Y(), pnt.Z()});
+
+    gp_Dir transformedX(1.0, 0.0, 0.0);
+    transformedX.Transform(localTrsf);
+    gp_Dir transformedZ(0.0, 0.0, 1.0);
+    transformedZ.Transform(localTrsf);
+
+    auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+    dirZ->setDirectionRatios(std::vector<double>{transformedZ.X(), transformedZ.Y(), transformedZ.Z()});
+    auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+    dirX->setDirectionRatios(std::vector<double>{transformedX.X(), transformedX.Y(), transformedX.Z()});
+
+    auto axis2 = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
+    axis2->setLocation(origin);
+    axis2->setAxis(dirZ);
+    axis2->setRefDirection(dirX);
+
+    auto localPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
+    localPlacement->setPlacementRelTo(parentPlacement);
+    localPlacement->setRelativePlacement(axis2);
+
+    // 5. 创建 IFC Product
+    std::string guid = GenerateIfcGuid();
+    Ifc4x3_add2::IfcProduct *product = nullptr;
+
+    if (type == "Footing" || type == "BridgeFoundation" || type == "Foundation") {
+        auto obj = CreateEntity<Ifc4x3_add2::IfcFooting>(file);
+        obj->setGlobalId(guid);
+        obj->setOwnerHistory(ownerHist);
+        obj->setName(name);
+        obj->setObjectType(type);
+        obj->setObjectPlacement(localPlacement);
+        product = obj;
+    } else if (type == "Girder" || type == "Beam") {
+        auto obj = CreateEntity<Ifc4x3_add2::IfcBeam>(file);
+        obj->setGlobalId(guid);
+        obj->setOwnerHistory(ownerHist);
+        obj->setName(name);
+        obj->setObjectType(type);
+        obj->setObjectPlacement(localPlacement);
+        product = obj;
+    } else if (type == "Pier" || type == "Column") {
+        auto obj = CreateEntity<Ifc4x3_add2::IfcColumn>(file);
+        obj->setGlobalId(guid);
+        obj->setOwnerHistory(ownerHist);
+        obj->setName(name);
+        obj->setObjectType(type);
+        obj->setObjectPlacement(localPlacement);
+        product = obj;
+    } else {
+        auto proxy = CreateEntity<Ifc4x3_add2::IfcBuildingElementProxy>(file);
+        proxy->setGlobalId(guid);
+        proxy->setOwnerHistory(ownerHist);
+        proxy->setName(name);
+        proxy->setObjectType(type);
+        proxy->setObjectPlacement(localPlacement);
+        product = proxy;
+    }
+
+    exportedCount++;
+
+    // 6. 添加几何表示（块实例共享）
+    TCollection_AsciiString protoEntry;
+    TDF_Tool::Entry(protoLabel, protoEntry);
+    std::string protoKey = protoEntry.ToCString();
+
+    Ifc4x3_add2::IfcProductDefinitionShape *pds = nullptr;
+    if (protoCache.find(protoKey) != protoCache.end()) {
+        pds = protoCache[protoKey];
+    } else {
+        TopoDS_Shape shape;
+        if (shapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
+            try {
+                const IfcParse::schema_definition *schema = &Ifc4x3_add2::get_schema();
+                IfcParse::register_schema(const_cast<IfcParse::schema_definition *>(schema));
+
+                IfcUtil::IfcBaseClass *serialized = nullptr;
+                try {
+                    serialized = IfcGeom::serialise("IFC4X3_ADD2", shape, false);
+                } catch (...) {}
+
+                if (!serialized) {
+                    try {
+                        serialized = IfcGeom::tesselate("IFC4X3_ADD2", shape, 2.0);
+                    } catch (...) {}
+                }
+
+                if (serialized) {
+                    file.addEntity(serialized);
+                    if (serialized->declaration().is("IfcProductDefinitionShape")) {
+                        pds = (Ifc4x3_add2::IfcProductDefinitionShape *)serialized;
+                        if (pds->Representations()) {
+                            auto reps = pds->Representations();
+                            for (auto it = reps->begin(); it != reps->end(); ++it) {
+                                auto rep = *it;
+                                if (rep) {
+                                    rep->setContextOfItems(context);
+                                    file.addEntity(rep);
+                                    if (rep->Items()) {
+                                        auto repItems = rep->Items();
+                                        for (auto it2 = repItems->begin(); it2 != repItems->end(); ++it2) {
+                                            if (*it2) file.addEntity(*it2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        protoCache[protoKey] = pds;
+                    }
+                }
+            } catch (...) {}
+        }
+    }
+
+    if (pds) {
+        product->setRepresentation(pds);
+    }
+
+    // 7. 处理图层导出逻辑（有图层才分配，无图层直接跳过）
+    if (!layerNames.IsNull() && layerNames->Length() > 0) {
+        std::string layerName = ToStdString(layerNames->Value(1));
+        auto ifcLayer = CreateEntity<Ifc4x3_add2::IfcPresentationLayerAssignment>(file);
+        ifcLayer->setName(layerName);
+
+        auto layerLayeredItems = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcLayeredItem>>();
+        if (pds && pds->Representations()) {
+            for (auto rep : *pds->Representations()) {
+                layerLayeredItems->push(rep);
+            }
+        }
+        ifcLayer->setAssignedItems(layerLayeredItems);
+    }
+
+    // 8. 颜色材质映射（使用 XCAF 材质）
+    Quantity_Color rgbColor;
+    double alpha = 1.0;
+    bool hasMaterialColor = false;
+
+    Handle(XCAFDoc_VisMaterial) visMat = matTool->GetShapeMaterial(protoLabel);
+    if (!visMat.IsNull()) {
+        Quantity_ColorRGBA rgba = visMat->BaseColor();
+        rgbColor = rgba.GetRGB();
+        alpha = rgba.Alpha();
+        hasMaterialColor = true;
+    } else {
+        Quantity_Color quantityColor;
+        if (colorTool->GetColor(protoLabel, XCAFDoc_ColorGen, quantityColor)) {
+            rgbColor = quantityColor;
+            hasMaterialColor = true;
+        }
+    }
+
+    if (hasMaterialColor) {
+        auto ifcColor = CreateEntity<Ifc4x3_add2::IfcColourRgb>(file);
+        ifcColor->setRed(rgbColor.Red());
+        ifcColor->setGreen(rgbColor.Green());
+        ifcColor->setBlue(rgbColor.Blue());
+
+        auto styleSpec = CreateEntity<Ifc4x3_add2::IfcSurfaceStyleRendering>(file);
+        styleSpec->setSurfaceColour(ifcColor);
+        if (alpha < 0.99) {
+            styleSpec->setTransparency(1.0 - alpha);
+        }
+
+        auto styleStyles = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcSurfaceStyleElementSelect>>();
+        styleStyles->push(styleSpec);
+
+        auto surfStyle = CreateEntity<Ifc4x3_add2::IfcSurfaceStyle>(file);
+        surfStyle->setName(name + "_Style");
+        surfStyle->setSide(Ifc4x3_add2::IfcSurfaceSide::IfcSurfaceSide_BOTH);
+        surfStyle->setStyles(styleStyles);
+
+        auto styledItemStyles = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcPresentationStyle>>();
+        styledItemStyles->push(surfStyle);
+
+        auto styledItem = CreateEntity<Ifc4x3_add2::IfcStyledItem>(file);
+        styledItem->setStyles(styledItemStyles);
+
+        if (pds && pds->Representations() && pds->Representations()->size() > 0) {
+            auto rep = *pds->Representations()->begin();
+            if (rep && rep->Items() && rep->Items()->size() > 0) {
+                auto item = *rep->Items()->begin();
+                styledItem->setItem(item);
+            }
+        }
+    }
+
+    // 9. 空间树装配
+    auto childSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
+    childSet->push(product);
+
+    if (!product->declaration().is("IfcSpatialElement")) {
+        auto productSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
+        productSet->push(product);
+
+        auto relContained = CreateEntity<Ifc4x3_add2::IfcRelContainedInSpatialStructure>(file);
+        relContained->setGlobalId(GenerateIfcGuid());
+        relContained->setOwnerHistory(ownerHist);
+        relContained->setRelatedElements(productSet);
+        relContained->setRelatingStructure(spatialContainer);
+    }
+
+    auto relAgg = CreateEntity<Ifc4x3_add2::IfcRelAggregates>(file);
+    relAgg->setGlobalId(GenerateIfcGuid());
+    relAgg->setOwnerHistory(ownerHist);
+    relAgg->setRelatingObject(parentIfc);
+    relAgg->setRelatedObjects(childSet);
 }
 
 Ifc4x3_add2::IfcProduct *
@@ -665,21 +929,24 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     relSiteBuilding->setRelatingObject(site);
     relSiteBuilding->setRelatedObjects(buildingSet);
 
-    // Recursive Traversal
-    Handle(ActAPI_INode) rootNode = model->GetRootNode();
-    if (!rootNode.IsNull()) {
-      int exportedCount = 0;
-      auto it = rootNode->GetChildIterator();
-      for (; it->More(); it->Next()) {
-        Handle(BrNode_adObject) obj =
-            Handle(BrNode_adObject)::DownCast(it->Value());
-        if (!obj.IsNull()) {
-          TraverseAndExport(obj, file, building, building, buildingPlacement,
-                            ownerHist, context, exportedCount);
+    // Traverse XCAF Assembly Components
+    Handle(TDocStd_Document) doc = model->Document();
+    Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+    
+    int exportedCount = 0;
+    std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *> protoCache;
+    
+    if (!shapeTool.IsNull()) {
+      TDF_Label mainShapesLabel = shapeTool->Label();
+      for (TDF_ChildIterator itX(mainShapesLabel, Standard_False); itX.More(); itX.Next()) {
+        TDF_Label subLabel = itX.Value();
+        if (shapeTool->IsComponent(subLabel)) {
+          ExportXcafComponent(subLabel, file, building, building, buildingPlacement,
+                              ownerHist, context, exportedCount, protoCache);
         }
       }
-      std::cout << "[IfcExportService] Exported " << exportedCount
-                << " nodes. (VERSION: 2026-05-14-FIXED)" << std::endl;
+      std::cout << "[IfcExportService] XCAF Exported " << exportedCount
+                << " nodes. (VERSION: 2026-06-04-XCAF-INTEGRATED)" << std::endl;
     }
 
     std::stringstream ss;

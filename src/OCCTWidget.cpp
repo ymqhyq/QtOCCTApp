@@ -46,6 +46,10 @@
 #include <gp_Pln.hxx>
 #include <gp_Trsf.hxx>
 #include <Graphic3d_ZLayerId.hxx>
+#include <XCAFPrs_AISObject.hxx>
+#include <TPrsStd_AISPresentation.hxx>
+#include <TPrsStd_AISViewer.hxx>
+#include <TDataStd_AsciiString.hxx>
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
@@ -292,7 +296,6 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     return;
 
   // Start rotation
-  // Start rotation
   if (event->button() == Qt::RightButton) {
     if (!m_view.IsNull()) {
       m_view->StartRotation(event->pos().x(), event->pos().y());
@@ -309,7 +312,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   m_xPos = event->pos().x();
   m_yPos = event->pos().y();
 
-  // 妫€鏌ユ槸鍚︾偣鍑讳簡 ViewCube 浜や簰缁勪欢
+  // 检查是否点击了 ViewCube 交互组件
   qreal pixelRatio = devicePixelRatio();
   m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                     static_cast<int>(event->pos().y() * pixelRatio), m_view, true);
@@ -317,57 +320,11 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   if (!m_viewCube.IsNull() && m_context->HasDetected()) {
     Handle(AIS_ViewCubeOwner) aCubeOwner = Handle(AIS_ViewCubeOwner)::DownCast(m_context->DetectedOwner());
     if (!aCubeOwner.IsNull()) {
-      // 瑙﹀彂 ViewCube 鐨勫唴閮ㄨ鍥惧垏鎹㈤€昏緫
       m_viewCube->HandleClick(aCubeOwner);
       update();
-      return; // 娑堣€椾簨浠讹紝涓嶈Е鍙戝悗缁殑閫夋嫨鎴栫粯鍒堕€昏緫
+      return; 
     }
   }
-
-  // Check if we are panning (Left Button + Not Drawing/Selecting or perhaps
-  // just Left Button  User asked to CHANGE to Left Button. However, Left Button
-  // is also used for Drawing and Picking. Usually, Left Button = Pick/Draw,
-  // Middle/Right = Pan/Rotate. If User wants Left Button Pan, we must
-  // differentiate context. Assuming: Left Drag = Pan, Left Click = Select/Draw
-  // But we trigger Draw on Press.
-
-  // Let's implement: If Draw Mode is OFF, Left Drag = Pan 
-  // Or maybe User wants it always  If always, how to Draw 
-  // Assuming User wants to REPLACE the Middle Button logic with Left Button
-  // logic for Panning BUT we must allow Click for Selection/Drawing. So we only
-  // Pan in Move if Left Button is held.
-
-  // In Press, we just initialize. logic in Move handles the dragging.
-  // We shouldn't return early here if we want to allow Click actions on Release
-  // or Press. But previous code returned early for Middle Button.
-
-  // Let's just update tracking here. Actual conflict resolution is in Mouse
-  // Move vs Press logic. If we want Pan on Left Drag, we need to know if it's a
-  // Click or Drag. For now, let's keep the return early ONLY if we decide this
-  // press is EXCLUSIVELY for panning. But if Left Button is overloaded, we
-  // can't return early.
-
-  // Removing the early return for the button check to allow mixed usage (Drag
-  // to Pan, Click to Select) or we check modifiers 
-
-  // Simple implementation as requested: Change Middle to Left in Move logic.
-  // In Press, we don't block.
-
-  // Original code had:
-  /*
-  if (event->buttons() & Qt::MiddleButton) {
-      return;
-  }
-  */
-
-  // We remove the blocking check so execution continues to picking logic
-  // (ClickPoint calculation). Panning will happen in Move event.
-
-  /*
-  if (!hasIntersection) {
-    return;
-  }
-  */
 
   if (m_drawLineMode) {
     // First click - set the first point
@@ -387,8 +344,6 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
       }
     }
   } else if (event->button() == Qt::LeftButton) {
-    // Select a line if clicked on one
-    // Logic remains similar but using original coordinates for MoveTo
     qreal pixelRatio = devicePixelRatio();
     m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                       static_cast<int>(event->pos().y() * pixelRatio), m_view,
@@ -403,10 +358,24 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
       if (m_objectMetadata.contains(selObj)) {
         emit objectSelected(m_objectMetadata[selObj]);
       } else {
-        // 濡傛灉娌℃湁鍏冩暟鎹紝鍙互鍙戦€佷竴涓┖鐨勬垨鍩烘湰鐨 
-        QVariantMap basicMeta;
-        basicMeta["name"] = selObj->DynamicType()->Name();
-        emit objectSelected(basicMeta);
+        Handle(XCAFPrs_AISObject) xcafObj = Handle(XCAFPrs_AISObject)::DownCast(selObj);
+        if (!xcafObj.IsNull()) {
+          TDF_Label label = xcafObj->GetLabel();
+          Handle(TDataStd_AsciiString) adNodeIdAttr;
+          if (label.FindAttribute(TDataStd_AsciiString::GetID(), adNodeIdAttr)) {
+            QVariantMap meta;
+            meta["_adNodeId"] = QString(adNodeIdAttr->Get().ToCString());
+            emit objectSelected(meta);
+          } else {
+            QVariantMap basicMeta;
+            basicMeta["name"] = selObj->DynamicType()->Name();
+            emit objectSelected(basicMeta);
+          }
+        } else {
+          QVariantMap basicMeta;
+          basicMeta["name"] = selObj->DynamicType()->Name();
+          emit objectSelected(basicMeta);
+        }
       }
     } else {
       emit objectSelected(QVariantMap()); // 鍙戦€佺┖琛ㄧず鍙栨秷閫変腑
@@ -1190,7 +1159,6 @@ typedef NCollection_IndexedDataMap<TCollection_AsciiString,
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
-
 #endif
 
 void OCCTWidget::exportToGLTF(const QString &filename) {
@@ -2074,4 +2042,51 @@ void OCCTWidget::selectAndCenterObject(const QString& key, const QVariant& value
         }
     }
     m_view->Redraw();
+}
+
+void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
+  if (m_context.IsNull() || doc.IsNull())
+    return;
+
+  // 1. 清除视口当前显示的普通对象和元数据映射
+  m_context->EraseAll(Standard_True);
+  m_objectMetadata.clear();
+
+  // 开启事务保护以允许写入 OCAF 展示属性 (TPrsStd_AISViewer 和 TPrsStd_AISPresentation)
+  Standard_Boolean hasOpenCommand = doc->HasOpenCommand();
+  if (!hasOpenCommand) {
+      doc->NewCommand();
+  }
+
+  try {
+      // 2. 关联并获取 TPrsStd_AISViewer
+      Handle(TPrsStd_AISViewer) viewer;
+      if (!TPrsStd_AISViewer::Find(doc->Main(), viewer)) {
+          viewer = TPrsStd_AISViewer::New(doc->Main(), m_context);
+      }
+
+      // 3. 在根 Label 上添加并显示 Presentation 属性以驱动递归 XCAF 渲染
+      Handle(TPrsStd_AISPresentation) pres = TPrsStd_AISPresentation::Set(doc->Main(), TPrsStd_AISPresentation::GetID());
+      if (!pres.IsNull()) {
+          pres->Display(Standard_True);
+      }
+
+      if (!hasOpenCommand) {
+          doc->CommitCommand();
+      }
+  } catch (...) {
+      if (!hasOpenCommand) {
+          doc->AbortCommand();
+      }
+      qWarning() << "Exception inside loadXcafDocument during OCAF attribute writing";
+  }
+
+  // 4. 驱动原生展现更新
+  TPrsStd_AISViewer::Update(doc->Main());
+
+  // 5. 刷新视口并进行 FitAll 适配画面
+  if (!m_view.IsNull()) {
+      m_view->Redraw();
+  }
+  fitAll();
 }

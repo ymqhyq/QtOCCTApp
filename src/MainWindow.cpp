@@ -13,6 +13,12 @@
 #include <BRep_Builder.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include "IfcExportService.h"
+#include <ifcparse/IfcFile.h>
+#include <ifcgeom/Iterator.h>
+#include <ifcgeom/kernels/opencascade/OpenCascadeKernel.h>
+#include <ifcgeom/kernels/opencascade/OpenCascadeConversionResult.h>
+#include <ifcgeom/kernels/opencascade/base_utils.h>
+#include <TopoDS_Compound.hxx>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -47,6 +53,11 @@
 #include "BrNode_adGeometry.h"
 #include "BrNode_adGeometricDef.h"
 #include <cmath>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+#include <XCAFDoc_ColorTool.hxx>
+#include <XCAFDoc_LayerTool.hxx>
+#include <Standard_Failure.hxx>
 
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
@@ -105,6 +116,10 @@ void MainWindow::createRibbon() {
   QAction *importBrepAction = new QAction(QIcon(":/resources/icons/random.svg"), "Import BREP", this);
   connect(importBrepAction, &QAction::triggered, this, &MainWindow::onImportBrep);
   panelBasic->addLargeAction(importBrepAction);
+
+  QAction *importIfcAction = new QAction(QIcon(":/resources/icons/random.svg"), "Import IFC", this);
+  connect(importIfcAction, &QAction::triggered, this, &MainWindow::onImportIfc);
+  panelBasic->addLargeAction(importIfcAction);
 
   SARibbonPanel *panelView = categoryMain->addPanel("View");
   QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Fit All", this);
@@ -274,6 +289,18 @@ void MainWindow::onDrawBridgePier() {
 }
 
 void MainWindow::onObjectSelected(const QVariantMap &metadata) {
+    if (metadata.contains("_adNodeId")) {
+        QString nodeId = metadata["_adNodeId"].toString();
+        if (!m_currentModel.IsNull()) {
+            Handle(ActAPI_INode) node = m_currentModel->FindNode(nodeId.toStdString().c_str());
+            Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(node);
+            if (!adObj.IsNull()) {
+                onExplorerNodeSelected(adObj);
+                return;
+            }
+        }
+    }
+
     // Clear layout
     QLayoutItem *child;
     while ((child = m_propertyLayout->takeAt(0)) != nullptr) {
@@ -429,30 +456,106 @@ void MainWindow::onLoadAsiModel() {
         return;
     }
 
-    GeometryService geoService(m_currentModel);
     std::vector<GeometryService::VisualShape> visualShapes;
 
-    Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
-    Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
-    for (; it->More(); it->Next()) {
-        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
-        if (!obj.IsNull()) {
-            geoService.TraverseAndBuild(obj, visualShapes);
+    // 开启 Command 事务并在事务中构建几何并挂载到 XCAF 树上
+    m_currentModel->OpenCommand();
+    try {
+        // 显式在事务内初始化 XCAF 的各种 Tools 以避免懒加载崩溃
+        XCAFDoc_DocumentTool::ShapeTool(m_currentModel->Document()->Main());
+        XCAFDoc_DocumentTool::ColorTool(m_currentModel->Document()->Main());
+        XCAFDoc_DocumentTool::LayerTool(m_currentModel->Document()->Main());
+
+        GeometryService geoService(m_currentModel);
+
+        Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
+        Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
+        for (; it->More(); it->Next()) {
+            Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+            if (!obj.IsNull()) {
+                geoService.TraverseAndBuild(obj, visualShapes);
+            }
         }
+        m_currentModel->CommitCommand();
+    } catch (Standard_Failure& e) {
+        m_currentModel->AbortCommand();
+        QString errMsg = QString("OCCT Exception: %1").arg(e.GetMessageString());
+        QMessageBox::warning(this, "Warning", "Failed to construct XCAF geometry assembly.\n" + errMsg);
+    } catch (const std::exception& e) {
+        m_currentModel->AbortCommand();
+        QString errMsg = QString("Standard Exception: %1").arg(e.what());
+        QMessageBox::warning(this, "Warning", "Failed to construct XCAF geometry assembly.\n" + errMsg);
+    } catch (...) {
+        m_currentModel->AbortCommand();
+        QMessageBox::warning(this, "Warning", "Failed to construct XCAF geometry assembly.\nUnknown error occurred.");
     }
 
+    // 转换 json 为 QVariantMap 的辅助 Lambdas
+    auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
+        std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
+            QVariantMap map;
+            for (auto it = js.begin(); it != js.end(); ++it) {
+                QString key = QString::fromStdString(it.key());
+                if (it.value().is_string()) {
+                    map[key] = QString::fromStdString(it.value().get<std::string>());
+                } else if (it.value().is_number_float()) {
+                    map[key] = it.value().get<double>();
+                } else if (it.value().is_number_integer()) {
+                    map[key] = it.value().get<int>();
+                } else if (it.value().is_boolean()) {
+                    map[key] = it.value().get<bool>();
+                } else if (it.value().is_object()) {
+                    map[key] = convert(it.value());
+                } else if (it.value().is_array()) {
+                    QVariantList list;
+                    for (const auto& item : it.value()) {
+                        if (item.is_number()) list.append(item.get<double>());
+                        else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
+                    }
+                    map[key] = list;
+                }
+            }
+            return map;
+        };
+        return convert(j);
+    };
+
+    // 渲染普通展示：直接用 visualShapes 一键渲染，并建立元数据绑定！
+    m_occtWidget->clearAll();
     for (const auto& vs : visualShapes) {
-        BRepBuilderAPI_Transform transformer(vs.shape, vs.transform);
-        if (transformer.IsDone()) {
-            // Convert nlohmann::json to QVariantMap via JSON string
-            std::string metaStr = vs.metadata.dump();
-            QJsonDocument doc = QJsonDocument::fromJson(QByteArray::fromStdString(metaStr));
-            QVariantMap metaMap = doc.toVariant().toMap();
-
-            m_occtWidget->addShape(transformer.Shape(), Quantity_Color(Quantity_NOC_GRAY70), Graphic3d_NOM_PLASTIC, metaMap);
+        if (vs.shape.IsNull()) continue;
+        
+        // 应用绝对坐标变换
+        TopoDS_Shape transformedShape = vs.shape;
+        try {
+            BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
+            transformedShape = trans.Shape();
+        } catch (...) {
+            transformedShape = vs.shape;
         }
+
+        QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
+        
+        // 确定构件的颜色
+        Quantity_Color color(Quantity_NOC_GRAY75);
+        if (meta.contains("Pset_MaterialPBR")) {
+            QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
+            if (pbr.contains("BaseColor")) {
+                QVariantList colorList = pbr["BaseColor"].toList();
+                if (colorList.size() >= 3) {
+                    color = Quantity_Color(colorList[0].toDouble(), 
+                                           colorList[1].toDouble(), 
+                                           colorList[2].toDouble(), 
+                                           Quantity_TOC_RGB);
+                }
+            }
+        }
+        
+        m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
     }
+
     m_occtWidget->fitAll();
+    
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Model loaded: " + fileName, 3000);
 }
@@ -482,6 +585,98 @@ void MainWindow::onImportBrep() {
     m_occtWidget->fitAll();
     
     statusBar()->showMessage("BREP imported: " + fileName, 3000);
+}
+
+void MainWindow::onImportIfc() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Import IFC", "", "IFC Files (*.ifc);;All Files (*.*)");
+    if (fileName.isEmpty()) return;
+
+    statusBar()->showMessage("Importing IFC file: " + fileName + "...");
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+
+    try {
+        // 1. Initialize translation settings
+        ifcopenshell::geometry::Settings settings;
+        
+        // 2. Open IFC File
+        IfcParse::IfcFile file(fileName.toStdString());
+        if (!file.good()) {
+            QApplication::restoreOverrideCursor();
+            QMessageBox::critical(this, "Error", "Failed to parse IFC file: " + fileName);
+            statusBar()->clearMessage();
+            return;
+        }
+
+        // 3. Create OpenCascade geometric kernel
+        auto kernel = std::make_unique<IfcGeom::OpenCascadeKernel>(settings);
+
+        // 4. Initialize Geometry Iterator
+        IfcGeom::Iterator iterator(std::move(kernel), settings, &file);
+        if (!iterator.initialize()) {
+            QApplication::restoreOverrideCursor();
+            QMessageBox::critical(this, "Error", "Failed to initialize IFC geometry iterator. No 3D shapes found.");
+            statusBar()->clearMessage();
+            return;
+        }
+
+        // 5. Gather and reconstruct compound shape
+        BRep_Builder builder;
+        TopoDS_Compound compound;
+        builder.MakeCompound(compound);
+        bool hasGeometry = false;
+        int parsedCount = 0;
+
+        do {
+            IfcGeom::Element* elem = iterator.get();
+            if (elem) {
+                IfcGeom::BRepElement* brepElem = dynamic_cast<IfcGeom::BRepElement*>(elem);
+                if (brepElem) {
+                    auto compound_ptr = brepElem->geometry().as_compound();
+                    auto cascade_compound = dynamic_cast<ifcopenshell::geometry::OpenCascadeShape*>(compound_ptr);
+                    if (cascade_compound) {
+                        TopoDS_Shape base_shape = cascade_compound->shape();
+                        
+                        // Apply placement transformation
+                        const auto& trsf = brepElem->transformation().data();
+                        TopoDS_Shape transformed = IfcGeom::util::apply_transformation(base_shape, *trsf);
+                        
+                        builder.Add(compound, transformed);
+                        hasGeometry = true;
+                        parsedCount++;
+                    }
+                    delete compound_ptr; // Release as_compound memory allocation
+                }
+            }
+        } while (iterator.next());
+
+        QApplication::restoreOverrideCursor();
+
+        if (!hasGeometry) {
+            QMessageBox::warning(this, "Warning", "The imported IFC file contains no valid 3D shapes.");
+            statusBar()->clearMessage();
+            return;
+        }
+
+        // 6. Display compound shape in OCCT Widget and set metadata
+        QVariantMap meta;
+        meta["Basic Information.Name"] = QFileInfo(fileName).fileName();
+        meta["Basic Information.Path"] = fileName;
+        meta["Basic Information.ParsedElements"] = QString::number(parsedCount);
+
+        m_occtWidget->addShape(compound, Quantity_Color(Quantity_NOC_GRAY70), Graphic3d_NOM_PLASTIC, meta);
+        m_occtWidget->fitAll();
+
+        statusBar()->showMessage(QString("IFC imported: %1 (%2 shapes)").arg(QFileInfo(fileName).fileName()).arg(parsedCount), 5000);
+
+    } catch (const std::exception& e) {
+        QApplication::restoreOverrideCursor();
+        QMessageBox::critical(this, "Error", QString("Exception during IFC import:\n%1").arg(e.what()));
+        statusBar()->clearMessage();
+    } catch (...) {
+        QApplication::restoreOverrideCursor();
+        QMessageBox::critical(this, "Error", "Unknown exception occurred during IFC import.");
+        statusBar()->clearMessage();
+    }
 }
 
 void MainWindow::onRunCqScript() {

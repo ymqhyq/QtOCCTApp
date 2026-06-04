@@ -19,6 +19,11 @@
 #include <math.h>
 
 #include <ActData_BasePartition.h>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+#include <TDataStd_Name.hxx>
+#include <TDataStd_AsciiString.hxx>
+#include <TDF_LabelSequence.hxx>
 
 using json = nlohmann::json;
 
@@ -28,56 +33,44 @@ static std::string ToStr(const TCollection_ExtendedString& es) {
 }
 
 void PrintGeometryStats(const Handle(ActData_BaseModel)& model) {
-    Handle(ActAPI_IPartition) geoPart = model->Partition(DataModel::PID_GeometryDefinitions);
-    Handle(ActAPI_IPartition) topoPart = model->Partition(DataModel::PID_Topology);
-    if (geoPart.IsNull() || topoPart.IsNull()) return;
+    if (model.IsNull()) return;
+    std::cout << "[DEBUG] PrintGeometryStats: 1" << std::endl;
+    Handle(TDocStd_Document) doc = model->Document();
+    if (doc.IsNull()) return;
+    std::cout << "[DEBUG] PrintGeometryStats: 2" << std::endl;
+    Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+    if (shapeTool.IsNull()) return;
+    std::cout << "[DEBUG] PrintGeometryStats: 3" << std::endl;
+
+    TDF_LabelSequence protos;
+    shapeTool->GetShapes(protos);
+    std::cout << "[DEBUG] PrintGeometryStats: 4, protos.Length = " << protos.Length() << std::endl;
 
     std::cout << std::endl;
-    std::cout << "========== Geometry Reuse Stats ==========" << std::endl;
-    
-    struct GeoStat {
-        Handle(BrNode_adGeometricDef) node;
-        int count = 0;
-    };
-    std::map<std::string, GeoStat> stats;
-    
-    Handle(ActData_BasePartition) geoPartBase = Handle(ActData_BasePartition)::DownCast(geoPart);
-    if (!geoPartBase.IsNull()) {
-        for (ActData_BasePartition::Iterator it(geoPartBase); it.More(); it.Next()) {
-            Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
-            if (!gd.IsNull()) {
-                stats[ToStr(gd->GetParamGeoID())] = {gd, 0};
-            }
+    std::cout << "========== XCAF Geometry Stats ==========" << std::endl;
+    std::cout << "Unique Prototype Parts (Shapes): " << protos.Length() << std::endl;
+    for (int i = 1; i <= protos.Length(); ++i) {
+        std::cout << "[DEBUG] PrintGeometryStats: Loop i = " << i << " (A)" << std::endl;
+        TDF_Label protoLabel = protos.Value(i);
+        Handle(TDataStd_Name) nameAttr;
+        std::string name = "Unnamed";
+        if (protoLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+            name = ToStr(nameAttr->Get());
         }
-    }
-
-    Handle(ActData_BasePartition) topoPartBase = Handle(ActData_BasePartition)::DownCast(topoPart);
-    if (!topoPartBase.IsNull()) {
-        for (ActData_BasePartition::Iterator it(topoPartBase); it.More(); it.Next()) {
-            Handle(BrNode_adGeometry) geom = Handle(BrNode_adGeometry)::DownCast(it.Value());
-            if (!geom.IsNull()) {
-                Handle(ActAPI_IDataCursor) ref = geom->GetGeometryRef();
-                Handle(BrNode_adGeometricDef) gd = Handle(BrNode_adGeometricDef)::DownCast(ref);
-                if (!gd.IsNull()) {
-                    std::string id = ToStr(gd->GetParamGeoID());
-                    if (stats.count(id)) {
-                        stats[id].count++;
-                    }
-                }
-            }
+        std::cout << "[DEBUG] PrintGeometryStats: Loop i = " << i << " (B), name = " << name << std::endl;
+        Handle(TDataStd_AsciiString) geoIdAttr;
+        std::string md5 = "N/A";
+        if (protoLabel.FindAttribute(TDataStd_AsciiString::GetID(), geoIdAttr)) {
+            md5 = geoIdAttr->Get().ToCString();
         }
+        std::cout << "[DEBUG] PrintGeometryStats: Loop i = " << i << " (C)" << std::endl;
+        TDF_LabelSequence users;
+        int userCount = XCAFDoc_ShapeTool::GetUsers(protoLabel, users, Standard_True);
+        std::cout << "[DEBUG] PrintGeometryStats: Loop i = " << i << " (D), userCount = " << userCount << std::endl;
+        std::cout << "  - [Prototype] " << name << " (MD5: " << md5.substr(0,8) << "...)"
+                  << "  Instance Count (Users): " << userCount << std::endl;
     }
-    
-    int totalDefs = 0;
-    for (auto const& [id, stat] : stats) {
-        totalDefs++;
-        std::string name = ToStr(stat.node->GetName());
-        std::cout << "  - [GeoDef] " << name << " (ID: " << id.substr(0,8) << "...)"
-                  << "  Count: " << stat.count << std::endl;
-    }
-    
-    std::cout << "Total GeoDefs: " << totalDefs << std::endl;
-    std::cout << "===========================================" << std::endl;
+    std::cout << "=========================================" << std::endl;
 }
 
 void PrintAssemblyTree(const Handle(BrNode_adObject)& node, int depth = 0)
@@ -239,15 +232,7 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
 #include "GeometryService.h"
 void BuildAllGeometry(const Handle(ActData_BaseModel)& model, const Handle(BrNode_adObject)& node, GeometryService& geoService) {
     if (node.IsNull()) return;
-    Handle(BrNode_adGeometricDef) geoDef = geoService.BuildGeometry(node);
-
-    if (!geoDef.IsNull()) {
-        Handle(DataModel) dataModel = Handle(DataModel)::DownCast(model);
-        Handle(BrNode_adGeometry) geom = dataModel->AddadGeometry();
-        geom->SetName(node->GetName());
-        geom->SetGeometryRef(geoDef);
-        node->SetGeometry(geom);
-    }
+    TDF_Label geoLabel = geoService.BuildGeometry(node);
     
     NCollection_Sequence<Handle(BrNode_adObject)> children = node->GetSubObjectsList();
     for (int i = 1; i <= children.Length(); ++i) {
@@ -275,9 +260,13 @@ int main(int argc, char** argv) {
         std::cerr << "JSON Parse Error: " << e.what() << std::endl;
         return 1;
     }
-
     model->OpenCommand();
     try {
+        // 显式在事务内初始化 XCAF 的各种 Tools 以免由于懒加载在事务外写属性导致崩溃
+        XCAFDoc_DocumentTool::ShapeTool(model->Document()->Main());
+        XCAFDoc_DocumentTool::ColorTool(model->Document()->Main());
+        XCAFDoc_DocumentTool::LayerTool(model->Document()->Main());
+
         Handle(BrNode_adObject) rootBridge = ProcessJsonObject(model, data["bridge"]);
         Handle(BrNode_adModelRoot) modelRoot = Handle(BrNode_adModelRoot)::DownCast(model->GetRootNode());
         if (!modelRoot.IsNull() && !rootBridge.IsNull()) {
@@ -286,19 +275,25 @@ int main(int argc, char** argv) {
         
         GeometryService geoService(model, "http://127.0.0.1:3500/v1.0/invoke/modeling-service/method");
         BuildAllGeometry(model, rootBridge, geoService);
-        
+        std::cout << "[DEBUG] Committing command..." << std::endl;
         model->CommitCommand();
+        std::cout << "[DEBUG] Command committed successfully." << std::endl;
 
         if (!rootBridge.IsNull()) {
             std::cout << std::endl << "========== Bridge Assembly Tree ==========" << std::endl;
             PrintAssemblyTree(rootBridge);
             std::cout << "===========================================" << std::endl;
+            
+            std::cout << "[DEBUG] Printing geometry stats..." << std::endl;
             PrintGeometryStats(model);
+            std::cout << "[DEBUG] Geometry stats printed successfully." << std::endl;
             
             TCollection_AsciiString savePath = "D:/QtOCCTApp/bridge_test_save.asi";
+            std::cout << "[DEBUG] Saving model to: " << savePath.ToCString() << " ..." << std::endl;
             if (model->SaveAs(savePath)) {
                 std::cout << "Model saved to: " << savePath.ToCString() << std::endl;
             }
+            std::cout << "[DEBUG] Model saved successfully." << std::endl;
         }
     } catch (Standard_Failure& e) {
         std::cerr << "!!! FATAL OCCT EXCEPTION: " << e.GetMessageString() << std::endl;

@@ -19,6 +19,7 @@
 #include <Geom_Line.hxx>
 #include <Graphic3d_NameOfMaterial.hxx>
 #include <Quantity_Color.hxx>
+#include <TDocStd_Document.hxx>
 
 #include <QMap>
 #include <QVariant>
@@ -85,6 +86,7 @@ public:
   void buildFullBridgeFromParts(const QList<AssemblyPart> &parts, int count,
                                 double spacing);
   void buildFullBridgeFromBatch(const QList<AssemblyPart> &parts);
+  void loadXcafDocument(const Handle(TDocStd_Document)& doc);
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,

@@ -16,6 +16,21 @@
 #include <TDF_Label.hxx>
 #include <TDF_Tool.hxx>
 #include <gp_Ax1.hxx>
+
+// XCAF & OCAF Copy
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+#include <XCAFDoc_ColorTool.hxx>
+#include <XCAFDoc_LayerTool.hxx>
+#include <XCAFDoc_VisMaterialTool.hxx>
+#include <XCAFDoc_VisMaterial.hxx>
+#include <TDataStd_AsciiString.hxx>
+#include <TDataStd_Name.hxx>
+#include <TDF_CopyLabel.hxx>
+#include <TDF_LabelSequence.hxx>
+#include <TColStd_IndexedMapOfTransient.hxx>
+#include <ActData_Application.h>
+#include <PCDM_ReaderStatus.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
@@ -231,8 +246,88 @@ HttpPost(const std::string &host, int port, const std::string &path,
 // ============================================================
 
 GeometryService::GeometryService(const Handle(DataModel) & model,
-                                 const std::string &serviceUrl)
-    : m_model(model), m_serviceUrl(serviceUrl) {}
+                                 const std::string &serviceUrl) 
+    : m_model(model), m_serviceUrl(serviceUrl)
+{
+    InitializeCacheMap();
+}
+
+// ------ 初始化内存缓存 ------
+void GeometryService::InitializeCacheMap()
+{
+    m_cacheMap.clear();
+    if (m_model.IsNull()) return;
+
+    Handle(TDocStd_Document) doc = m_model->Document();
+    if (doc.IsNull()) return;
+
+    Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+    if (shapeTool.IsNull()) return;
+
+    TDF_LabelSequence allShapes;
+    shapeTool->GetShapes(allShapes);
+
+    for (int i = 1; i <= allShapes.Length(); ++i)
+    {
+        TDF_Label aLabel = allShapes.Value(i);
+        if (!shapeTool->IsAssembly(aLabel) && !shapeTool->IsComponent(aLabel))
+        {
+            Handle(TDataStd_AsciiString) geoIdAttr;
+            if (aLabel.FindAttribute(TDataStd_AsciiString::GetID(), geoIdAttr))
+            {
+                TCollection_AsciiString paramGeoId = geoIdAttr->Get();
+                m_cacheMap[paramGeoId.ToCString()] = aLabel;
+            }
+        }
+    }
+}
+
+// ------ 反序列化并合并 CBF 子树 ------
+TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, const std::string& paramGeoId)
+{
+    if (m_model.IsNull()) return TDF_Label();
+    Handle(TDocStd_Document) destDoc = m_model->Document();
+    if (destDoc.IsNull()) return TDF_Label();
+
+    // 1. 创建临时 OCAF 文档
+    Handle(TDocStd_Document) tempDoc = new TDocStd_Document("binocaf");
+
+    // 2. 使用 ActData_Application 从字节流反序列化
+    std::istringstream iss(cbfByteStream, std::ios::binary);
+    Handle(ActData_Application) app = ActData_Application::Instance();
+    if (app->Open(iss, tempDoc) != PCDM_RS_OK)
+    {
+        std::cerr << "[GeometryService] Failed to read CBF byte stream" << std::endl;
+        return TDF_Label();
+    }
+
+    // 3. 提取临时文档中的零件原型 Label
+    Handle(XCAFDoc_ShapeTool) tempShapeTool = XCAFDoc_DocumentTool::ShapeTool(tempDoc->Main());
+    if (tempShapeTool.IsNull()) return TDF_Label();
+
+    TDF_LabelSequence tempShapes;
+    tempShapeTool->GetShapes(tempShapes);
+    if (tempShapes.Length() == 0) return TDF_Label();
+
+    TDF_Label srcProtoLabel = tempShapes.Value(1);
+
+    // 4. 将原型 Label 深度拷贝到主文档
+    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    if (destShapeTool.IsNull()) return TDF_Label();
+
+    TDF_Label destProtoLabel = destShapeTool->NewShape();
+
+    TDF_CopyLabel copier(srcProtoLabel, destProtoLabel);
+    copier.Perform();
+
+    // 5. 附加 ParamGeoID 属性作为主键
+    TDataStd_AsciiString::Set(destProtoLabel, paramGeoId.c_str());
+
+    // 6. 放入内存缓存
+    m_cacheMap[paramGeoId] = destProtoLabel;
+
+    return destProtoLabel;
+}
 
 // ------ 提取几何参数 ------
 GeometryService::ExtractedParams
@@ -306,35 +401,6 @@ std::string GeometryService::ComputeParamGeoID(const std::string &modelType,
   return md5(input);
 }
 
-// ------ 查找缓存的几何定义 ------
-Handle(BrNode_adGeometricDef)
-    GeometryService::FindCachedGeoDef(const std::string &paramGeoId) {
-  // 获取几何定义分区
-  Handle(ActAPI_IPartition) partition =
-      m_model->Partition(DataModel::PID_GeometryDefinitions);
-  if (partition.IsNull())
-    return nullptr;
-
-  // 使用分区的迭代器遍历节点
-  Handle(ActData_BasePartition) basePart =
-      Handle(ActData_BasePartition)::DownCast(partition);
-  if (!basePart.IsNull()) {
-    for (ActData_BasePartition::Iterator it(basePart); it.More(); it.Next()) {
-      Handle(BrNode_adGeometricDef) gd =
-          Handle(BrNode_adGeometricDef)::DownCast(it.Value());
-      if (gd.IsNull())
-        continue;
-
-      std::string existingId = ToStdString(gd->GetParamGeoID());
-      if (existingId == paramGeoId) {
-        std::cout << "[GeometryService] Cache HIT: " << paramGeoId << std::endl;
-        return gd;
-      }
-    }
-  }
-  return nullptr;
-}
-
 // ------ 调用建模服务 ------
 GeometryService::ServiceResult
 GeometryService::CallModelingService(const std::string &modelType,
@@ -347,7 +413,7 @@ GeometryService::CallModelingService(const std::string &modelType,
   requestBody["model_type"] = modelType;
   requestBody["args"] = params;
   requestBody["code"] = "";       // 由服务端根据 model_type 查找脚本
-  requestBody["format"] = "brep"; // 直接获取 BREP
+  requestBody["format"] = "cbf"; // 获取 OCAF CBF 二进制流
 
   std::string bodyStr = requestBody.dump();
 
@@ -437,22 +503,7 @@ TopoDS_Shape GeometryService::ParseBREP(const std::string &brepData) {
   return shape;
 }
 
-// ------ 创建几何定义节点 ------
-Handle(BrNode_adGeometricDef) GeometryService::CreateGeoDef(
-    const std::string &paramGeoId, const json &allParams,
-    const TopoDS_Shape &shape) {
-  Handle(BrNode_adGeometricDef) geoDef = m_model->AddadGeometricDef();
-  if (geoDef.IsNull())
-    return nullptr;
 
-  geoDef->SetName(ToExtString(paramGeoId.substr(0, 8))); // 短名
-  geoDef->SetParamGeoID(ToExtString(paramGeoId));
-  geoDef->SetGeoParameter(ToExtString(allParams.dump()));
-  geoDef->SetShape(shape);
-
-  std::cout << "[GeometryService] Created GeoDef: " << paramGeoId << std::endl;
-  return geoDef;
-}
 
 // ------ 回写参数 ------
 void GeometryService::WriteBackParams(const Handle(BrNode_adPropertySet) &
@@ -487,21 +538,10 @@ void GeometryService::WriteBackParams(const Handle(BrNode_adPropertySet) &
 }
 
 // ------ 核心接口: 从 adObject 构建几何 ------
-Handle(BrNode_adGeometricDef)
+TDF_Label
     GeometryService::BuildGeometry(const Handle(BrNode_adObject) & adObj) {
-  if (adObj.IsNull())
-    return nullptr;
-
-  // 0. 离线加载优化：优先检查对象是否已经关联了有效的几何定义
-  Handle(BrNode_adGeometry) existingGeom =
-      Handle(BrNode_adGeometry)::DownCast(adObj->GetGeometry());
-  if (!existingGeom.IsNull()) {
-    Handle(BrNode_adGeometricDef) linkedDef =
-        Handle(BrNode_adGeometricDef)::DownCast(existingGeom->GetGeometryRef());
-    if (!linkedDef.IsNull() && !linkedDef->GetShape().IsNull()) {
-      return linkedDef;
-    }
-  }
+  if (adObj.IsNull() || m_model.IsNull())
+    return TDF_Label();
 
   // 1. 提取参数
   ExtractedParams ep = ExtractGeoParams(adObj);
@@ -509,7 +549,7 @@ Handle(BrNode_adGeometricDef)
     std::cout << "[GeometryService] Skip building: No Geometry Pset found for ["
               << ep.modelType << "] " << ToStdString(adObj->GetName())
               << std::endl;
-    return nullptr;
+    return TDF_Label();
   }
 
   std::cout << "[GeometryService] BuildGeometry for [" << ep.modelType << "] "
@@ -519,15 +559,17 @@ Handle(BrNode_adGeometricDef)
   std::string paramGeoId = ComputeParamGeoID(ep.modelType, ep.params);
 
   // 3. 查找缓存
-  Handle(BrNode_adGeometricDef) cached = FindCachedGeoDef(paramGeoId);
-  if (!cached.IsNull()) {
-    // 建立引用关系
-    return cached;
+  auto it = m_cacheMap.find(paramGeoId);
+  if (it != m_cacheMap.end() && !it->second.IsNull()) {
+    std::cout << "[GeometryService] Cache HIT (XCAF): " << paramGeoId << std::endl;
+    return it->second;
   }
 
   // 4. 调用建模服务
   std::cout << "[GeometryService] Cache MISS, calling service..." << std::endl;
   ServiceResult sr = CallModelingService(ep.modelType, ep.params);
+  
+  TDF_Label protoLabel;
   if (!sr.success) {
     std::cerr << "[GeometryService] Fallback to dummy geometry for "
               << ep.modelType << std::endl;
@@ -546,24 +588,21 @@ Handle(BrNode_adGeometricDef)
       fallbackShape = BRepPrimAPI_MakeBox(500, 500, 500).Shape();
     }
 
-    return CreateGeoDef(paramGeoId, ep.params, fallbackShape);
+    // 注册为 XCAF 零件原型
+    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    protoLabel = destShapeTool->AddShape(fallbackShape, Standard_False);
+    TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
+    m_cacheMap[paramGeoId] = protoLabel;
+  } else {
+    // 5. 反序列化并合并 CBF 字节流
+    protoLabel = ImportAndMergeCbf(sr.brepData, paramGeoId);
+    
+    // 6. 回写 inout/out 参数
+    WriteBackParams(ep.geoPset, sr.allParams);
   }
 
-  // 5. 解析 BREP
-  TopoDS_Shape shape = ParseBREP(sr.brepData);
-  if (shape.IsNull()) {
-    std::cerr << "[GeometryService] Failed to parse BREP" << std::endl;
-    return nullptr;
-  }
-
-  // 6. 创建 adGeometricDef 保存到几何分区
-  Handle(BrNode_adGeometricDef) geoDef =
-      CreateGeoDef(paramGeoId, sr.allParams, shape);
-
-  // 7. 回写 inout/out 参数
-  WriteBackParams(ep.geoPset, sr.allParams);
-
-  return geoDef;
+  return protoLabel;
 }
 
 // ------ 核心接口: 直接参数建模 ------
@@ -577,16 +616,18 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
   result.paramGeoId = ComputeParamGeoID(modelType, inputParams);
 
   // 2. 查找缓存
-  Handle(BrNode_adGeometricDef) cached = FindCachedGeoDef(result.paramGeoId);
-  if (!cached.IsNull()) {
-    result.shape = cached->GetShape();
-    try {
-      result.allParams = json::parse(ToStdString(cached->GetGeoParameter()));
-    } catch (...) {
+  auto it = m_cacheMap.find(result.paramGeoId);
+  if (it != m_cacheMap.end() && !it->second.IsNull()) {
+    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    TopoDS_Shape shape;
+    if (destShapeTool->GetShape(it->second, shape) && !shape.IsNull()) {
+      result.shape = shape;
       result.allParams = inputParams;
+      result.fromCache = true;
+      std::cout << "[GeometryService] BuildGeometryFromParams Cache HIT: " << result.paramGeoId << std::endl;
+      return result;
     }
-    result.fromCache = true;
-    return result;
   }
 
   // 3. 调用建模服务
@@ -597,11 +638,17 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
     return result;
   }
 
-  // 4. 解析几何
-  result.shape = ParseBREP(sr.brepData);
+  // 4. 解析并合并几何到 XCAF
+  TDF_Label protoLabel = ImportAndMergeCbf(sr.brepData, result.paramGeoId);
+  if (!protoLabel.IsNull()) {
+    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    TopoDS_Shape shape;
+    if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
+      result.shape = shape;
+    }
+  }
   result.allParams = sr.allParams;
-
-  CreateGeoDef(result.paramGeoId, sr.allParams, result.shape);
 
   return result;
 }
@@ -610,10 +657,30 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
 void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
                                        std::vector<VisualShape> &outShapes,
                                        const gp_Trsf &parentTrsf) {
-  if (rootObj.IsNull())
+  if (rootObj.IsNull() || m_model.IsNull())
     return;
 
-  // 1. 获取局部变换
+  Handle(TDocStd_Document) destDoc = m_model->Document();
+  if (destDoc.IsNull()) return;
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  if (destShapeTool.IsNull()) return;
+
+  // 创建顶级根装配 Label
+  TDF_Label bridgeAssembly = destShapeTool->NewShape();
+  TDataStd_Name::Set(bridgeAssembly, ToExtString(ToStdString(rootObj->GetName())));
+
+  // 递归调用 Helper 开始多层装配构建
+  TraverseAndBuildHelper(rootObj, outShapes, bridgeAssembly, parentTrsf);
+}
+
+void GeometryService::TraverseAndBuildHelper(const Handle(BrNode_adObject) & rootObj,
+                                             std::vector<VisualShape> &outShapes,
+                                             const TDF_Label & parentAssemblyLabel,
+                                             const gp_Trsf &parentTrsf) {
+  if (rootObj.IsNull() || m_model.IsNull() || parentAssemblyLabel.IsNull())
+    return;
+
+  // 1. 获取局部相对坐标变换 localTrsf
   gp_Trsf localTrsf;
   Handle(ActAPI_IUserParameter) p =
       rootObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
@@ -650,27 +717,46 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
     }
   }
 
+  // 计算全局绝对坐标变换以填充 VisualShape (用于渲染和 PBR 提取)
   gp_Trsf currentTrsf = parentTrsf * localTrsf;
 
-  // 2. 构建当前对象的几何
-  Handle(BrNode_adGeometricDef) geoDef = this->BuildGeometry(rootObj);
-  if (!geoDef.IsNull()) {
-    // --- 建立数据模型中的链接，确保导出服务能找到几何 ---
-    if (rootObj->GetGeometry().IsNull()) {
-      Handle(BrNode_adGeometry) geoNode = m_model->AddadGeometry();
-      if (!geoNode.IsNull()) {
-        geoNode->SetGeometryRef(geoDef);
-        rootObj->SetGeometry(geoNode);
-      }
-    }
+  Handle(TDocStd_Document) destDoc = m_model->Document();
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  
+  TDF_Label myLabel = parentAssemblyLabel;
 
-    TopoDS_Shape shape = geoDef->GetShape();
-    if (!shape.IsNull()) {
+  // 2. 构建当前对象的几何
+  TDF_Label protoLabel = this->BuildGeometry(rootObj);
+  if (!protoLabel.IsNull()) {
+    // 这是一个有几何原型的叶子构件 (Simple Shape零件)
+    TopoDS_Shape shape;
+    if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
+      // 在父装配下添加组件，并传入相对局部坐标矩阵
+      TDF_Label instLabel = destShapeTool->AddComponent(parentAssemblyLabel, protoLabel, TopLoc_Location(localTrsf));
+      if (!instLabel.IsNull()) {
+          TDataStd_Name::Set(instLabel, ToExtString(ToStdString(rootObj->GetName())));
+          // 关联 _adNodeId 业务 ID，实现三维双向高亮选中联动
+          TDataStd_AsciiString::Set(instLabel, rootObj->GetId());
+          
+          // 将组件映射到图层
+          std::string modelType = ToStdString(rootObj->GetObjectType());
+          if (!modelType.empty()) {
+            Handle(XCAFDoc_LayerTool) destLayerTool = XCAFDoc_DocumentTool::LayerTool(destDoc->Main());
+            if (!destLayerTool.IsNull()) {
+                TDF_Label layerLabel = destLayerTool->AddLayer(ToExtString(modelType + "_Layer"));
+                if (!layerLabel.IsNull()) {
+                    destLayerTool->SetLayer(instLabel, layerLabel);
+                }
+            }
+          }
+      }
+
       VisualShape vs;
       vs.shape = shape;
       vs.name = ToStdString(rootObj->GetName());
-      vs.transform = currentTrsf;
-      // Extract all PropertySets as metadata
+      vs.transform = currentTrsf; // 绝对坐标供渲染使用
+      
+      // 提取全部属性集作为元数据以支持 PBR 材质颜色渲染
       NCollection_Sequence<Handle(BrNode_adPropertySet)> psets =
           rootObj->GetPropertySetsList();
       for (int i = 1; i <= psets.Length(); ++i) {
@@ -689,7 +775,6 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
           std::string key = ToStdString(p->GetPropertyName());
           std::string val = ToStdString(p->GetPropertyValue());
 
-          // Special handling for BaseColor (comma separated string to list)
           if (key == "BaseColor" && psName == "Pset_MaterialPBR") {
             std::stringstream ss(val);
             std::string segment;
@@ -702,7 +787,6 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
             }
             psJson[key] = colorList;
           } else {
-            // Try to parse as number if possible
             try {
               if (val.find('.') != std::string::npos)
                 psJson[key] = std::stod(val);
@@ -718,13 +802,24 @@ void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
       vs.metadata["_adNodeId"] = rootObj->GetId().ToCString();
       outShapes.push_back(vs);
     }
+  } else {
+    // 这是一个中间装配节点 (Assembly)。在 XCAF 树中为此业务装配节点创建一个空标签！
+    myLabel = destShapeTool->NewShape();
+    TDataStd_Name::Set(myLabel, ToExtString(ToStdString(rootObj->GetName())));
+    
+    // 把该子装配以 Component 实例的方式挂到父装配体下
+    TDF_Label instLabel = destShapeTool->AddComponent(parentAssemblyLabel, myLabel, TopLoc_Location(localTrsf));
+    if (!instLabel.IsNull()) {
+        TDataStd_Name::Set(instLabel, ToExtString(ToStdString(rootObj->GetName())));
+        TDataStd_AsciiString::Set(instLabel, rootObj->GetId());
+    }
   }
 
-  // 3. 递归子对象
+  // 3. 递归子对象：向下传递 myLabel 作为父装配体，currentTrsf 传递全局变换坐标
   NCollection_Sequence<Handle(BrNode_adObject)> children =
       rootObj->GetSubObjectsList();
   for (int i = 1; i <= children.Length(); ++i) {
-    TraverseAndBuild(children.Value(i), outShapes, currentTrsf);
+    TraverseAndBuildHelper(children.Value(i), outShapes, myLabel, currentTrsf);
   }
 }
 

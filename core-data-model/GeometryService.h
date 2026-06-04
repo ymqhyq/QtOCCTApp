@@ -15,6 +15,8 @@
 #include <TopoDS_Shape.hxx>
 #include <Standard_Handle.hxx>
 #include <nlohmann/json.hpp>
+#include <TDF_Label.hxx>
+#include <unordered_map>
 
 // MDA Generated Classes
 #include "generated/DataModel.h"
@@ -67,7 +69,7 @@ public:
      * @param adObj  目标业务对象
      * @return 几何定义节点（含 Shape），失败返回 Null Handle
      */
-    Handle(BrNode_adGeometricDef) BuildGeometry(const Handle(BrNode_adObject)& adObj);
+    TDF_Label BuildGeometry(const Handle(BrNode_adObject)& adObj);
 
     /**
      * @brief 用显式 JSON 参数调用建模服务
@@ -112,12 +114,6 @@ private:
                                           const json& params);
 
     /**
-     * @brief 在几何分区中查找已有 ParamGeoID 匹配的 adGeometricDef
-     * @return 找到的节点，或 Null Handle
-     */
-    Handle(BrNode_adGeometricDef) FindCachedGeoDef(const std::string& paramGeoId);
-
-    /**
      * @brief 调用 scripts-service REST API 进行建模
      * @param modelType  模型类型
      * @param params     建模参数
@@ -136,13 +132,6 @@ private:
      * @brief 从 BREP 字符串解析 TopoDS_Shape
      */
     static TopoDS_Shape ParseBREP(const std::string& brepData);
-
-    /**
-     * @brief 创建 adGeometricDef 节点并存入几何分区
-     */
-    Handle(BrNode_adGeometricDef) CreateGeoDef(const std::string& paramGeoId,
-                                                const json& allParams,
-                                                const TopoDS_Shape& shape);
 
     /**
      * @brief 将 inout/out 参数回写到属性集
@@ -177,6 +166,15 @@ public:
 private:
     Handle(DataModel) m_model;
     std::string       m_serviceUrl;
+    
+    std::unordered_map<std::string, TDF_Label> m_cacheMap;
+    
+    void InitializeCacheMap();
+    TDF_Label ImportAndMergeCbf(const std::string& cbfByteStream, const std::string& paramGeoId);
+    void TraverseAndBuildHelper(const Handle(BrNode_adObject)& rootObj,
+                                std::vector<VisualShape>& outShapes,
+                                const TDF_Label& parentAssemblyLabel,
+                                const gp_Trsf& parentTrsf);
 };
 
 #endif

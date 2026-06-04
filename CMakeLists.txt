@@ -48,6 +48,7 @@ set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/3rpart/boost_1_86_0")
 
 include_directories(${IFCOPENSHELL_DIR}/include)
 include_directories(${BOOST_ROOT})
+include_directories(D:/IfcOpenShell/_deps-vs2026-x64-v142-release-installed/Eigen)
 
 # Define IfcOpenShell schemas
 add_definitions(-DHAS_SCHEMA_4x3_add2)
