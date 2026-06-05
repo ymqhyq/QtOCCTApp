@@ -1964,8 +1964,40 @@ void OCCTWidget::setUsePbr(bool enabled) {
     m_usePbr = enabled;
     if (m_view.IsNull()) return;
 
-    // 切换着色模型 (PBR 或 传统的 Fragment/Phong)
-    m_view->SetShadingModel(enabled ? Graphic3d_TOSM_PBR : Graphic3d_TOSM_FRAGMENT);
+    Graphic3d_RenderingParams& aParams = m_view->ChangeRenderingParams();
+    if (enabled) {
+        m_view->SetShadingModel(Graphic3d_TOSM_PBR);
+        aParams.ToneMappingMethod = Graphic3d_ToneMappingMethod_Filmic;
+        aParams.Exposure = -0.5f;   // Raise exposure to avoid being too dark
+        aParams.WhitePoint = 1.5f;  // Adjust white point for natural transition
+    } else {
+        m_view->SetShadingModel(Graphic3d_TOSM_FRAGMENT);
+        aParams.ToneMappingMethod = Graphic3d_ToneMappingMethod_Disabled;
+        aParams.Exposure = 0.0f;
+        aParams.WhitePoint = 1.0f;
+    }
+
+    // Regulate light source intensities for PBR workflow
+    if (!m_viewer.IsNull()) {
+        for (NCollection_List<Handle(Graphic3d_CLight)>::Iterator it(m_viewer->ActiveLights()); it.More(); it.Next()) {
+            Handle(Graphic3d_CLight) aLight = it.Value();
+            if (aLight.IsNull()) continue;
+            if (enabled) {
+                if (aLight->Type() == Graphic3d_TypeOfLightSource_Ambient) {
+                    aLight->SetIntensity(0.25f); // Set to reasonable ambient light level
+                } else if (aLight->Type() == Graphic3d_TypeOfLightSource_Directional) {
+                    aLight->SetIntensity(1.0f);  // Retain directional light strength
+                }
+            } else {
+                // Restore defaults for Phong shading
+                if (aLight->Type() == Graphic3d_TypeOfLightSource_Ambient || 
+                    aLight->Type() == Graphic3d_TypeOfLightSource_Directional) {
+                    aLight->SetIntensity(1.0f);
+                }
+            }
+        }
+        m_viewer->UpdateLights();
+    }
     
     if (m_context.IsNull()) return;
     
@@ -1985,28 +2017,44 @@ void OCCTWidget::applyMaterial(const Handle(AIS_InteractiveObject)& aisObj, cons
 
     Graphic3d_MaterialAspect material(Graphic3d_NOM_PLASTIC);
 
-    if (m_usePbr && metadata.contains("Pset_MaterialPBR")) {
-        QVariantMap pbr = metadata["Pset_MaterialPBR"].toMap();
+    Quantity_Color defaultColor(Quantity_NOC_GRAY70);
+    if (aisObj->HasColor()) {
+        aisObj->Color(defaultColor);
+    }
+
+    if (m_usePbr) {
+        // Crucial: Clear custom LDR color override so that PBR material (including BaseColor/Roughness) takes effect!
+        m_context->UnsetColor(aisObj, false);
+
         material.SetMaterialType(Graphic3d_MATERIAL_PHYSIC);
-        
         Graphic3d_PBRMaterial pbrMat;
-        if (pbr.contains("BaseColor")) {
-            QVariantList colorList = pbr["BaseColor"].toList();
-            if (colorList.size() >= 3) {
-                pbrMat.SetColor(Quantity_Color(colorList[0].toDouble(), 
-                                             colorList[1].toDouble(), 
-                                             colorList[2].toDouble(), 
-                                             Quantity_TOC_RGB));
+        
+        // Use object's original color (or gray fallback) and reasonable matte PBR defaults
+        pbrMat.SetColor(defaultColor);
+        pbrMat.SetMetallic(0.0f);
+        pbrMat.SetRoughness(0.8f);
+
+        if (metadata.contains("Pset_MaterialPBR")) {
+            QVariantMap pbr = metadata["Pset_MaterialPBR"].toMap();
+            if (pbr.contains("BaseColor")) {
+                QVariantList colorList = pbr["BaseColor"].toList();
+                if (colorList.size() >= 3) {
+                    pbrMat.SetColor(Quantity_Color(colorList[0].toDouble(), 
+                                                 colorList[1].toDouble(), 
+                                                 colorList[2].toDouble(), 
+                                                 Quantity_TOC_RGB));
+                }
             }
+            if (pbr.contains("Metallic")) pbrMat.SetMetallic((float)pbr["Metallic"].toDouble());
+            if (pbr.contains("Roughness")) pbrMat.SetRoughness((float)pbr["Roughness"].toDouble());
         }
-        
-        if (pbr.contains("Metallic")) pbrMat.SetMetallic((float)pbr["Metallic"].toDouble());
-        if (pbr.contains("Roughness")) pbrMat.SetRoughness((float)pbr["Roughness"].toDouble());
-        
         material.SetPBRMaterial(pbrMat);
     } else {
         material.SetMaterialType(Graphic3d_MATERIAL_ASPECT);
-        material.SetColor(Quantity_Color(Quantity_NOC_GRAY70));
+        material.SetColor(defaultColor);
+
+        // Restore custom LDR color for Phong shading mode
+        m_context->SetColor(aisObj, defaultColor, false);
     }
 
     m_context->SetMaterial(aisObj, material, false);

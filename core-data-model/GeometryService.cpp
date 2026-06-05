@@ -39,6 +39,9 @@
 #include <gp_Pnt.hxx>
 #include <gp_Trsf.hxx>
 #include <gp_Vec.hxx>
+#include <XCAFDoc_VisMaterialTool.hxx>
+#include <XCAFDoc_VisMaterial.hxx>
+#include <XCAFDoc_VisMaterialPBR.hxx>
 
 // Windows HTTP (WinHTTP) - 轻量级 HTTP 客户端
 // 以后迁移为微服务时，此部分可替换为 gRPC/Dapr SDK
@@ -332,6 +335,24 @@ TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, c
     TDF_CopyLabel copyHelper;
     copyHelper.Load(srcProtoLabel, destProtoLabel);
     copyHelper.Perform();
+
+    // 拷贝并绑定材质 (XDE 规范)
+    Handle(XCAFDoc_VisMaterialTool) destVisMatTool = XCAFDoc_DocumentTool::VisMaterialTool(destDoc->Main());
+    if (!destVisMatTool.IsNull()) {
+        TDF_Label srcMatLabel;
+        if (XCAFDoc_VisMaterialTool::GetShapeMaterial(srcProtoLabel, srcMatLabel)) {
+            Handle(XCAFDoc_VisMaterial) aVisMat = XCAFDoc_VisMaterialTool::GetShapeMaterial(srcProtoLabel);
+            if (!aVisMat.IsNull()) {
+                TCollection_AsciiString aMatName = "Material";
+                Handle(TDataStd_Name) nameAttr;
+                if (srcMatLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+                    aMatName = TCollection_AsciiString(nameAttr->Get());
+                }
+                TDF_Label destMatLabel = destVisMatTool->AddMaterial(aVisMat, aMatName);
+                destVisMatTool->SetShapeMaterial(destProtoLabel, destMatLabel);
+            }
+        }
+    }
 
     // 5. 附加 ParamGeoID 属性作为主键
     TDataStd_AsciiString::Set(destProtoLabel, paramGeoId.c_str());
@@ -915,6 +936,24 @@ void GeometryService::TraverseAndBuildHelper(const Handle(BrNode_adObject) & roo
         }
         vs.metadata[psName] = psJson;
       }
+
+      // 提取主文档中绑定在 protoLabel 上的原生 XCAF 材质参数并补充/覆盖到 Pset_MaterialPBR 里 (XDE 规范)
+      Handle(XCAFDoc_VisMaterialTool) destVisMatTool = XCAFDoc_DocumentTool::VisMaterialTool(destDoc->Main());
+      if (!destVisMatTool.IsNull()) {
+        Handle(XCAFDoc_VisMaterial) aVisMat = destVisMatTool->GetShapeMaterial(protoLabel);
+        if (!aVisMat.IsNull() && aVisMat->HasPbrMaterial()) {
+            XCAFDoc_VisMaterialPBR aPbrMat = aVisMat->PbrMaterial();
+            if (aPbrMat.IsDefined) {
+                json pbrJson;
+                pbrJson["BaseColor"] = { aPbrMat.BaseColor.GetRGB().Red(), aPbrMat.BaseColor.GetRGB().Green(), aPbrMat.BaseColor.GetRGB().Blue() };
+                pbrJson["Metallic"] = aPbrMat.Metallic;
+                pbrJson["Roughness"] = aPbrMat.Roughness;
+                pbrJson["IOR"] = aPbrMat.RefractionIndex;
+                vs.metadata["Pset_MaterialPBR"] = pbrJson;
+            }
+        }
+      }
+
       vs.metadata["_adNodeId"] = rootObj->GetId().ToCString();
       outShapes.push_back(vs);
     }

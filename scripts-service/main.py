@@ -250,6 +250,8 @@ async def generate_model(request: ScriptRequest):
     if is_cbf:
         cbf_output_path = os.path.join(WORKSPACE, f"{task_id}.cbf")
         r, g, b = 0.75, 0.75, 0.75
+        metallic, roughness, ior = 0.0, 0.8, 1.5
+        has_pbr = False
         if "Pset_MaterialPBR" in effective_args:
             pbr = effective_args["Pset_MaterialPBR"]
             if "BaseColor" in pbr:
@@ -265,6 +267,26 @@ async def generate_model(request: ScriptRequest):
                         r, g, b = float(parts[0]), float(parts[1]), float(parts[2])
                     except:
                         pass
+            if "Metallic" in pbr:
+                try:
+                    metallic = float(pbr["Metallic"])
+                    has_pbr = True
+                except:
+                    pass
+            if "Roughness" in pbr:
+                try:
+                    roughness = float(pbr["Roughness"])
+                    has_pbr = True
+                except:
+                    pass
+            if "IOR" in pbr:
+                try:
+                    ior = float(pbr["IOR"])
+                    has_pbr = True
+                except:
+                    pass
+            if "BaseColor" in pbr:
+                has_pbr = True
         param_geo_id = request.param_geo_id or task_id
         tool_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build_v142", "Release", "brep_to_cbf.exe"))
         if not os.path.exists(tool_path):
@@ -274,6 +296,8 @@ async def generate_model(request: ScriptRequest):
             raise HTTPException(status_code=500, detail="未找到 brep_to_cbf.exe 转换工具，请确保编译成功。")
         import subprocess
         cmd = [tool_path, output_path, cbf_output_path, param_geo_id, str(r), str(g), str(b)]
+        if has_pbr:
+            cmd.extend([str(metallic), str(roughness), str(ior)])
         logger.info(f"运行命令行打包 XCBF: {' '.join(cmd)}")
         res = subprocess.run(cmd, capture_output=True, text=True)
         if res.returncode != 0:
