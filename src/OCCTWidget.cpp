@@ -402,8 +402,13 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event) {
         if (m_context->MoreSelected()) {
           qDebug() << "Menu will be shown";
           QMenu contextMenu(this);
-          QAction *deleteAction =
-              contextMenu.addAction(QString::fromUtf8("      "));
+          contextMenu.setAttribute(Qt::WA_TranslucentBackground);
+          contextMenu.setStyleSheet(
+              "QMenu { background: #2d2d2d; border: 1px solid #555; border-radius: 8px; padding: 4px; }"
+              "QMenu::item { color: white; padding: 6px 24px; text-align: center; background: transparent; }"
+              "QMenu::item:selected { background: #0078d4; border-radius: 4px; }"
+          );
+          QAction *deleteAction = contextMenu.addAction(QStringLiteral("删除"));
 
           QAction *selectedAction =
               contextMenu.exec(event->globalPosition().toPoint());
@@ -1822,10 +1827,9 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
   m_context->Display(aisShape, false);
   m_lines.push_back(aisShape);
       
-      
-  if (!metadata.isEmpty()) {
-    
-  }
+  m_objectMetadata[aisShape] = metadata;
+  applyMaterial(aisShape, metadata);
+
   if (fit)
     fitAll();
 }
@@ -1840,11 +1844,19 @@ void OCCTWidget::buildFullBridgeFromParts(
   // 7:Bearing2, 8:Girder
   int partsAvailable = parts.size();
 
-  //     count           Y   offset          
+  // 从元数据中提取墩身高度参数，用于计算各构件 Z 偏移
+  double pierHeight = 12000.0;
+  if (partsAvailable > 2 && parts[2].metadata.contains("args")) {
+    QVariantMap argsMap = parts[2].metadata["args"].toMap();
+    if (argsMap.contains("pierHeight")) pierHeight = argsMap["pierHeight"].toDouble();
+    else if (argsMap.contains("Height")) pierHeight = argsMap["Height"].toDouble();
+  }
+  // 承台参数
+  double pileCapHeight = 2000.0;
+
   for (int i = 0; i < count; ++i) {
     double yOff = i * spacing;
 
-    //                   (     
     for (int j = 0; j < qMin(8, partsAvailable); ++j) {
       if (parts[j].shape.IsNull())
         continue;
@@ -1852,63 +1864,89 @@ void OCCTWidget::buildFullBridgeFromParts(
       gp_Trsf pierTrsf;
       gp_Vec offset(0, yOff, 0);
 
-      //                 X/Z    
-      if (j == 4)
-        offset += gp_Vec(-1650.0, 0, 3000.0); // Stone 1
-      if (j == 5)
-        offset += gp_Vec(1650.0, 0, 3000.0); // Stone 2
-      if (j == 6)
-        offset += gp_Vec(-1650.0, 0, 3400.0); // Bearing 1
-      if (j == 7)
-        offset += gp_Vec(1650.0, 0, 3400.0); // Bearing 2
+      // 坐标约定: Z=0 为托盘底面 (= 墩身顶面)
+      // PierTray (index 3): Z=0 ~ Z=3000, 无需偏移
+      // PierBody (index 2): 脚本输出 Z=0~pierHeight, 需移到 Z=-pierHeight~0
+      // PileCap  (index 1): 脚本输出 Z=0~2000, 需移到 Z=-(pierHeight+500)
+      // Pile     (index 0): 脚本输出向下extrude, 需移到 Z=-(pierHeight+pileCapHeight)
+      if (j == 0) // Pile
+        offset += gp_Vec(0, 0, -(pierHeight + pileCapHeight));
+      if (j == 1) // PileCap
+        offset += gp_Vec(0, 0, -(pierHeight + pileCapHeight));
+      if (j == 2) // PierBody
+        offset += gp_Vec(0, 0, -pierHeight);
+      // j == 3: PierTray, 无偏移
+      if (j == 4) // BedStone 1
+        offset += gp_Vec(-1650.0, 0, 3000.0);
+      if (j == 5) // BedStone 2
+        offset += gp_Vec(1650.0, 0, 3000.0);
+      if (j == 6) // Bearing 1
+        offset += gp_Vec(-1650.0, 0, 3400.0);
+      if (j == 7) // Bearing 2
+        offset += gp_Vec(1650.0, 0, 3400.0);
 
       pierTrsf.SetTranslation(offset);
 
-      Handle(AIS_Shape) aisShape = new AIS_Shape(parts[j].shape);
-      Quantity_Color color = Quantity_NOC_GRAY75;
-      if (j >= 4 && j <= 5)
-        color = Quantity_NOC_WHITE; //       
-      else if (j >= 6 && j <= 7)
-        color = Quantity_NOC_GRAY30; //    /   
+      QVariantMap partMeta = parts[j].metadata;
+      if (!partMeta.contains("Pset_MaterialPBR")) {
+        QVariantMap pbrMap;
+        QVariantList colorList;
+        if (j >= 4 && j <= 5) {
+          colorList << 1.0 << 1.0 << 1.0; // White bed stones
+          pbrMap["Roughness"] = 0.8;
+          pbrMap["Metallic"] = 0.0;
+        } else if (j >= 6 && j <= 7) {
+          colorList << 0.3 << 0.3 << 0.3; // Dark gray steel bearings
+          pbrMap["Roughness"] = 0.4;
+          pbrMap["Metallic"] = 0.8;
+        } else {
+          colorList << 0.75 << 0.75 << 0.75; // Concrete pier elements
+          pbrMap["Roughness"] = 0.8;
+          pbrMap["Metallic"] = 0.0;
+        }
+        pbrMap["BaseColor"] = colorList;
+        partMeta["Pset_MaterialPBR"] = pbrMap;
+      }
 
+      Handle(AIS_Shape) aisShape = new AIS_Shape(parts[j].shape);
       m_context->SetDisplayMode(aisShape, 1, false);
-      m_context->SetMaterial(aisShape, parts[j].material, false);
-      m_context->SetColor(aisShape, color, false);
       aisShape->SetLocalTransformation(pierTrsf);
       m_context->Display(aisShape, false);
       m_lines.push_back(aisShape);
       
-      
-      
-      if (!parts[j].metadata.isEmpty()) {
-        m_objectMetadata[aisShape] = parts[j].metadata;
-      }
+      m_objectMetadata[aisShape] = partMeta;
+      applyMaterial(aisShape, partMeta);
     }
 
-    //                      
     if (partsAvailable > 8 && i < count - 1) {
       if (!parts[8].shape.IsNull()) {
         gp_Trsf rot;
         rot.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), M_PI / 2.0);
 
         gp_Trsf trans;
-        //              Z=3650.0
-        //      31.6m,     31.5m,     100mm,     50mm
-        trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0));
+        trans.SetTranslation(gp_Vec(0, yOff + 50.0, 3650.0)); // Girder sits above bearings
 
         gp_Trsf girderTrsf = trans * rot;
         
+        QVariantMap partMeta = parts[8].metadata;
+        if (!partMeta.contains("Pset_MaterialPBR")) {
+          QVariantMap pbrMap;
+          QVariantList colorList;
+          colorList << 0.75 << 0.75 << 0.75; // Gray concrete girder
+          pbrMap["BaseColor"] = colorList;
+          pbrMap["Roughness"] = 0.8;
+          pbrMap["Metallic"] = 0.0;
+          partMeta["Pset_MaterialPBR"] = pbrMap;
+        }
+
         Handle(AIS_Shape) aisGirder = new AIS_Shape(parts[8].shape);
         m_context->SetDisplayMode(aisGirder, 1, false);
-        m_context->SetMaterial(aisGirder, parts[8].material, false);
-        m_context->SetColor(aisGirder, Quantity_NOC_GRAY75, false);
         aisGirder->SetLocalTransformation(girderTrsf);
         m_context->Display(aisGirder, false);
         m_lines.push_back(aisGirder);
         
-        if (!parts[8].metadata.isEmpty()) {
-          m_objectMetadata[aisGirder] = parts[8].metadata;
-        }
+        m_objectMetadata[aisGirder] = partMeta;
+        applyMaterial(aisGirder, partMeta);
       }
     }
   }

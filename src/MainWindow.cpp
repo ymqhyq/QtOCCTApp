@@ -43,8 +43,16 @@
 #include <QTextEdit>
 #include <QUuid>
 #include <QVBoxLayout>
-#include <gp_Trsf.hxx>
-#include <BRepBuilderAPI_Transform.hxx>
+#include <BinXCAFDrivers.hxx>
+#include <TDocStd_Application.hxx>
+#include <TDocStd_Document.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
+#include <XCAFDoc_VisMaterialTool.hxx>
+#include <XCAFDoc_VisMaterial.hxx>
+#include <XCAFDoc_VisMaterialPBR.hxx>
+#include <TDF_LabelSequence.hxx>
+#include <sstream>
 
 // core-data-model headers
 #include "DataModel.h"
@@ -121,6 +129,14 @@ void MainWindow::createRibbon() {
   connect(importIfcAction, &QAction::triggered, this, &MainWindow::onImportIfc);
   panelBasic->addLargeAction(importIfcAction);
 
+  QAction *exportStepAction = new QAction(QIcon(":/resources/icons/export.svg"), "Export STEP", this);
+  connect(exportStepAction, &QAction::triggered, this, &MainWindow::onExportStepClicked);
+  panelBasic->addLargeAction(exportStepAction);
+
+  QAction *exportGltfAction = new QAction(QIcon(":/resources/icons/export.svg"), "Export GLTF", this);
+  connect(exportGltfAction, &QAction::triggered, this, &MainWindow::onExportGltfClicked);
+  panelBasic->addLargeAction(exportGltfAction);
+
   SARibbonPanel *panelView = categoryMain->addPanel("View");
   QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Fit All", this);
   connect(fitAllAction, &QAction::triggered, [this]() { m_occtWidget->fitAll(); });
@@ -161,6 +177,120 @@ void MainWindow::createRibbon() {
     onDrawBridgePier();
   });
   panelBridge->addLargeAction(bridgePierAction);
+
+  QAction *fullBridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "Draw Full Bridge Pier", this);
+  connect(fullBridgePierAction, &QAction::triggered, [this]() {
+    m_currentModelType = "BridgePier2";
+    onDrawFullBridgePier();
+  });
+  panelBridge->addLargeAction(fullBridgePierAction);
+
+  QAction *annotatePierAction = new QAction(QIcon(":/resources/icons/dimension.svg"), "Annotate Pile Cap", this);
+  connect(annotatePierAction, &QAction::triggered, this, &MainWindow::onAnnotateBridgePierFooting);
+  panelBridge->addLargeAction(annotatePierAction);
+
+  QAction *fullBridgeAction = new QAction(QIcon(":/resources/icons/full_bridge.svg"), "Full Bridge (100 Piers)", this);
+  connect(fullBridgeAction, &QAction::triggered, [this]() {
+    m_occtWidget->clearAll();
+    m_isBatchProcessing = true;
+    m_isAssembling = false;
+    m_currentPierIndex = 0;
+    m_bridgePierCount = 100;
+    m_bridgePierSpacing = 31600.0;
+    m_currentMaterial = Graphic3d_NOM_STONE;
+    m_completedTasks = 0;
+    m_batchParts.clear();
+
+    m_batchQueue.clear();
+    for (int i = 0; i < m_bridgePierCount; ++i) {
+      m_batchQueue.enqueue(i);
+    }
+
+    statusBar()->showMessage(QString("全部并发生成中, 共 %1 个桥墩已发送至微服务...").arg(m_bridgePierCount));
+    m_batchTimer.start();
+    while (!m_batchQueue.isEmpty()) {
+      dispatchTask();
+    }
+  });
+  panelBridge->addLargeAction(fullBridgeAction);
+
+  QAction *fastAssemAction = new QAction(QIcon(":/resources/icons/fast_assembly.svg"), "Full Bridge (300 Piers, Fast)", this);
+  connect(fastAssemAction, &QAction::triggered, [this]() {
+    m_occtWidget->clearAll();
+    m_isAssembling = true;
+    m_isBatchProcessing = false;
+    m_bridgePierCount = 300;
+    m_bridgePierSpacing = 31600.0;
+    m_completedTasks = 0;
+    m_assemblyParts.clear();
+    m_batchQueue.clear();
+    for (int i = 0; i < 9; ++i) {
+      m_batchQueue.enqueue(i);
+    }
+
+    statusBar()->showMessage(QString("准备基础构件中, 正在调用后台微服务..."));
+    m_batchTimer.start();
+
+    int initialTasks = qMin(9, m_batchQueue.size());
+    for (int i = 0; i < initialTasks; ++i) {
+      dispatchTask();
+    }
+  });
+  panelBridge->addLargeAction(fastAssemAction);
+
+  SARibbonPanel *panelSubCrops = categoryBridge->addPanel("Sub-components");
+
+  QAction *tuopanAction = new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
+  connect(tuopanAction, &QAction::triggered, [this]() {
+    m_currentModelType = "PierTray";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(tuopanAction);
+
+  QAction *dunshenAction = new QAction(QIcon(":/resources/icons/dunshen.svg"), "墩身", this);
+  connect(dunshenAction, &QAction::triggered, [this]() {
+    m_currentModelType = "PierBody";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(dunshenAction);
+
+  QAction *chengtaiAction = new QAction(QIcon(":/resources/icons/chengtai.svg"), "承台", this);
+  connect(chengtaiAction, &QAction::triggered, [this]() {
+    m_currentModelType = "PileCap";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(chengtaiAction);
+
+  QAction *pileAction = new QAction(QIcon(":/resources/icons/pile.svg"), "桩基础", this);
+  connect(pileAction, &QAction::triggered, [this]() {
+    m_currentModelType = "Pile";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(pileAction);
+
+  QAction *girderAction = new QAction(QIcon(":/resources/icons/girder.svg"), "箱梁", this);
+  connect(girderAction, &QAction::triggered, [this]() {
+    m_currentModelType = "Girder";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+  });
+  panelSubCrops->addSmallAction(girderAction);
+
+  QAction *foundationAction = new QAction(QIcon(":/resources/icons/foundation.svg"), "避雷针基础", this);
+  connect(foundationAction, &QAction::triggered, this, &MainWindow::onDrawFoundation);
+  panelSubCrops->addSmallAction(foundationAction);
+
+  QAction *bedStoneAction = new QAction(QIcon(":/resources/icons/bed_stone.svg"), "垫石", this);
+  connect(bedStoneAction, &QAction::triggered, this, &MainWindow::onDrawBedStone);
+  panelSubCrops->addSmallAction(bedStoneAction);
+
+  QAction *bearingAction = new QAction(QIcon(":/resources/icons/bearing.svg"), "支座", this);
+  connect(bearingAction, &QAction::triggered, this, &MainWindow::onDrawBearing);
+  panelSubCrops->addSmallAction(bearingAction);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -179,6 +309,65 @@ void MainWindow::setupCadQueryUi() {
   font.setStyleHint(QFont::Monospace);
   m_cqScriptEditor->setFont(font);
 
+  SARibbonBar *ribbon = ribbonBar();
+  SARibbonCategory *categoryScripts = ribbon->addCategoryPage("脚本 (Scripts)");
+  SARibbonPanel *panelScripts = categoryScripts->addPanel("示例代码");
+
+  QAction *runBtn = new QAction(QIcon(":/resources/icons/random.svg"), "切角立方体", this);
+  connect(runBtn, &QAction::triggered, [this]() {
+    m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    m_cqScriptEditor->setText(
+        "import cadquery as cq\n"
+        "# Create a simple box\n"
+        "result = cq.Workplane('XY').box(100, 100, 100).edges().chamfer(10)\n"
+        "material = 'plastic'\n");
+    onRunCqScript();
+  });
+  panelScripts->addLargeAction(runBtn);
+
+  QAction *holedPlateBtn = new QAction(QIcon(":/resources/icons/random.svg"), "带孔板", this);
+  connect(holedPlateBtn, &QAction::triggered, [this]() {
+    m_currentMaterial = Graphic3d_NOM_CHROME;
+    m_cqScriptEditor->setText("import cadquery as cq\n"
+                              "height = 60.0\n"
+                              "width = 80.0\n"
+                              "thickness = 10.0\n"
+                              "diameter = 22.0\n"
+                              "\n"
+                              "result = (\n"
+                              "    cq.Workplane('XY')\n"
+                              "    .box(height, width, thickness)\n"
+                              "    .faces('>Z')\n"
+                              "    .workplane()\n"
+                              "    .hole(diameter)\n"
+                              ")\n"
+                              "material = 'gold'\n");
+    onRunCqScript();
+  });
+  panelScripts->addLargeAction(holedPlateBtn);
+
+  QAction *bridgePierCqBtn = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例", this);
+  connect(bridgePierCqBtn, &QAction::triggered, [this]() {
+    m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    m_cqScriptEditor->setText(readScript("bridge_pier_cq1"));
+    onRunCqScript();
+  });
+  panelScripts->addLargeAction(bridgePierCqBtn);
+
+  QAction *bridgePier2Btn = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例2", this);
+  connect(bridgePier2Btn, &QAction::triggered, [this]() {
+    m_currentMaterial = Graphic3d_NOM_PLASTIC;
+    m_cqScriptEditor->setText(readScript("bridge_pier_cq2"));
+    onRunCqScript();
+  });
+  panelScripts->addLargeAction(bridgePier2Btn);
+
+  SARibbonPanel *panelRun = categoryScripts->addPanel("运行");
+  QAction *runScriptBtn = new QAction(QIcon(":/resources/icons/random.svg"), "运行当前脚本", this);
+  connect(runScriptBtn, &QAction::triggered, this, &MainWindow::onRunCqScript);
+  panelRun->addLargeAction(runScriptBtn);
+
+  content->setLayout(layout);
   m_dockCq->setWidget(content);
   addDockWidget(Qt::RightDockWidgetArea, m_dockCq);
 
@@ -692,36 +881,274 @@ void MainWindow::sendScriptToMicroservice(const QString &code, const QJsonObject
     req["code"] = code;
     req["args"] = args;
     req["model_type"] = modelType;
-    req["format"] = "brep";
+    req["format"] = "cbf";
 
-    QNetworkRequest request(QUrl("http://127.0.0.1:3500/v1.0/invoke/modeling-service/method/api/v1/model/generate"));
+    QJsonDocument doc(req);
+    QByteArray postData = doc.toJson();
+    qDebug() << "Sending request to microservice:" << postData;
+
+    QNetworkRequest request(QUrl("http://127.0.0.1:8000/api/v1/model/generate"));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-    QNetworkReply *reply = m_networkManager->post(request, QJsonDocument(req).toJson());
-    connect(reply, &QNetworkReply::finished, [this, reply]() { this->onCqNetworkReply(reply, -1); });
+
+    QNetworkReply *reply = m_networkManager->post(request, postData);
+    reply->setProperty("assemblyIndex", assemblyIndex);
+
+    connect(reply, &QNetworkReply::finished, [this, reply]() {
+        int assemblyIdx = reply->property("assemblyIndex").toInt();
+        this->onCqNetworkReply(reply, assemblyIdx);
+    });
+
+    if (assemblyIndex == -1) {
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+    }
 }
 
-void MainWindow::onCqNetworkReply(QNetworkReply *reply, int) {
-    if (reply->error() == QNetworkReply::NoError) {
-        // Simple visualization for now
-        statusBar()->showMessage("Model generated", 3000);
+void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
+    QApplication::restoreOverrideCursor();
+    if (reply->error() != QNetworkReply::NoError) {
+        QByteArray errData = reply->readAll();
+        QString errMsg = reply->errorString();
+        if (!errData.isEmpty()) {
+            errMsg += "\n详细信息: " + QString::fromUtf8(errData);
+        }
+        QMessageBox::critical(this, "Network Error", errMsg);
+
+        if (m_isAssembling) {
+            m_completedTasks++;
+            if (m_completedTasks == 9) {
+                statusBar()->showMessage("脚本拼装中断", 5000);
+                m_isAssembling = false;
+            } else {
+                dispatchTask();
+            }
+        }
+        reply->deleteLater();
+        return;
     }
+
+    QByteArray data = reply->readAll();
     reply->deleteLater();
+
+    if (data.size() < 4) {
+        qWarning() << "JHB data too short";
+        return;
+    }
+
+    uint32_t jsonLen = 0;
+    memcpy(&jsonLen, data.constData(), 4);
+    if (data.size() < (int)(4 + jsonLen)) {
+        qWarning() << "JHB metadata length mismatch";
+        return;
+    }
+
+    QByteArray jsonData = data.mid(4, jsonLen);
+    QByteArray cbfData = data.mid(4 + jsonLen);
+
+    QJsonDocument doc = QJsonDocument::fromJson(jsonData);
+    QVariantMap metadata = doc.object().toVariantMap();
+
+    Handle(TDocStd_Application) app = new TDocStd_Application();
+    BinXCAFDrivers::DefineFormat(app);
+
+    Handle(TDocStd_Document) tempDoc;
+    app->NewDocument("BinXCAF", tempDoc);
+
+    std::string byteStream = cbfData.toStdString();
+    std::istringstream iss(byteStream, std::ios::binary);
+    if (app->Open(iss, tempDoc) != PCDM_RS_OK) {
+        qWarning() << "Failed to deserialize CBF byte stream in onCqNetworkReply";
+        return;
+    }
+
+    Handle(XCAFDoc_ShapeTool) tempShapeTool = XCAFDoc_DocumentTool::ShapeTool(tempDoc->Main());
+    if (tempShapeTool.IsNull()) return;
+
+    TDF_LabelSequence tempShapes;
+    tempShapeTool->GetShapes(tempShapes);
+    if (tempShapes.IsEmpty()) return;
+
+    TDF_Label srcProtoLabel = tempShapes.Value(1);
+    TopoDS_Shape shape;
+    if (!tempShapeTool->GetShape(srcProtoLabel, shape) || shape.IsNull()) {
+        qWarning() << "Failed to extract shape from CBF document";
+        return;
+    }
+
+    Handle(XCAFDoc_VisMaterialTool) tempVisMatTool = XCAFDoc_DocumentTool::VisMaterialTool(tempDoc->Main());
+    if (!tempVisMatTool.IsNull()) {
+        Handle(XCAFDoc_VisMaterial) aVisMat = tempVisMatTool->GetShapeMaterial(srcProtoLabel);
+        if (!aVisMat.IsNull() && aVisMat->HasPbrMaterial()) {
+            XCAFDoc_VisMaterialPBR aPbrMat = aVisMat->PbrMaterial();
+            if (aPbrMat.IsDefined) {
+                QVariantMap pbrMap;
+                QVariantList colorList;
+                colorList << aPbrMat.BaseColor.GetRGB().Red() 
+                          << aPbrMat.BaseColor.GetRGB().Green() 
+                          << aPbrMat.BaseColor.GetRGB().Blue();
+                pbrMap["BaseColor"] = colorList;
+                pbrMap["Metallic"] = aPbrMat.Metallic;
+                pbrMap["Roughness"] = aPbrMat.Roughness;
+                pbrMap["IOR"] = aPbrMat.RefractionIndex;
+                metadata["Pset_MaterialPBR"] = pbrMap;
+            }
+        }
+    }
+
+    if (m_isAssembling) {
+        while (m_assemblyParts.size() <= assemblyIndex) {
+            m_assemblyParts.append({TopoDS_Shape(), Graphic3d_NOM_PLASTIC, QVariantMap()});
+        }
+        Graphic3d_NameOfMaterial mat = Graphic3d_NOM_STONE;
+        if (assemblyIndex == 6 || assemblyIndex == 7)
+            mat = Graphic3d_NOM_STEEL;
+
+        m_assemblyParts[assemblyIndex] = {shape, mat, metadata};
+        m_completedTasks++;
+
+        if (m_completedTasks == 9) {
+            m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
+            statusBar()->showMessage(QString("全桥拼装完成，用时 %1 ms").arg(m_batchTimer.elapsed()), 10000);
+            m_isAssembling = false;
+            m_occtWidget->fitAll();
+        } else {
+            dispatchTask();
+        }
+    } else if (m_isBatchProcessing) {
+        if (!shape.IsNull()) {
+            m_batchParts.append({shape, m_currentMaterial, metadata});
+        }
+        m_completedTasks++;
+        statusBar()->showMessage(QString("正在并发生成: %1/%2").arg(m_completedTasks).arg(m_bridgePierCount));
+
+        if (m_completedTasks == m_bridgePierCount) {
+            m_isBatchProcessing = false;
+            m_occtWidget->buildFullBridgeFromBatch(m_batchParts);
+            m_occtWidget->fitAll();
+            statusBar()->showMessage(QString("全桥生成完毕. 耗时: %1 ms").arg(m_batchTimer.elapsed()), 10000);
+        }
+    } else {
+        m_occtWidget->clearAll();
+        m_occtWidget->displayShape(shape, Graphic3d_NOM_PLASTIC, true, metadata);
+        statusBar()->showMessage("模型生成成功", 3000);
+    }
 }
 
 QString MainWindow::readScript(const QString &modelName) {
-    QFile file(QDir::currentPath() + "/cq_script/" + modelName + ".py");
-    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) return QString::fromUtf8(file.readAll());
+    QStringList searchPaths;
+    QString fileName = modelName + ".py";
+    searchPaths << QApplication::applicationDirPath() + "/cq_script/" + fileName;
+    searchPaths << QApplication::applicationDirPath() + "/../cq_script/" + fileName;
+    searchPaths << QApplication::applicationDirPath() + "/../../cq_script/" + fileName;
+    searchPaths << QDir::currentPath() + "/cq_script/" + fileName;
+    searchPaths << QDir::currentPath() + "/../cq_script/" + fileName;
+
+    for (const QString &path : searchPaths) {
+        QFile file(path);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            qDebug() << "Successfully loaded script from:" << path;
+            return QString::fromUtf8(file.readAll());
+        }
+    }
+    qWarning() << "Failed to find script file" << fileName << "in searched paths:" << searchPaths;
     return "";
 }
 
-void MainWindow::onDrawFullBridgePier() {}
-void MainWindow::onAnnotateBridgePierFooting() {}
-void MainWindow::onDrawFoundation() {}
-void MainWindow::onDrawBedStone() {}
-void MainWindow::onDrawBearing() {}
-void MainWindow::onExportStepClicked() {}
-void MainWindow::onExportGltfClicked() {}
-void MainWindow::dispatchTask(int) {}
+void MainWindow::onDrawFullBridgePier() {
+    m_occtWidget->clearAll();
+    m_isAssembling = true;
+    m_isBatchProcessing = false;
+    m_bridgePierCount = 1;
+    m_bridgePierSpacing = 0.0;
+    m_completedTasks = 0;
+    m_batchParts.clear();
+    m_assemblyParts.clear();
+
+    m_batchQueue.clear();
+    for (int i = 0; i < 9; ++i) {
+        m_batchQueue.enqueue(i);
+    }
+
+    statusBar()->showMessage("正在通过微服务分项构建全要素桥墩...");
+    m_batchTimer.start();
+
+    int initialCount = qMin(5, m_batchQueue.size());
+    for (int i = 0; i < initialCount; ++i) {
+        dispatchTask();
+    }
+}
+
+void MainWindow::onAnnotateBridgePierFooting() {
+    m_occtWidget->annotateBridgePierFooting();
+    statusBar()->showMessage("已添加承台长宽高尺寸标注", 3000);
+}
+
+void MainWindow::onDrawFoundation() {
+    m_currentModelType = "lightning_rod_foundation";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+    statusBar()->showMessage("避雷针基础脚本已加载并运行", 3000);
+}
+
+void MainWindow::onDrawBedStone() {
+    m_currentModelType = "BedStone";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+    statusBar()->showMessage("垫石脚本已加载并运行", 3000);
+}
+
+void MainWindow::onDrawBearing() {
+    m_currentModelType = "bearing";
+    m_cqScriptEditor->setText(readScript(m_currentModelType));
+    onRunCqScript();
+    statusBar()->showMessage("支座脚本已加载并运行", 3000);
+}
+
+void MainWindow::onExportStepClicked() {
+    QString filename = QFileDialog::getSaveFileName(this, "导出为 STEP 文件", "", "STEP 文件 (*.step *.stp);;所有文件 (*.*)");
+    if (!filename.isEmpty()) {
+        m_occtWidget->exportToSTEP(filename);
+    }
+}
+
+void MainWindow::onExportGltfClicked() {
+    QString filename = QFileDialog::getSaveFileName(this, "导出为 GLTF 文件", "", "GLTF 文件 (*.gltf *.glb);;所有文件 (*.*)");
+    if (!filename.isEmpty()) {
+        m_occtWidget->exportToGLTF(filename);
+    }
+}
+
+void MainWindow::dispatchTask(int) {
+    if (m_batchQueue.isEmpty()) return;
+    int index = m_batchQueue.dequeue();
+
+    QString modelName;
+    QJsonObject args;
+    args["pierHeight"] = m_pierHeightSpinBox->value();
+
+    if (m_isAssembling) {
+        switch (index) {
+            case 0: modelName = "Pile"; break;
+            case 1: modelName = "PileCap"; break;
+            case 2: modelName = "PierBody"; break;
+            case 3: modelName = "PierTray"; break;
+            case 4:
+            case 5: modelName = "BedStone"; break;
+            case 6:
+            case 7: modelName = "bearing"; break;
+            case 8: modelName = "Girder"; break;
+            default:
+                qWarning() << "Unknown assembly index:" << index;
+                return;
+        }
+        QString code = readScript(modelName);
+        sendScriptToMicroservice(code, args, index, modelName);
+    } else {
+        modelName = "BridgePier2";
+        QString code = readScript(modelName);
+        args["yOffset"] = index * m_bridgePierSpacing;
+        sendScriptToMicroservice(code, args, index, modelName);
+    }
+}
 
 void MainWindow::onExportIfcClicked() {
   if (m_currentModel.IsNull()) {
