@@ -30,15 +30,15 @@ public:
     static bool ExportShapeToFile(const TopoDS_Shape& shape, const std::string& filename);
 
 private:
-    static void ExportXcafComponent(const TDF_Label& instLabel,
-                                    IfcParse::IfcFile& file,
-                                    Ifc4x3_add2::IfcObjectDefinition* parentIfc,
-                                    Ifc4x3_add2::IfcSpatialElement* spatialContainer,
-                                    Ifc4x3_add2::IfcObjectPlacement* parentPlacement,
-                                    Ifc4x3_add2::IfcOwnerHistory* ownerHist,
-                                    Ifc4x3_add2::IfcGeometricRepresentationContext* context,
-                                    int& exportedCount,
-                                    std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *>& protoCache);
+    static void ExportXcafLabel(const TDF_Label& label,
+                                IfcParse::IfcFile& file,
+                                Ifc4x3_add2::IfcObjectDefinition* parentIfc,
+                                Ifc4x3_add2::IfcSpatialElement* spatialContainer,
+                                Ifc4x3_add2::IfcObjectPlacement* parentPlacement,
+                                Ifc4x3_add2::IfcOwnerHistory* ownerHist,
+                                Ifc4x3_add2::IfcGeometricRepresentationContext* context,
+                                int& exportedCount,
+                                std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *>& protoCache);
 
     static void TraverseAndExport(const Handle(BrNode_adObject)& adObj, 
                                  IfcParse::IfcFile& file,

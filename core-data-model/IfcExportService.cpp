@@ -291,37 +291,44 @@ static std::string GenerateIfcGuid() {
   return res;
 }
 
-void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
-                                         IfcParse::IfcFile& file,
-                                         Ifc4x3_add2::IfcObjectDefinition* parentIfc,
-                                         Ifc4x3_add2::IfcSpatialElement* spatialContainer,
-                                         Ifc4x3_add2::IfcObjectPlacement* parentPlacement,
-                                         Ifc4x3_add2::IfcOwnerHistory* ownerHist,
-                                         Ifc4x3_add2::IfcGeometricRepresentationContext* context,
-                                         int& exportedCount,
-                                         std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *>& protoCache)
+void IfcExportService::ExportXcafLabel(const TDF_Label& label,
+                                     IfcParse::IfcFile& file,
+                                     Ifc4x3_add2::IfcObjectDefinition* parentIfc,
+                                     Ifc4x3_add2::IfcSpatialElement* spatialContainer,
+                                     Ifc4x3_add2::IfcObjectPlacement* parentPlacement,
+                                     Ifc4x3_add2::IfcOwnerHistory* ownerHist,
+                                     Ifc4x3_add2::IfcGeometricRepresentationContext* context,
+                                     int& exportedCount,
+                                     std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *>& protoCache)
 {
-    Handle(TDocStd_Document) doc = TDocStd_Document::Get(instLabel);
+    Handle(TDocStd_Document) doc = TDocStd_Document::Get(label);
     if (doc.IsNull()) return;
     Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
     Handle(XCAFDoc_LayerTool) layerTool = XCAFDoc_DocumentTool::LayerTool(doc->Main());
     Handle(XCAFDoc_ColorTool) colorTool = XCAFDoc_DocumentTool::ColorTool(doc->Main());
     Handle(XCAFDoc_VisMaterialTool) matTool = XCAFDoc_DocumentTool::VisMaterialTool(doc->Main());
 
-    // 1. 获取原型 Label
+    // 1. 判定是否为实例（Component）或自由几何，提取其原型和相对坐标
     TDF_Label protoLabel;
-    if (!shapeTool->GetReferredShape(instLabel, protoLabel)) return;
+    gp_Trsf localTrsf;
+    if (shapeTool->IsComponent(label)) {
+        if (!shapeTool->GetReferredShape(label, protoLabel)) return;
+        localTrsf = shapeTool->GetLocation(label).Transformation();
+    } else {
+        protoLabel = label;
+        localTrsf = shapeTool->GetLocation(label).Transformation();
+    }
 
     // 2. 提取名称
     std::string name = "Unnamed Component";
     Handle(TDataStd_Name) nameAttr;
-    if (instLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+    if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
         name = ToStdString(nameAttr->Get());
     }
 
-    // 3. 提取业务对象类型 ObjectType (优先根据图层名称前缀推导)
+    // 3. 提取类型 (通过图层名称前缀)
     std::string type = "Proxy";
-    auto layerNames = layerTool->GetLayers(instLabel);
+    auto layerNames = layerTool->GetLayers(label);
     if (!layerNames.IsNull() && layerNames->Length() > 0) {
         std::string layerStr = ToStdString(layerNames->Value(1));
         if (layerStr.size() > 6 && layerStr.substr(layerStr.size() - 6) == "_Layer") {
@@ -329,8 +336,44 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
         }
     }
 
+    // 如果原型是一个装配体，我们在这里递归展开其所有子节点并直接路由空间关系
+    if (shapeTool->IsAssembly(protoLabel)) {
+        // 创建装配体在三维空间中的 Local Placement 节点
+        auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
+        gp_Pnt pnt = localTrsf.TranslationPart();
+        origin->setCoordinates(std::vector<double>{pnt.X(), pnt.Y(), pnt.Z()});
+
+        gp_Dir transformedX(1.0, 0.0, 0.0);
+        transformedX.Transform(localTrsf);
+        gp_Dir transformedZ(0.0, 0.0, 1.0);
+        transformedZ.Transform(localTrsf);
+
+        auto dirZ = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+        dirZ->setDirectionRatios(std::vector<double>{transformedZ.X(), transformedZ.Y(), transformedZ.Z()});
+        auto dirX = CreateEntity<Ifc4x3_add2::IfcDirection>(file);
+        dirX->setDirectionRatios(std::vector<double>{transformedX.X(), transformedX.Y(), transformedX.Z()});
+
+        auto axis2 = CreateEntity<Ifc4x3_add2::IfcAxis2Placement3D>(file);
+        axis2->setLocation(origin);
+        axis2->setAxis(dirZ);
+        axis2->setRefDirection(dirX);
+
+        auto localPlacement = CreateEntity<Ifc4x3_add2::IfcLocalPlacement>(file);
+        localPlacement->setPlacementRelTo(parentPlacement);
+        localPlacement->setRelativePlacement(axis2);
+
+        // 如果该装配体有对应名称（且类型属于桥梁等大空间节点），可按需创建 spatial 关联；
+        // 否则直接递归把其下子构件打平或嵌套挂载在当前 localPlacement 坐标下
+        TDF_LabelSequence subComponents;
+        shapeTool->GetComponents(protoLabel, subComponents);
+        for (int i = 1; i <= subComponents.Length(); ++i) {
+            ExportXcafLabel(subComponents.Value(i), file, parentIfc, spatialContainer, localPlacement,
+                            ownerHist, context, exportedCount, protoCache);
+        }
+        return;
+    }
+
     // 4. 创建 Local Placement
-    gp_Trsf localTrsf = shapeTool->GetLocation(instLabel).Transformation();
     auto origin = CreateEntity<Ifc4x3_add2::IfcCartesianPoint>(file);
     gp_Pnt pnt = localTrsf.TranslationPart();
     origin->setCoordinates(std::vector<double>{pnt.X(), pnt.Y(), pnt.Z()});
@@ -354,7 +397,7 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
     localPlacement->setPlacementRelTo(parentPlacement);
     localPlacement->setRelativePlacement(axis2);
 
-    // 5. 创建 IFC Product
+    // 5. 创建 IFC Product 实体
     std::string guid = GenerateIfcGuid();
     Ifc4x3_add2::IfcProduct *product = nullptr;
 
@@ -394,7 +437,7 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
 
     exportedCount++;
 
-    // 6. 添加几何表示（块实例共享）
+    // 6. 添加几何表示（零件级块实例复用）
     TCollection_AsciiString protoEntry;
     TDF_Tool::Entry(protoLabel, protoEntry);
     std::string protoKey = protoEntry.ToCString();
@@ -451,7 +494,7 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
         product->setRepresentation(pds);
     }
 
-    // 7. 处理图层导出逻辑（有图层才分配，无图层直接跳过）
+    // 7. 处理图层导出
     if (!layerNames.IsNull() && layerNames->Length() > 0) {
         std::string layerName = ToStdString(layerNames->Value(1));
         auto ifcLayer = CreateEntity<Ifc4x3_add2::IfcPresentationLayerAssignment>(file);
@@ -466,7 +509,7 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
         ifcLayer->setAssignedItems(layerLayeredItems);
     }
 
-    // 8. 颜色材质映射（使用 XCAF 材质）
+    // 8. 颜色材质分配
     Quantity_Color rgbColor;
     double alpha = 1.0;
     bool hasMaterialColor = false;
@@ -520,7 +563,7 @@ void IfcExportService::ExportXcafComponent(const TDF_Label& instLabel,
         }
     }
 
-    // 9. 空间树装配
+    // 9. 空间树关系分配
     auto childSet = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
     childSet->push(product);
 
@@ -937,16 +980,15 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *> protoCache;
     
     if (!shapeTool.IsNull()) {
-      TDF_Label mainShapesLabel = shapeTool->Label();
-      for (TDF_ChildIterator itX(mainShapesLabel, Standard_False); itX.More(); itX.Next()) {
-        TDF_Label subLabel = itX.Value();
-        if (shapeTool->IsComponent(subLabel)) {
-          ExportXcafComponent(subLabel, file, building, building, buildingPlacement,
-                              ownerHist, context, exportedCount, protoCache);
-        }
+      TDF_LabelSequence freeShapes;
+      shapeTool->GetFreeShapes(freeShapes);
+      for (int i = 1; i <= freeShapes.Length(); ++i) {
+        TDF_Label subLabel = freeShapes.Value(i);
+        ExportXcafLabel(subLabel, file, building, building, buildingPlacement,
+                        ownerHist, context, exportedCount, protoCache);
       }
       std::cout << "[IfcExportService] XCAF Exported " << exportedCount
-                << " nodes. (VERSION: 2026-06-04-XCAF-INTEGRATED)" << std::endl;
+                << " nodes. (VERSION: 2026-06-05-RECURSIVE-XCAF)" << std::endl;
     }
 
     std::stringstream ss;
