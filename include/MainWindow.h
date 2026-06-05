@@ -60,6 +60,7 @@ private slots:
   void onLoadAsiModel();             // 加载ASI模型并显示
   void onImportBrep();               // 导入BREP文件
   void onImportIfc();                // 导入IFC文件并显示
+  void onCloseModel();               // 关闭/清理模型视图
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
@@ -68,6 +69,7 @@ private:
   void createRibbon();
   void setupCadQueryUi();
   void initializeCqNetwork();
+  void createTestCategory();
   void sendScriptToMicroservice(const QString &code, const QJsonObject &args,
                                 int assemblyIndex,
                                 const QString &modelType = QString());

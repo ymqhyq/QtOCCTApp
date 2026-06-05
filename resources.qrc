@@ -20,5 +20,11 @@
         <file>resources/icons/bed_stone.svg</file>
         <file>resources/icons/bearing.svg</file>
         <file>resources/icons/component.svg</file>
+        <file>resources/icons/open.svg</file>
+        <file>resources/icons/close.svg</file>
+        <file>resources/icons/import.svg</file>
+        <file>resources/icons/export.svg</file>
+        <file>resources/icons/app_logo.png</file>
+        <file>resources/icons/check.svg</file>
     </qresource>
 </RCC>

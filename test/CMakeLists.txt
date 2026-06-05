@@ -13,6 +13,8 @@ include_directories(${IFCOPENSHELL_DIR}/include)
 include_directories(${BOOST_ROOT})
 include_directories(${OCCT_DIR}/inc)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../3rpart)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../core-data-model)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../core-data-model/generated)
 
 add_definitions(-DHAS_SCHEMA_4x3_add2)
 add_definitions(-DWNT)
@@ -25,10 +27,12 @@ add_definitions(-DUNICODE)
 
 add_executable(brep_to_ifc brep_to_ifc.cpp)
 add_executable(recipe_to_ifc recipe_to_ifc.cpp)
+add_executable(asicbf_to_ifc asicbf_to_ifc.cpp)
 
 if(MSVC)
     target_compile_options(brep_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
     target_compile_options(recipe_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
+    target_compile_options(asicbf_to_ifc PRIVATE /FIStandard_Boolean.hxx /utf-8 /permissive)
 endif()
 
 # Link brep_to_ifc using robust multi-config precompiled Debug/Release IfcOpenShell targets
@@ -59,4 +63,19 @@ target_link_libraries(recipe_to_ifc PRIVATE
 if(MSVC)
     target_link_options(brep_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
     target_link_options(recipe_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
+endif()
+
+target_link_libraries(asicbf_to_ifc PRIVATE
+    core_data_model
+    debug ${IFC_PARSE_DEBUG}   optimized ${IFC_PARSE_RELEASE}
+    debug ${IFC_GEOM_DEBUG}    optimized ${IFC_GEOM_RELEASE}
+    debug ${SERIALIZERS_DEBUG} optimized ${SERIALIZERS_RELEASE}
+    debug ${GEOM_SER_DEBUG}    optimized ${GEOM_SER_RELEASE}
+    debug ${GEOM_KER_DEBUG}    optimized ${GEOM_KER_RELEASE}
+    ${OpenCASCADE_LIBRARIES}
+    TBB::tbb
+)
+
+if(MSVC)
+    target_link_options(asicbf_to_ifc PRIVATE "$<IF:$<CONFIG:DEBUG>,/WHOLEARCHIVE:IfcParse_d,/WHOLEARCHIVE:IfcParse>")
 endif()

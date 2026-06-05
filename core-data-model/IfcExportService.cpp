@@ -1,6 +1,8 @@
 #define HAS_SCHEMA_4x3_add2
 #include "IfcExportService.h"
 #include <BRepTools.hxx>
+#include <codecvt>
+#include <locale>
 #include <BRep_Builder.hxx>
 #include <TCollection_AsciiString.hxx>
 #include <TopoDS_Compound.hxx>
@@ -53,6 +55,7 @@ void throw_exception(std::exception const &e) {
 #include "generated/BrNode_adGeometry.h"
 #include "generated/BrNode_adModelRoot.h"
 
+static void ReplaceAll(std::string& str, const std::string& from, const std::string& to);
 static std::string GenerateIfcGuid();
 
 bool IfcExportService::ExportShapeToFile(const TopoDS_Shape &shape,
@@ -262,6 +265,9 @@ bool IfcExportService::ExportShapeToFile(const TopoDS_Shape &shape,
       content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
     }
 
+    ReplaceAll(content, "\\\\X2\\\\", "\\X2\\");
+    ReplaceAll(content, "\\\\X0\\\\", "\\X0\\");
+
     std::ofstream ofs(filename);
     if (ofs.is_open()) {
       ofs << content;
@@ -274,10 +280,105 @@ bool IfcExportService::ExportShapeToFile(const TopoDS_Shape &shape,
   return false;
 }
 
+static std::wstring Utf8ToWstring(const std::string& utf8) {
+    std::wstring wstr;
+    size_t i = 0;
+    while (i < utf8.size()) {
+        unsigned char c = utf8[i];
+        if (c < 0x80) {
+            wstr.push_back(c);
+            i += 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 < utf8.size()) {
+                wchar_t val = ((c & 0x1F) << 6) | (utf8[i + 1] & 0x3F);
+                wstr.push_back(val);
+            }
+            i += 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 < utf8.size()) {
+                wchar_t val = ((c & 0x0F) << 12) | ((utf8[i + 1] & 0x3F) << 6) | (utf8[i + 2] & 0x3F);
+                wstr.push_back(val);
+            }
+            i += 3;
+        } else if ((c & 0xF8) == 0xF0) {
+            if (i + 3 < utf8.size()) {
+                unsigned int cp = ((c & 0x07) << 18) | ((utf8[i + 1] & 0x3F) << 12) | 
+                                  ((utf8[i + 2] & 0x3F) << 6) | (utf8[i + 3] & 0x3F);
+                if (cp >= 0x10000) {
+                    cp -= 0x10000;
+                    wstr.push_back((wchar_t)((cp >> 10) + 0xD800));
+                    wstr.push_back((wchar_t)((cp & 0x3FF) + 0xDC00));
+                } else {
+                    wstr.push_back((wchar_t)cp);
+                }
+            }
+            i += 4;
+        } else {
+            i += 1;
+        }
+    }
+    return wstr;
+}
+
 std::string
 IfcExportService::ToStdString(const TCollection_ExtendedString &extStr) {
-  TCollection_AsciiString ascii(extStr);
-  return ascii.ToCString();
+  Standard_Integer len = extStr.Length();
+  if (len == 0) return "";
+
+  // 1. Check if all characters are within Latin-1/UTF-8 byte range (high 8 bits are 0)
+  bool isLatin1OrUtf8Bytes = true;
+  for (Standard_Integer i = 1; i <= len; ++i) {
+      Standard_ExtCharacter ch = extStr.Value(i);
+      if ((ch & 0xFF00) != 0) {
+          isLatin1OrUtf8Bytes = false;
+          break;
+      }
+  }
+
+  // 2. Decode bytes/UTF-16 to wstring
+  std::wstring wstr;
+  if (isLatin1OrUtf8Bytes) {
+      std::string utf8Str;
+      utf8Str.reserve(len);
+      for (Standard_Integer i = 1; i <= len; ++i) {
+          Standard_ExtCharacter ch = extStr.Value(i);
+          utf8Str.push_back((char)(ch & 0xFF));
+      }
+      wstr = Utf8ToWstring(utf8Str);
+  } else {
+      wstr.resize(len);
+      for (Standard_Integer i = 1; i <= len; ++i) {
+          wstr[i - 1] = (wchar_t)extStr.Value(i);
+      }
+  }
+
+  // 3. Format as IFC hexadecimal unicode escape string (\X2\...\X0\)
+  std::string result = "";
+  bool inUnicodeMode = false;
+  for (size_t i = 0; i < wstr.size(); ++i) {
+      wchar_t wch = wstr[i];
+      if (wch >= 32 && wch <= 126) {
+          if (inUnicodeMode) {
+              result += "\\X0\\";
+              inUnicodeMode = false;
+          }
+          result += (char)wch;
+      } else {
+          if (!inUnicodeMode) {
+              result += "\\X2\\";
+              inUnicodeMode = true;
+          }
+          char hexBuf[8];
+          snprintf(hexBuf, sizeof(hexBuf), "%04X", (unsigned int)wch);
+          result += hexBuf;
+      }
+  }
+  
+  if (inUnicodeMode) {
+      result += "\\X0\\";
+  }
+  
+  return result;
 }
 
 static std::string GenerateIfcGuid() {
@@ -289,6 +390,15 @@ static std::string GenerateIfcGuid() {
   for (int i = 0; i < 22; ++i)
     res += charset[dis(gen)];
   return res;
+}
+
+static void ReplaceAll(std::string& str, const std::string& from, const std::string& to) {
+    if (from.empty()) return;
+    size_t start_pos = 0;
+    while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+        str.replace(start_pos, from.length(), to);
+        start_pos += to.length();
+    }
 }
 
 void IfcExportService::ExportXcafLabel(const TDF_Label& label,
@@ -594,8 +704,32 @@ IfcExportService::CreateIfcProduct(const Handle(BrNode_adObject) & adObj,
   std::string name = ToStdString(adObj->GetName());
   std::string guid = GenerateIfcGuid();
 
-  if (type == "Footing" || type == "BridgeFoundation") {
+  if (type == "Footing" || type == "BridgeFoundation" || type == "Foundation") {
     auto obj = CreateEntity<Ifc4x3_add2::IfcFooting>(file);
+    obj->setGlobalId(guid);
+    obj->setOwnerHistory(ownerHist);
+    obj->setName(name);
+    obj->setObjectType(type);
+    obj->setObjectPlacement(placement);
+    return obj;
+  } else if (type == "Girder" || type == "Beam") {
+    auto obj = CreateEntity<Ifc4x3_add2::IfcBeam>(file);
+    obj->setGlobalId(guid);
+    obj->setOwnerHistory(ownerHist);
+    obj->setName(name);
+    obj->setObjectType(type);
+    obj->setObjectPlacement(placement);
+    return obj;
+  } else if (type == "Pier" || type == "Column" || type == "BridgePier") {
+    auto obj = CreateEntity<Ifc4x3_add2::IfcColumn>(file);
+    obj->setGlobalId(guid);
+    obj->setOwnerHistory(ownerHist);
+    obj->setName(name);
+    obj->setObjectType(type);
+    obj->setObjectPlacement(placement);
+    return obj;
+  } else if (type == "Pile" || type == "SinglePile") {
+    auto obj = CreateEntity<Ifc4x3_add2::IfcPile>(file);
     obj->setGlobalId(guid);
     obj->setOwnerHistory(ownerHist);
     obj->setName(name);
@@ -801,15 +935,108 @@ void IfcExportService::TraverseAndExport(
   // 3. Add Geometry
   AddGeometryToProduct(adObj, file, product, context);
 
+  // 3.1. Layer and Color/Material Assignment
+  auto pds = (Ifc4x3_add2::IfcProductDefinitionShape*)product->Representation();
+  
+  // Assign presentation layer
+  std::string modelType = ToStdString(adObj->GetObjectType());
+  if (!modelType.empty()) {
+      std::string layerName = modelType + "_Layer";
+      auto ifcLayer = CreateEntity<Ifc4x3_add2::IfcPresentationLayerAssignment>(file);
+      ifcLayer->setName(layerName);
+
+      auto layerLayeredItems = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcLayeredItem>>();
+      if (pds && pds->Representations()) {
+          for (auto rep : *pds->Representations()) {
+              layerLayeredItems->push(rep);
+          }
+      }
+      ifcLayer->setAssignedItems(layerLayeredItems);
+  }
+
+  // Parse color and material properties
+  Quantity_Color rgbColor;
+  double alpha = 1.0;
+  bool hasMaterialColor = false;
+
+  NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
+  for (int i = 1; i <= psets.Length(); ++i) {
+      Handle(BrNode_adPropertySet) ps = psets.Value(i);
+      if (ps.IsNull()) continue;
+      std::string psName = ToStdString(ps->GetName());
+      if (psName == "Pset_MaterialPBR") {
+          NCollection_Sequence<Handle(BrNode_adProperty)> props = ps->GetPropertiesList();
+          for (int j = 1; j <= props.Length(); ++j) {
+              Handle(BrNode_adProperty) p = props.Value(j);
+              if (p.IsNull()) continue;
+              std::string key = ToStdString(p->GetPropertyName());
+              std::string val = ToStdString(p->GetPropertyValue());
+              if (key == "BaseColor") {
+                  std::stringstream ss(val);
+                  std::string segment;
+                  std::vector<double> colors;
+                  while (std::getline(ss, segment, ',')) {
+                      try {
+                          colors.push_back(std::stod(segment));
+                      } catch (...) {}
+                  }
+                  if (colors.size() >= 3) {
+                      rgbColor.SetValues(colors[0], colors[1], colors[2], Quantity_TOC_RGB);
+                      hasMaterialColor = true;
+                  }
+              } else if (key == "Transparency") {
+                  try {
+                      alpha = 1.0 - std::stod(val);
+                  } catch (...) {}
+              }
+          }
+      }
+  }
+
+  if (hasMaterialColor) {
+      auto ifcColor = CreateEntity<Ifc4x3_add2::IfcColourRgb>(file);
+      ifcColor->setRed(rgbColor.Red());
+      ifcColor->setGreen(rgbColor.Green());
+      ifcColor->setBlue(rgbColor.Blue());
+
+      auto styleSpec = CreateEntity<Ifc4x3_add2::IfcSurfaceStyleRendering>(file);
+      styleSpec->setSurfaceColour(ifcColor);
+      if (alpha < 0.99) {
+          styleSpec->setTransparency(1.0 - alpha);
+      }
+
+      auto styleStyles = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcSurfaceStyleElementSelect>>();
+      styleStyles->push(styleSpec);
+
+      auto surfStyle = CreateEntity<Ifc4x3_add2::IfcSurfaceStyle>(file);
+      surfStyle->setName(ToStdString(adObj->GetName()) + "_Style");
+      surfStyle->setSide(Ifc4x3_add2::IfcSurfaceSide::IfcSurfaceSide_BOTH);
+      surfStyle->setStyles(styleStyles);
+
+      auto styledItemStyles = boost::make_shared<aggregate_of<Ifc4x3_add2::IfcPresentationStyle>>();
+      styledItemStyles->push(surfStyle);
+
+      auto styledItem = CreateEntity<Ifc4x3_add2::IfcStyledItem>(file);
+      styledItem->setStyles(styledItemStyles);
+
+      if (pds && pds->Representations() && pds->Representations()->size() > 0) {
+          auto rep = *pds->Representations()->begin();
+          if (rep && rep->Items() && rep->Items()->size() > 0) {
+              auto item = *rep->Items()->begin();
+              styledItem->setItem(item);
+          }
+      }
+  }
+
   // 4. Link to Parent (Spatial Aggregation vs Contained in Spatial Structure)
   auto childSet =
       boost::make_shared<aggregate_of<Ifc4x3_add2::IfcObjectDefinition>>();
   childSet->push(product);
 
   // 4. Link to Parent & Spatial Container
-  // 核心逻辑：如果当前产品不是空间元素（Site,
-  // Bridge等），则必须被包含在空间容器中
-  if (!product->declaration().is("IfcSpatialElement")) {
+  // 核心修复：仅当当前产品不是空间元素，且它的父级是空间元素（即它是顶级产品）时，才直接包含在空间容器中。
+  // 子级构件通过聚合嵌套关系隐式包含，不应重复直接关联空间容器，否则会导致 Viewer 将其拉平按类型分类。
+  if (!product->declaration().is("IfcSpatialElement") && parentIfc->declaration().is("IfcSpatialElement")) {
     auto productSet =
         boost::make_shared<aggregate_of<Ifc4x3_add2::IfcProduct>>();
     productSet->push(product);
@@ -972,24 +1199,21 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     relSiteBuilding->setRelatingObject(site);
     relSiteBuilding->setRelatedObjects(buildingSet);
 
-    // Traverse XCAF Assembly Components
-    Handle(TDocStd_Document) doc = model->Document();
-    Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
-    
+    // Traverse ActiveData adObject tree directly
     int exportedCount = 0;
-    std::map<std::string, Ifc4x3_add2::IfcProductDefinitionShape *> protoCache;
-    
-    if (!shapeTool.IsNull()) {
-      TDF_LabelSequence freeShapes;
-      shapeTool->GetFreeShapes(freeShapes);
-      for (int i = 1; i <= freeShapes.Length(); ++i) {
-        TDF_Label subLabel = freeShapes.Value(i);
-        ExportXcafLabel(subLabel, file, building, building, buildingPlacement,
-                        ownerHist, context, exportedCount, protoCache);
+    Handle(ActAPI_INode) rootBase = model->GetRootNode();
+    if (!rootBase.IsNull()) {
+      Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
+      for (; it->More(); it->Next()) {
+        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+        if (!obj.IsNull()) {
+          TraverseAndExport(obj, file, building, building, buildingPlacement,
+                            ownerHist, context, exportedCount);
+        }
       }
-      std::cout << "[IfcExportService] XCAF Exported " << exportedCount
-                << " nodes. (VERSION: 2026-06-05-RECURSIVE-XCAF)" << std::endl;
     }
+    std::cout << "[IfcExportService] adObject tree exported " << exportedCount
+              << " nodes. (VERSION: 2026-06-05-ADOBJECT-DRIVEN)" << std::endl;
 
     std::stringstream ss;
     ss << file;
@@ -1000,6 +1224,9 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     if (pos != std::string::npos) {
       content.replace(pos, 29, "FILE_SCHEMA(('IFC4'));");
     }
+
+    ReplaceAll(content, "\\\\X2\\\\", "\\X2\\");
+    ReplaceAll(content, "\\\\X0\\\\", "\\X0\\");
 
     std::ofstream f(filename);
     if (f.is_open()) {

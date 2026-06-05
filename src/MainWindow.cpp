@@ -67,6 +67,22 @@
 #include <XCAFDoc_LayerTool.hxx>
 #include <Standard_Failure.hxx>
 
+static const char* const CHECKBOX_STYLE = 
+    "QCheckBox { color: #333333; font-size: 12px; }"
+    "QCheckBox::indicator {"
+    "  width: 14px;"
+    "  height: 14px;"
+    "  border: 1.5px solid #555555;"
+    "  background-color: #ffffff;"
+    "  border-radius: 2px;"
+    "}"
+    "QCheckBox::indicator:hover {"
+    "  border: 1.5px solid #0078d7;"
+    "}"
+    "QCheckBox::indicator:checked {"
+    "  image: url(:/resources/icons/check.svg);"
+    "}";
+
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_solidTextCheckbox(nullptr), m_pbrCheckbox(nullptr), m_coordLabel(nullptr),
@@ -74,6 +90,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_propertyDock(nullptr), m_modelExplorerDock(nullptr), m_propertyWidget(nullptr),
       m_propertyLayout(nullptr), m_currentModelType("BridgePier2") {
   setWindowTitle("Qt OCCT Application - Schema Enabled");
+  setWindowIcon(QIcon(":/resources/icons/app_logo.png"));
   setMinimumSize(1024, 768);
   showMaximized();
 
@@ -81,6 +98,7 @@ MainWindow::MainWindow(QWidget *parent)
 
   createRibbon();
   setupCadQueryUi();
+  createTestCategory();
   initializeCqNetwork();
 
   QStatusBar *sBar = new QStatusBar(this);
@@ -100,96 +118,93 @@ MainWindow::~MainWindow() {}
 
 void MainWindow::createRibbon() {
   SARibbonBar *ribbon = ribbonBar();
-  ribbon->applicationButton()->setText("QtOCCTApp");
+  // 1. 隐藏最左侧的应用按钮 (删除 qtocctapp 面板入口)
+  ribbon->applicationButton()->setVisible(false);
 
-  SARibbonCategory *categoryMain = ribbon->addCategoryPage("Main Tools");
-  SARibbonPanel *panelBasic = categoryMain->addPanel("Basic");
+  // 2. "Main Tools" 修改为 "主页"
+  SARibbonCategory *categoryMain = ribbon->addCategoryPage("主页");
 
-  QAction *drawAction = new QAction(QIcon(":/resources/icons/draw_line.svg"), "Draw Line", this);
-  connect(drawAction, &QAction::triggered, this, &MainWindow::onDrawLineClicked);
-  panelBasic->addLargeAction(drawAction);
+  // "Basic" 面板修改为 "项目"，包含"打开"和"关闭"按钮
+  SARibbonPanel *panelProject = categoryMain->addPanel("项目");
 
-  QAction *randLineAction = new QAction(QIcon(":/resources/icons/random.svg"), "Generate 10k Lines", this);
-  connect(randLineAction, &QAction::triggered, [this]() { m_occtWidget->generateRandomLines(10000); });
-  panelBasic->addLargeAction(randLineAction);
-
-  QAction *exportIfcAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Export IFC", this);
-  connect(exportIfcAction, &QAction::triggered, this, &MainWindow::onExportIfcClicked);
-  panelBasic->addLargeAction(exportIfcAction);
-
-  QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/random.svg"), "Load ASI", this);
+  // 打开 (原 Load ASI 移至第一位)
+  QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/open.svg"), "打开", this);
   connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
-  panelBasic->addLargeAction(loadAsiAction);
+  panelProject->addLargeAction(loadAsiAction);
 
-  QAction *importBrepAction = new QAction(QIcon(":/resources/icons/random.svg"), "Import BREP", this);
+  // 关闭 (新按钮)
+  QAction *closeAction = new QAction(QIcon(":/resources/icons/close.svg"), "关闭", this);
+  connect(closeAction, &QAction::triggered, this, &MainWindow::onCloseModel);
+  panelProject->addLargeAction(closeAction);
+
+  // 增加 "导入" 分组并归类
+  SARibbonPanel *panelImport = categoryMain->addPanel("导入");
+  QAction *importBrepAction = new QAction(QIcon(":/resources/icons/import.svg"), "导入 BREP", this);
   connect(importBrepAction, &QAction::triggered, this, &MainWindow::onImportBrep);
-  panelBasic->addLargeAction(importBrepAction);
+  panelImport->addLargeAction(importBrepAction);
 
-  QAction *importIfcAction = new QAction(QIcon(":/resources/icons/random.svg"), "Import IFC", this);
+  QAction *importIfcAction = new QAction(QIcon(":/resources/icons/import.svg"), "导入 IFC", this);
   connect(importIfcAction, &QAction::triggered, this, &MainWindow::onImportIfc);
-  panelBasic->addLargeAction(importIfcAction);
+  panelImport->addLargeAction(importIfcAction);
 
-  QAction *exportStepAction = new QAction(QIcon(":/resources/icons/export.svg"), "Export STEP", this);
+  // 增加 "导出" 分组并归类
+  SARibbonPanel *panelExport = categoryMain->addPanel("导出");
+  QAction *exportIfcAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 IFC", this);
+  connect(exportIfcAction, &QAction::triggered, this, &MainWindow::onExportIfcClicked);
+  panelExport->addLargeAction(exportIfcAction);
+
+  QAction *exportStepAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 STEP", this);
   connect(exportStepAction, &QAction::triggered, this, &MainWindow::onExportStepClicked);
-  panelBasic->addLargeAction(exportStepAction);
+  panelExport->addLargeAction(exportStepAction);
 
-  QAction *exportGltfAction = new QAction(QIcon(":/resources/icons/export.svg"), "Export GLTF", this);
+  QAction *exportGltfAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 GLTF", this);
   connect(exportGltfAction, &QAction::triggered, this, &MainWindow::onExportGltfClicked);
-  panelBasic->addLargeAction(exportGltfAction);
+  panelExport->addLargeAction(exportGltfAction);
 
-  SARibbonPanel *panelView = categoryMain->addPanel("View");
-  QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "Fit All", this);
+  // View 修改为 "视图"
+  SARibbonPanel *panelView = categoryMain->addPanel("视图");
+  QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "适应屏幕", this);
   connect(fitAllAction, &QAction::triggered, [this]() { m_occtWidget->fitAll(); });
   panelView->addLargeAction(fitAllAction);
 
-  m_pbrCheckbox = new QCheckBox("Enable PBR", this);
+  m_pbrCheckbox = new QCheckBox("启用 PBR", this);
+  m_pbrCheckbox->setStyleSheet(CHECKBOX_STYLE);
   m_pbrCheckbox->setChecked(false);
   connect(m_pbrCheckbox, &QCheckBox::stateChanged, [this](int state) {
     m_occtWidget->setUsePbr(state == Qt::Checked);
   });
   panelView->addWidget(m_pbrCheckbox, SARibbonPanelItem::Small);
 
-  SARibbonPanel *panelText = categoryMain->addPanel("Text");
-  QAction *shxTextAction = new QAction(QIcon(":/resources/icons/text_shx.svg"), "Add SHX Text", this);
-  connect(shxTextAction, &QAction::triggered, this, &MainWindow::onAddShxText);
-  panelText->addLargeAction(shxTextAction);
+  // 4. "Bridge Tools" 修改为 "桥梁"
+  SARibbonCategory *categoryBridge = ribbon->addCategoryPage("桥梁");
+  SARibbonPanel *panelBridge = categoryBridge->addPanel("桥梁");
 
-  m_solidTextCheckbox = new QCheckBox("Test Solid Text", this);
-  m_solidTextCheckbox->setChecked(true);
-  connect(m_solidTextCheckbox, &QCheckBox::stateChanged, [this](int state) {
-    m_occtWidget->setTextsSolid(state == Qt::Checked);
-  });
-  panelText->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
-
-  SARibbonCategory *categoryBridge = ribbon->addCategoryPage("Bridge Tools");
-  SARibbonPanel *panelBridge = categoryBridge->addPanel("Bridge");
-
-  QLabel *heightLabel = new QLabel("Height (mm):", this);
+  QLabel *heightLabel = new QLabel("高度 (mm):", this);
   m_pierHeightSpinBox = new QDoubleSpinBox(this);
   m_pierHeightSpinBox->setRange(10.0, 50000.0);
   m_pierHeightSpinBox->setValue(12000.0);
   panelBridge->addWidget(heightLabel, SARibbonPanelItem::Small);
   panelBridge->addWidget(m_pierHeightSpinBox, SARibbonPanelItem::Small);
 
-  QAction *bridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "Draw Bridge Pier", this);
+  QAction *bridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制桥墩", this);
   connect(bridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawBridgePier();
   });
   panelBridge->addLargeAction(bridgePierAction);
 
-  QAction *fullBridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "Draw Full Bridge Pier", this);
+  QAction *fullBridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制完整桥墩", this);
   connect(fullBridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawFullBridgePier();
   });
   panelBridge->addLargeAction(fullBridgePierAction);
 
-  QAction *annotatePierAction = new QAction(QIcon(":/resources/icons/dimension.svg"), "Annotate Pile Cap", this);
+  QAction *annotatePierAction = new QAction(QIcon(":/resources/icons/dimension.svg"), "标注承台", this);
   connect(annotatePierAction, &QAction::triggered, this, &MainWindow::onAnnotateBridgePierFooting);
   panelBridge->addLargeAction(annotatePierAction);
 
-  QAction *fullBridgeAction = new QAction(QIcon(":/resources/icons/full_bridge.svg"), "Full Bridge (100 Piers)", this);
+  QAction *fullBridgeAction = new QAction(QIcon(":/resources/icons/full_bridge.svg"), "完整桥梁 (100桥墩)", this);
   connect(fullBridgeAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
@@ -214,7 +229,7 @@ void MainWindow::createRibbon() {
   });
   panelBridge->addLargeAction(fullBridgeAction);
 
-  QAction *fastAssemAction = new QAction(QIcon(":/resources/icons/fast_assembly.svg"), "Full Bridge (300 Piers, Fast)", this);
+  QAction *fastAssemAction = new QAction(QIcon(":/resources/icons/fast_assembly.svg"), "快速装配 (300桥墩)", this);
   connect(fastAssemAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isAssembling = true;
@@ -238,7 +253,7 @@ void MainWindow::createRibbon() {
   });
   panelBridge->addLargeAction(fastAssemAction);
 
-  SARibbonPanel *panelSubCrops = categoryBridge->addPanel("Sub-components");
+  SARibbonPanel *panelSubCrops = categoryBridge->addPanel("子构件");
 
   QAction *tuopanAction = new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
   connect(tuopanAction, &QAction::triggered, [this]() {
@@ -291,6 +306,34 @@ void MainWindow::createRibbon() {
   QAction *bearingAction = new QAction(QIcon(":/resources/icons/bearing.svg"), "支座", this);
   connect(bearingAction, &QAction::triggered, this, &MainWindow::onDrawBearing);
   panelSubCrops->addSmallAction(bearingAction);
+
+}
+
+void MainWindow::createTestCategory() {
+  SARibbonBar *ribbon = ribbonBar();
+  // 3. 增加“测试”面板
+  SARibbonCategory *categoryTest = ribbon->addCategoryPage("测试");
+  SARibbonPanel *panelTest = categoryTest->addPanel("测试功能");
+
+  QAction *drawAction = new QAction(QIcon(":/resources/icons/draw_line.svg"), "绘制线段", this);
+  connect(drawAction, &QAction::triggered, this, &MainWindow::onDrawLineClicked);
+  panelTest->addLargeAction(drawAction);
+
+  QAction *randLineAction = new QAction(QIcon(":/resources/icons/random.svg"), "生成万条线", this);
+  connect(randLineAction, &QAction::triggered, [this]() { m_occtWidget->generateRandomLines(10000); });
+  panelTest->addLargeAction(randLineAction);
+
+  QAction *shxTextAction = new QAction(QIcon(":/resources/icons/text_shx.svg"), "添加 SHX 文本", this);
+  connect(shxTextAction, &QAction::triggered, this, &MainWindow::onAddShxText);
+  panelTest->addLargeAction(shxTextAction);
+
+  m_solidTextCheckbox = new QCheckBox("测试实体文本", this);
+  m_solidTextCheckbox->setStyleSheet(CHECKBOX_STYLE);
+  m_solidTextCheckbox->setChecked(true);
+  connect(m_solidTextCheckbox, &QCheckBox::stateChanged, [this](int state) {
+    m_occtWidget->setTextsSolid(state == Qt::Checked);
+  });
+  panelTest->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -1164,4 +1207,14 @@ void MainWindow::onExportIfcClicked() {
   } else {
     QMessageBox::critical(this, "Export IFC", "Failed to export IFC. Please check logs.");
   }
+}
+
+void MainWindow::onCloseModel() {
+    m_occtWidget->clearAll();
+    if (!m_currentModel.IsNull()) {
+        m_currentModel->Release();
+        m_currentModel.Nullify();
+    }
+    m_modelExplorerDock->setModel(nullptr);
+    statusBar()->showMessage("Model closed.", 3000);
 }
