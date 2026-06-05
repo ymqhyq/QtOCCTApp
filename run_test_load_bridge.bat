@@ -35,5 +35,5 @@ set "PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_BIND%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%
 echo Running test_load_bridge...
 cd /d D:\QtOCCTApp\core-data-model
 "%APP_BIN%\test_load_bridge.exe"
-rem pause
+pause
 endlocal

@@ -90,3 +90,18 @@ target_link_libraries(test_load_bridge PRIVATE
 # -----------------------------------------------------------------------------
 set_target_properties(core_data_model PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(test_load_bridge PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+
+# -----------------------------------------------------------------------------
+# brep_to_cbf CLI tool
+# -----------------------------------------------------------------------------
+add_executable(brep_to_cbf tools/brep_to_cbf.cpp)
+target_link_libraries(brep_to_cbf PRIVATE 
+    ${OpenCASCADE_LIBRARIES} 
+)
+if(MSVC)
+    target_compile_options(brep_to_cbf PRIVATE /FIStandard_Boolean.hxx /utf-8)
+endif()
+target_include_directories(brep_to_cbf PRIVATE 
+    ${OpenCASCADE_INCLUDE_DIRS}
+)
+set_target_properties(brep_to_cbf PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

@@ -169,6 +169,11 @@ private:
     
     std::unordered_map<std::string, TDF_Label> m_cacheMap;
     
+    Handle(BrNode_adGeometricDef) FindCachedGeoDef(const std::string& paramGeoId);
+    Handle(BrNode_adGeometricDef) CreateGeoDef(const std::string& paramGeoId,
+                                                const json& allParams,
+                                                const TopoDS_Shape& shape);
+    
     void InitializeCacheMap();
     TDF_Label ImportAndMergeCbf(const std::string& cbfByteStream, const std::string& paramGeoId);
     void TraverseAndBuildHelper(const Handle(BrNode_adObject)& rootObj,

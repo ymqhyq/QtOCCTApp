@@ -29,6 +29,10 @@
 #include <TDF_CopyLabel.hxx>
 #include <TDF_LabelSequence.hxx>
 #include <TColStd_IndexedMapOfTransient.hxx>
+#include <BinLDrivers.hxx>
+#include <BinXCAFDrivers.hxx>
+#include <TDF_CopyTool.hxx>
+#include <TDocStd_Application.hxx>
 #include <ActData_Application.h>
 #include <PCDM_ReaderStatus.hxx>
 #include <gp_Dir.hxx>
@@ -282,43 +286,52 @@ void GeometryService::InitializeCacheMap()
     }
 }
 
-// ------ 反序列化并合并 CBF 子树 ------
+// ------ 反序列化并合并 CBF 子树 (重构为解析 BREP 并加入 XCAF) ------
 TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, const std::string& paramGeoId)
 {
     if (m_model.IsNull()) return TDF_Label();
     Handle(TDocStd_Document) destDoc = m_model->Document();
     if (destDoc.IsNull()) return TDF_Label();
 
-    // 1. 创建临时 OCAF 文档
-    Handle(TDocStd_Document) tempDoc = new TDocStd_Document("binocaf");
+    // 显式为临时文档注册格式，以防在独立 exe 或测试环境中未定义
+    Handle(TDocStd_Application) app = new TDocStd_Application();
+    BinXCAFDrivers::DefineFormat(app);
 
-    // 2. 使用 ActData_Application 从字节流反序列化
+    // 1. 创建临时 OCAF 文档 (格式为 BinXCAF) 并正确关联到 application
+    Handle(TDocStd_Document) tempDoc;
+    app->NewDocument("BinXCAF", tempDoc);
+    
+    // 2. 从流反序列化
     std::istringstream iss(cbfByteStream, std::ios::binary);
-    Handle(ActData_Application) app = ActData_Application::Instance();
     if (app->Open(iss, tempDoc) != PCDM_RS_OK)
     {
         std::cerr << "[GeometryService] Failed to read CBF byte stream" << std::endl;
         return TDF_Label();
     }
 
-    // 3. 提取临时文档中的零件原型 Label
+    // 3. 提取临时文档中的 XCAF 零件原型
     Handle(XCAFDoc_ShapeTool) tempShapeTool = XCAFDoc_DocumentTool::ShapeTool(tempDoc->Main());
-    if (tempShapeTool.IsNull()) return TDF_Label();
-
+    if (tempShapeTool.IsNull()) {
+        std::cerr << "[GeometryService] Temp ShapeTool is Null" << std::endl;
+        return TDF_Label();
+    }
     TDF_LabelSequence tempShapes;
     tempShapeTool->GetShapes(tempShapes);
-    if (tempShapes.Length() == 0) return TDF_Label();
-
+    if (tempShapes.Length() == 0) {
+        std::cerr << "[GeometryService] No shapes found in temp CBF document" << std::endl;
+        return TDF_Label();
+    }
     TDF_Label srcProtoLabel = tempShapes.Value(1);
 
-    // 4. 将原型 Label 深度拷贝到主文档
+    // 4. 将临时文档的原型拷贝合并到主文档中
     Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
     if (destShapeTool.IsNull()) return TDF_Label();
 
     TDF_Label destProtoLabel = destShapeTool->NewShape();
-
-    TDF_CopyLabel copier(srcProtoLabel, destProtoLabel);
-    copier.Perform();
+    
+    TDF_CopyLabel copyHelper;
+    copyHelper.Load(srcProtoLabel, destProtoLabel);
+    copyHelper.Perform();
 
     // 5. 附加 ParamGeoID 属性作为主键
     TDataStd_AsciiString::Set(destProtoLabel, paramGeoId.c_str());
@@ -327,6 +340,51 @@ TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, c
     m_cacheMap[paramGeoId] = destProtoLabel;
 
     return destProtoLabel;
+}
+
+Handle(BrNode_adGeometricDef) GeometryService::FindCachedGeoDef(const std::string &paramGeoId) {
+    if (m_model.IsNull()) return nullptr;
+    // 获取几何定义分区 (GeometryDefinitions partition ID is 1)
+    Handle(ActAPI_IPartition) partition =
+        m_model->Partition(1);
+    if (partition.IsNull())
+      return nullptr;
+  
+    // 使用分区的迭代器遍历节点
+    Handle(ActData_BasePartition) basePart =
+        Handle(ActData_BasePartition)::DownCast(partition);
+    if (!basePart.IsNull()) {
+      for (ActData_BasePartition::Iterator it(basePart); it.More(); it.Next()) {
+        Handle(BrNode_adGeometricDef) gd =
+            Handle(BrNode_adGeometricDef)::DownCast(it.Value());
+        if (gd.IsNull())
+          continue;
+  
+        std::string existingId = ToStdString(gd->GetParamGeoID());
+        if (existingId == paramGeoId) {
+          std::cout << "[GeometryService] Disk Cache HIT (adGeometricDef): " << paramGeoId << std::endl;
+          return gd;
+        }
+      }
+    }
+    return nullptr;
+}
+
+Handle(BrNode_adGeometricDef) GeometryService::CreateGeoDef(
+      const std::string &paramGeoId, const json &allParams,
+      const TopoDS_Shape &shape) {
+    if (m_model.IsNull()) return nullptr;
+    Handle(BrNode_adGeometricDef) geoDef = m_model->AddadGeometricDef();
+    if (geoDef.IsNull())
+      return nullptr;
+  
+    geoDef->SetName(ToExtString(paramGeoId.substr(0, 8))); // 短名
+    geoDef->SetParamGeoID(ToExtString(paramGeoId));
+    geoDef->SetGeoParameter(ToExtString(allParams.dump()));
+    geoDef->SetShape(shape);
+  
+    std::cout << "[GeometryService] Created GeoDef node: " << paramGeoId << std::endl;
+    return geoDef;
 }
 
 // ------ 提取几何参数 ------
@@ -413,7 +471,8 @@ GeometryService::CallModelingService(const std::string &modelType,
   requestBody["model_type"] = modelType;
   requestBody["args"] = params;
   requestBody["code"] = "";       // 由服务端根据 model_type 查找脚本
-  requestBody["format"] = "cbf"; // 获取 OCAF CBF 二进制流
+  requestBody["format"] = "cbf";  // 获取 XCBF/CBF 二进制流
+  requestBody["param_geo_id"] = ComputeParamGeoID(modelType, params);
 
   std::string bodyStr = requestBody.dump();
 
@@ -558,48 +617,105 @@ TDF_Label
   // 2. 计算指纹
   std::string paramGeoId = ComputeParamGeoID(ep.modelType, ep.params);
 
-  // 3. 查找缓存
+  // 3. 查找内存缓存
   auto it = m_cacheMap.find(paramGeoId);
   if (it != m_cacheMap.end() && !it->second.IsNull()) {
-    std::cout << "[GeometryService] Cache HIT (XCAF): " << paramGeoId << std::endl;
+    std::cout << "[GeometryService] Cache HIT (XCAF Memory): " << paramGeoId << std::endl;
+    // 确保数据模型中的 adGeometry 引用关系存在
+    if (adObj->GetGeometry().IsNull()) {
+      Handle(BrNode_adGeometricDef) geoDef = FindCachedGeoDef(paramGeoId);
+      if (!geoDef.IsNull()) {
+        Handle(BrNode_adGeometry) geoNode = m_model->AddadGeometry();
+        if (!geoNode.IsNull()) {
+          geoNode->SetGeometryRef(geoDef);
+          adObj->SetGeometry(geoNode);
+        }
+      }
+    }
     return it->second;
   }
 
-  // 4. 调用建模服务
+  // 4. 查找磁盘/分区缓存
+  Handle(BrNode_adGeometricDef) cachedGeoDef = FindCachedGeoDef(paramGeoId);
+  if (!cachedGeoDef.IsNull()) {
+    std::cout << "[GeometryService] Cache HIT (Partition Disk): " << paramGeoId << std::endl;
+    TopoDS_Shape shape = cachedGeoDef->GetShape();
+    if (!shape.IsNull()) {
+      // 注册为 XCAF 零件原型并放入内存缓存
+      Handle(TDocStd_Document) destDoc = m_model->Document();
+      Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+      TDF_Label protoLabel = destShapeTool->AddShape(shape, Standard_False);
+      TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
+      m_cacheMap[paramGeoId] = protoLabel;
+
+      // 建立引用关系
+      if (adObj->GetGeometry().IsNull()) {
+        Handle(BrNode_adGeometry) geoNode = m_model->AddadGeometry();
+        if (!geoNode.IsNull()) {
+          geoNode->SetGeometryRef(cachedGeoDef);
+          adObj->SetGeometry(geoNode);
+        }
+      }
+      return protoLabel;
+    }
+  }
+
+  // 5. 调用建模服务
   std::cout << "[GeometryService] Cache MISS, calling service..." << std::endl;
   ServiceResult sr = CallModelingService(ep.modelType, ep.params);
   
   TDF_Label protoLabel;
+  Handle(BrNode_adGeometricDef) geoDef;
+  TopoDS_Shape shape;
+
   if (!sr.success) {
     std::cerr << "[GeometryService] Fallback to dummy geometry for "
               << ep.modelType << std::endl;
 
     // 根据类型创建不同的占位几何
-    TopoDS_Shape fallbackShape;
     try {
       if (ep.modelType == "SinglePile" || ep.modelType == "Pile") {
-        fallbackShape = BRepPrimAPI_MakeCylinder(500, 5000).Shape();
+        shape = BRepPrimAPI_MakeCylinder(500, 5000).Shape();
       } else if (ep.modelType == "Bearing") {
-        fallbackShape = BRepPrimAPI_MakeBox(200, 200, 100).Shape();
+        shape = BRepPrimAPI_MakeBox(200, 200, 100).Shape();
       } else {
-        fallbackShape = BRepPrimAPI_MakeBox(1000, 1000, 1000).Shape();
+        shape = BRepPrimAPI_MakeBox(1000, 1000, 1000).Shape();
       }
     } catch (...) {
-      fallbackShape = BRepPrimAPI_MakeBox(500, 500, 500).Shape();
+      shape = BRepPrimAPI_MakeBox(500, 500, 500).Shape();
     }
 
     // 注册为 XCAF 零件原型
     Handle(TDocStd_Document) destDoc = m_model->Document();
     Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
-    protoLabel = destShapeTool->AddShape(fallbackShape, Standard_False);
+    protoLabel = destShapeTool->AddShape(shape, Standard_False);
     TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
     m_cacheMap[paramGeoId] = protoLabel;
+
+    // 创建 adGeometricDef
+    geoDef = CreateGeoDef(paramGeoId, ep.params, shape);
   } else {
-    // 5. 反序列化并合并 CBF 字节流
+    // 5. 反序列化并合并 BREP 字节流到 XCAF
     protoLabel = ImportAndMergeCbf(sr.brepData, paramGeoId);
+    
+    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
+        // 创建 adGeometricDef 保存到几何分区
+        geoDef = CreateGeoDef(paramGeoId, sr.allParams, shape);
+    }
     
     // 6. 回写 inout/out 参数
     WriteBackParams(ep.geoPset, sr.allParams);
+  }
+
+  // 建立引用关系链接
+  if (!geoDef.IsNull() && adObj->GetGeometry().IsNull()) {
+    Handle(BrNode_adGeometry) geoNode = m_model->AddadGeometry();
+    if (!geoNode.IsNull()) {
+      geoNode->SetGeometryRef(geoDef);
+      adObj->SetGeometry(geoNode);
+    }
   }
 
   return protoLabel;

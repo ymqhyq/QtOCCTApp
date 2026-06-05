@@ -42,6 +42,7 @@ class ScriptRequest(BaseModel):
     args: Dict[str, Any] = {}
     model_type: Optional[str] = None
     format: Optional[str] = "step"
+    param_geo_id: Optional[str] = None
 
 import traceback
 import cadquery as cq
@@ -79,11 +80,18 @@ def execute_task(code, args, output_path):
     if ext not in ["STEP", "IGES", "BREP", "STL"]:
         ext = "STEP"
         
-    if isinstance(result, cq.Assembly):
-        if ext == "BREP":
-            cq.exporters.export(result.toCompound(), output_path, ext)
+    if ext == "BREP":
+        if isinstance(result, cq.Assembly):
+            shape_wrapped = result.toCompound().wrapped
+        elif hasattr(result, "val"):
+            shape_wrapped = result.val().wrapped
+        elif hasattr(result, "wrapped"):
+            shape_wrapped = result.wrapped
         else:
-            result.save(output_path, ext)
+            raise TypeError(f"Cannot extract Shape from result type: {type(result)}")
+        BRepTools.Write_s(shape_wrapped, output_path)
+    elif isinstance(result, cq.Assembly):
+        result.save(output_path, ext)
     else:
         cq.exporters.export(result, output_path, ext)
         
@@ -177,11 +185,15 @@ async def generate_model(request: ScriptRequest):
     
     # 根据请求指定格式（默认 step）
     ext = (request.format or "step").lower()
+    is_cbf = (ext == "cbf")
+    if is_cbf:
+        ext = "brep"
+        
     if ext not in ["step", "brep", "iges", "stl"]:
         ext = "step"
         
     output_path = os.path.join(WORKSPACE, f"{task_id}.{ext}")
-    logger.info(f"生成任务 {task_id}: 格式={ext}, 模型类型={request.model_type}")
+    logger.info(f"生成任务 {task_id}: 格式={'cbf' if is_cbf else ext}, 模型类型={request.model_type}")
     
     code_file = os.path.join(WORKSPACE, f"{task_id}_code.py")
     args_file = os.path.join(WORKSPACE, f"{task_id}_args.json")
@@ -234,6 +246,49 @@ async def generate_model(request: ScriptRequest):
 
     if not os.path.exists(output_path):
         raise HTTPException(status_code=500, detail="脚本执行结束但未生成任何输出文件。")
+
+    if is_cbf:
+        cbf_output_path = os.path.join(WORKSPACE, f"{task_id}.cbf")
+        r, g, b = 0.75, 0.75, 0.75
+        if "Pset_MaterialPBR" in effective_args:
+            pbr = effective_args["Pset_MaterialPBR"]
+            if "BaseColor" in pbr:
+                bc = pbr["BaseColor"]
+                if isinstance(bc, list) and len(bc) >= 3:
+                    try:
+                        r, g, b = float(bc[0]), float(bc[1]), float(bc[2])
+                    except:
+                        pass
+                elif isinstance(bc, str):
+                    try:
+                        parts = bc.split(",")
+                        r, g, b = float(parts[0]), float(parts[1]), float(parts[2])
+                    except:
+                        pass
+        param_geo_id = request.param_geo_id or task_id
+        tool_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build_v142", "Release", "brep_to_cbf.exe"))
+        if not os.path.exists(tool_path):
+            tool_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "build_v142", "bin", "Release", "brep_to_cbf.exe"))
+        if not os.path.exists(tool_path):
+            logger.error(f"未找到 brep_to_cbf.exe 工具，路径: {tool_path}")
+            raise HTTPException(status_code=500, detail="未找到 brep_to_cbf.exe 转换工具，请确保编译成功。")
+        import subprocess
+        cmd = [tool_path, output_path, cbf_output_path, param_geo_id, str(r), str(g), str(b)]
+        logger.info(f"运行命令行打包 XCBF: {' '.join(cmd)}")
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            logger.error(f"打包 XCBF 失败: {res.stderr}")
+            raise HTTPException(status_code=500, detail=f"打包 XCBF 错误:\n{res.stderr}")
+        
+        # OCCT app->SaveAs 可能会自动追加 .xbf 后缀
+        if not os.path.exists(cbf_output_path) and os.path.exists(cbf_output_path + ".xbf"):
+            logger.info("OCCT自动追加了.xbf扩展名，正在重命名临时文件...")
+            try:
+                os.rename(cbf_output_path + ".xbf", cbf_output_path)
+            except Exception as rename_err:
+                logger.error(f"重命名 .cbf.xbf 失败: {rename_err}")
+                
+        output_path = cbf_output_path
 
     # JHB (JSON-Header + Binary-Body) 封装
     # 构造元数据

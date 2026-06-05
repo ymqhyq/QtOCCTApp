@@ -25,12 +25,19 @@
 #include <TDataStd_AsciiString.hxx>
 #include <TDF_LabelSequence.hxx>
 
+#include <TopExp_Explorer.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopAbs_ShapeEnum.hxx>
+#include <TopTools_IndexedMapOfShape.hxx>
+
 using json = nlohmann::json;
 
 static std::string ToStr(const TCollection_ExtendedString& es) {
     TCollection_AsciiString as(es);
     return std::string(as.ToCString());
 }
+
 
 void PrintGeometryStats(const Handle(ActData_BaseModel)& model) {
     if (model.IsNull()) return;
@@ -72,6 +79,7 @@ void PrintGeometryStats(const Handle(ActData_BaseModel)& model) {
     }
     std::cout << "=========================================" << std::endl;
 }
+
 
 void PrintAssemblyTree(const Handle(BrNode_adObject)& node, int depth = 0)
 {
@@ -240,8 +248,163 @@ void BuildAllGeometry(const Handle(ActData_BaseModel)& model, const Handle(BrNod
     }
 }
 
+void AnalyzeFile(const std::string& path) {
+    std::cout << "\n=========================================" << std::endl;
+    std::cout << "Analyzing File: " << path << std::endl;
+    std::cout << "=========================================" << std::endl;
+    
+    try {
+        Handle(DataModel) model = new DataModel();
+        std::cout << "[DEBUG] Calling model->Open..." << std::endl;
+        bool opened = model->Open(path.c_str());
+        std::cout << "[DEBUG] Open returned: " << (opened ? "TRUE" : "FALSE") << std::endl;
+        if (!opened) {
+            std::cerr << "Failed to open file: " << path << std::endl;
+            return;
+        }
+        
+        Handle(TDocStd_Document) doc = model->Document();
+        if (doc.IsNull()) {
+            std::cerr << "Document is Null!" << std::endl;
+            return;
+        }
+        
+        std::cout << "[DEBUG] Querying ShapeTool (inside transaction)..." << std::endl;
+        model->OpenCommand();
+        Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+        model->CommitCommand();
+        if (shapeTool.IsNull()) {
+            std::cerr << "ShapeTool is Null!" << std::endl;
+            return;
+        }
+        
+        std::cout << "[DEBUG] Getting shapes from ShapeTool..." << std::endl;
+        TDF_LabelSequence protos;
+        shapeTool->GetShapes(protos);
+        std::cout << "Unique XCAF Prototype Shapes found: " << protos.Length() << std::endl;
+        
+        for (int i = 1; i <= protos.Length(); ++i) {
+            TDF_Label protoLabel = protos.Value(i);
+            Handle(TDataStd_Name) nameAttr;
+            std::string name = "Unnamed";
+            if (protoLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+                name = ToStr(nameAttr->Get());
+            }
+            
+            Handle(TDataStd_AsciiString) geoIdAttr;
+            std::string md5 = "N/A";
+            if (protoLabel.FindAttribute(TDataStd_AsciiString::GetID(), geoIdAttr)) {
+                md5 = geoIdAttr->Get().ToCString();
+            }
+            
+            TopoDS_Shape shape;
+            bool hasShape = shapeTool->GetShape(protoLabel, shape);
+            
+            TDF_LabelSequence users;
+            int userCount = XCAFDoc_ShapeTool::GetUsers(protoLabel, users, Standard_True);
+            
+            std::cout << "  - [XCAF Prototype] " << name << " (MD5: " << (md5.length() > 8 ? md5.substr(0,8) : md5) << "):";
+            if (!hasShape || shape.IsNull()) {
+                std::cout << " EMPTY" << std::endl;
+                continue;
+            }
+            
+            TopTools_IndexedMapOfShape uniqueFaces;
+            TopTools_IndexedMapOfShape uniqueEdges;
+            TopTools_IndexedMapOfShape uniqueVertices;
+            
+            for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next()) uniqueFaces.Add(exp.Current());
+            for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next()) uniqueEdges.Add(exp.Current());
+            for (TopExp_Explorer exp(shape, TopAbs_VERTEX); exp.More(); exp.Next()) uniqueVertices.Add(exp.Current());
+            
+            int nFaces = uniqueFaces.Extent();
+            int nEdges = uniqueEdges.Extent();
+            int nVertices = uniqueVertices.Extent();
+            
+            std::cout << " Faces=" << nFaces << ", Edges=" << nEdges << ", Vertices=" << nVertices 
+                      << ", Instances=" << userCount;
+                      
+            if (nFaces == 6 && nEdges == 12 && nVertices == 8) {
+                std::cout << "  --> [WARNING: DUMMY BOX FALLBACK]";
+            } else if (nFaces == 3 && nEdges == 3 && nVertices == 2) {
+                std::cout << "  --> [WARNING: DUMMY CYLINDER FALLBACK]";
+            } else {
+                std::cout << "  --> [REAL GEOMETRY]";
+            }
+            std::cout << std::endl;
+        }
+
+        // --- Traverse Geometry Partition ---
+        std::cout << "\n[DEBUG] Getting shapes from GeometryDefinitions Partition..." << std::endl;
+        Handle(ActAPI_IPartition) geoPart = model->Partition(1); // GeometryDefinitions is registered with ID 1
+        Handle(ActData_BasePartition) geoBasePart = Handle(ActData_BasePartition)::DownCast(geoPart);
+        if (geoBasePart.IsNull()) {
+            std::cout << "GeometryDefinitions Partition is Null or cannot be cast!" << std::endl;
+        } else {
+            ActData_BasePartition::Iterator it(geoBasePart);
+            int nodeCount = 0;
+            for (; it.More(); it.Next()) {
+                Handle(BrNode_adGeometricDef) geoDef = Handle(BrNode_adGeometricDef)::DownCast(it.Value());
+                if (geoDef.IsNull()) continue;
+                nodeCount++;
+                std::string nodeName = ToStr(geoDef->GetName());
+                std::string geoId = ToStr(geoDef->GetParamGeoID());
+                
+                TopoDS_Shape shape = geoDef->GetShape();
+                std::cout << "  - [Node] " << nodeName << " (GeoID: " << (geoId.length() > 8 ? geoId.substr(0,8) : geoId) << "):";
+                
+                if (shape.IsNull()) {
+                    std::cout << " EMPTY Shape" << std::endl;
+                    continue;
+                }
+                
+                TopTools_IndexedMapOfShape uniqueFaces;
+                TopTools_IndexedMapOfShape uniqueEdges;
+                TopTools_IndexedMapOfShape uniqueVertices;
+                
+                for (TopExp_Explorer exp(shape, TopAbs_FACE); exp.More(); exp.Next()) uniqueFaces.Add(exp.Current());
+                for (TopExp_Explorer exp(shape, TopAbs_EDGE); exp.More(); exp.Next()) uniqueEdges.Add(exp.Current());
+                for (TopExp_Explorer exp(shape, TopAbs_VERTEX); exp.More(); exp.Next()) uniqueVertices.Add(exp.Current());
+                
+                int nFaces = uniqueFaces.Extent();
+                int nEdges = uniqueEdges.Extent();
+                int nVertices = uniqueVertices.Extent();
+                
+                std::cout << " Faces=" << nFaces << ", Edges=" << nEdges << ", Vertices=" << nVertices;
+                if (nFaces == 6 && nEdges == 12 && nVertices == 8) {
+                    std::cout << "  --> [WARNING: DUMMY BOX FALLBACK]";
+                } else if (nFaces == 3 && nEdges == 3 && nVertices == 2) {
+                    std::cout << "  --> [WARNING: DUMMY CYLINDER FALLBACK]";
+                } else {
+                    std::cout << "  --> [REAL GEOMETRY]";
+                }
+                std::cout << std::endl;
+            }
+            std::cout << "Total Geometry Nodes in Partition: " << nodeCount << std::endl;
+        }
+    } catch (Standard_Failure& e) {
+        std::cerr << "!!! OCCT EXCEPTION: " << e.GetMessageString() << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "!!! STD EXCEPTION: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "!!! UNKNOWN EXCEPTION!" << std::endl;
+    }
+    std::cout << "=========================================" << std::endl;
+}
+
 int main(int argc, char** argv) {
     std::cout << "--- TEST START ---" << std::endl;
+
+    if (argc > 1 && std::string(argv[1]) == "verify") {
+        std::string path1 = "D:/QtOCCTApp/bridge.asi";
+        std::string path2 = "D:/QtOCCTApp/bridge_test_save.asi";
+        if (argc > 2) path1 = argv[2];
+        if (argc > 3) path2 = argv[3];
+        AnalyzeFile(path1);
+        AnalyzeFile(path2);
+        return 0;
+    }
+
     Handle(DataModel) model = new DataModel();
     model->NewEmpty();
     if (!model->Document().IsNull()) {
@@ -273,7 +436,7 @@ int main(int argc, char** argv) {
             modelRoot->AddSubObjects(rootBridge);
         }
         
-        GeometryService geoService(model, "http://127.0.0.1:3500/v1.0/invoke/modeling-service/method");
+        GeometryService geoService(model, "http://127.0.0.1:8000");
         BuildAllGeometry(model, rootBridge, geoService);
         std::cout << "[DEBUG] Committing command..." << std::endl;
         model->CommitCommand();
