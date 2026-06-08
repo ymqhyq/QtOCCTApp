@@ -55,7 +55,8 @@ OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
       m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
-      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_usePbr(false) {
+      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_usePbr(false),
+      m_showViewCube(true), m_enableRotation(true) {
   setFocusPolicy(Qt::StrongFocus);
 
   // 鍒濆鍖栦俊鎭彔鍔犳爣绛 
@@ -146,7 +147,7 @@ void OCCTWidget::initOCCT() {
 }
 
 void OCCTWidget::initViewCube() {
-  if (m_context.IsNull() || !m_viewCube.IsNull())
+  if (!m_showViewCube || m_context.IsNull() || !m_viewCube.IsNull())
     return;
 
   try {
@@ -296,7 +297,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     return;
 
   // Start rotation
-  if (event->button() == Qt::RightButton) {
+  if (m_enableRotation && (event->button() == Qt::RightButton)) {
     if (!m_view.IsNull()) {
       m_view->StartRotation(event->pos().x(), event->pos().y());
       m_startX = event->pos().x();
@@ -468,9 +469,9 @@ void OCCTWidget::wheelEvent(QWheelEvent *event) {
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
   // Check for Rotation (Right Button or Left + Ctrl)
-  if ((event->buttons() & Qt::RightButton) ||
+  if (m_enableRotation && ((event->buttons() & Qt::RightButton) ||
       ((event->buttons() & Qt::LeftButton) &&
-       (event->modifiers() & Qt::ControlModifier))) {
+       (event->modifiers() & Qt::ControlModifier)))) {
     if (!m_view.IsNull()) {
       // Sensitivity factor
       double sensitivity = 2.5;
@@ -2175,4 +2176,18 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
       m_view->Redraw();
   }
   fitAll();
+}
+
+void OCCTWidget::setAs2DView() {
+  m_showViewCube = false;
+  m_enableRotation = false;
+  if (!m_viewCube.IsNull() && !m_context.IsNull()) {
+    m_context->Erase(m_viewCube, Standard_False);
+    m_viewCube.Nullify();
+  }
+  if (!m_view.IsNull()) {
+    m_view->Camera()->SetProjectionType(Graphic3d_Camera::Projection_Orthographic);
+    m_view->SetProj(V3d_Zpos);
+    m_view->Redraw();
+  }
 }

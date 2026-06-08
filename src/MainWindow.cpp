@@ -60,6 +60,11 @@
 #include "GeometryService.h"
 #include "BrNode_adGeometry.h"
 #include "BrNode_adGeometricDef.h"
+#include "ProjectManager.h"
+#include "generated/BrNode_adSubDocRef.h"
+#include "generated/BrNode_adModelRoot.h"
+#include "generated/BrNode_adDrawing2D.h"
+#include "generated/BrNode_adSlopeIndication.h"
 #include <cmath>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
@@ -85,6 +90,8 @@ static const char* const CHECKBOX_STYLE =
 
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
+      m_occtWidget2D(new OCCTWidget(this)), m_splitter(new QSplitter(Qt::Horizontal, this)),
+      m_projectManager(nullptr),
       m_solidTextCheckbox(nullptr), m_pbrCheckbox(nullptr), m_coordLabel(nullptr),
       m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC),
       m_propertyDock(nullptr), m_modelExplorerDock(nullptr), m_propertyWidget(nullptr),
@@ -94,7 +101,14 @@ MainWindow::MainWindow(QWidget *parent)
   setMinimumSize(1024, 768);
   showMaximized();
 
-  setCentralWidget(m_occtWidget);
+  m_occtWidget2D->setAs2DView();
+  m_occtWidget2D->hide();
+
+  m_splitter->addWidget(m_occtWidget);
+  m_splitter->addWidget(m_occtWidget2D);
+  m_splitter->setCollapsible(0, false);
+  m_splitter->setCollapsible(1, true);
+  setCentralWidget(m_splitter);
 
   createRibbon();
   setupCadQueryUi();
@@ -114,7 +128,11 @@ MainWindow::MainWindow(QWidget *parent)
   onObjectSelected(QVariantMap());
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow() {
+  if (m_projectManager) {
+    delete m_projectManager;
+  }
+}
 
 void MainWindow::createRibbon() {
   SARibbonBar *ribbon = ribbonBar();
@@ -334,6 +352,10 @@ void MainWindow::createTestCategory() {
     m_occtWidget->setTextsSolid(state == Qt::Checked);
   });
   panelTest->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
+
+  QAction *loadMasterAction = new QAction(QIcon(":/resources/icons/open.svg"), "加载 Master CBF", this);
+  connect(loadMasterAction, &QAction::triggered, this, &MainWindow::onLoadMasterCbf);
+  panelTest->addLargeAction(loadMasterAction);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -792,6 +814,176 @@ void MainWindow::onLoadAsiModel() {
     statusBar()->showMessage("Model loaded: " + fileName, 3000);
 }
 
+void MainWindow::onLoadMasterCbf() {
+    QString fileName = QFileDialog::getOpenFileName(this, "Open Master Project", "", "CBF Files (*.cbf);;All Files (*.*)");
+    if (fileName.isEmpty()) return;
+
+    m_occtWidget->clearAll();
+    m_occtWidget2D->clearAll();
+    m_occtWidget2D->hide();
+
+    if (m_projectManager) {
+        delete m_projectManager;
+        m_projectManager = nullptr;
+    }
+
+    if (!m_currentModel.IsNull()) {
+        m_currentModel->Release();
+        m_currentModel.Nullify();
+    }
+
+    m_projectManager = new ProjectManager();
+    if (!m_projectManager->OpenMasterProject(fileName.toStdString())) {
+        QMessageBox::critical(this, "Error", "Failed to open master project: " + fileName);
+        delete m_projectManager;
+        m_projectManager = nullptr;
+        return;
+    }
+
+    m_currentModel = m_projectManager->GetMasterModel();
+    if (m_currentModel.IsNull()) {
+        QMessageBox::critical(this, "Error", "Master project has no root data model.");
+        return;
+    }
+
+    Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
+    if (rootNode.IsNull()) return;
+
+    // Helper lambda for converting ExtendedString to QString
+    auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
+        QByteArray bytes;
+        const Standard_ExtCharacter* p = extStr.ToExtString();
+        for (int i = 0; i < extStr.Length(); ++i) {
+            bytes.append((char)(p[i] & 0xFF));
+        }
+        return QString::fromUtf8(bytes);
+    };
+
+    // Traverse sub-documents
+    NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+    std::string path3D = "";
+    std::string path2D = "";
+
+    for (int i = 1; i <= subDocs.Length(); ++i) {
+        Handle(BrNode_adSubDocRef) refNode = subDocs.Value(i);
+        if (refNode.IsNull()) continue;
+
+        QString docType = convertToUtf8(refNode->GetDocType());
+        QString docPath = convertToUtf8(refNode->GetDocPath());
+
+        if (docType == "3DModel") {
+            path3D = docPath.toStdString();
+        } else if (docType == "2DDrawing") {
+            path2D = docPath.toStdString();
+        }
+    }
+
+    // Fallback names if empty
+    if (path3D.empty()) {
+        path3D = "models/subgrade_3d.cbf";
+    }
+    if (path2D.empty()) {
+        path2D = "drawings/plan_view.cbf";
+    }
+
+    // Load 3D model
+    Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
+    if (!modelDoc.IsNull()) {
+        Handle(DataModel) model3D = new DataModel(modelDoc);
+        model3D->OpenCommand();
+        std::vector<GeometryService::VisualShape> visualShapes;
+        try {
+            XCAFDoc_DocumentTool::ShapeTool(model3D->Document()->Main());
+            XCAFDoc_DocumentTool::ColorTool(model3D->Document()->Main());
+            XCAFDoc_DocumentTool::LayerTool(model3D->Document()->Main());
+
+            GeometryService geoService(model3D);
+            Handle(ActAPI_INode) rootBase = model3D->GetRootNode();
+            Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
+            for (; childIt->More(); childIt->Next()) {
+                Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
+                if (!obj.IsNull()) {
+                    geoService.TraverseAndBuild(obj, visualShapes);
+                }
+            }
+            model3D->CommitCommand();
+        } catch (...) {
+            model3D->AbortCommand();
+        }
+
+        // Display in 3D viewport
+        auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
+            std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
+                QVariantMap map;
+                for (auto it = js.begin(); it != js.end(); ++it) {
+                    QString key = QString::fromStdString(it.key());
+                    if (it.value().is_string()) {
+                        map[key] = QString::fromStdString(it.value().get<std::string>());
+                    } else if (it.value().is_number_float()) {
+                        map[key] = it.value().get<double>();
+                    } else if (it.value().is_number_integer()) {
+                        map[key] = it.value().get<int>();
+                    } else if (it.value().is_boolean()) {
+                        map[key] = it.value().get<bool>();
+                    } else if (it.value().is_object()) {
+                        map[key] = convert(it.value());
+                    } else if (it.value().is_array()) {
+                        QVariantList list;
+                        for (const auto& item : it.value()) {
+                            if (item.is_number()) list.append(item.get<double>());
+                            else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
+                        }
+                        map[key] = list;
+                    }
+                }
+                return map;
+            };
+            return convert(j);
+        };
+
+        for (const auto& vs : visualShapes) {
+            if (vs.shape.IsNull()) continue;
+            TopoDS_Shape transformedShape = vs.shape;
+            try {
+                BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
+                transformedShape = trans.Shape();
+            } catch (...) {}
+
+            QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
+            Quantity_Color color(Quantity_NOC_GRAY75);
+            if (meta.contains("Pset_MaterialPBR")) {
+                QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
+                if (pbr.contains("BaseColor")) {
+                    QVariantList colorList = pbr["BaseColor"].toList();
+                    if (colorList.size() >= 3) {
+                        color = Quantity_Color(colorList[0].toDouble(), 
+                                               colorList[1].toDouble(), 
+                                               colorList[2].toDouble(), 
+                                               Quantity_TOC_RGB);
+                    }
+                }
+            }
+            m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
+        }
+        m_occtWidget->fitAll();
+    }
+
+    // Load 2D drawing
+    Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
+    if (!drawingDoc.IsNull()) {
+        m_occtWidget2D->show();
+        m_occtWidget2D->loadXcafDocument(drawingDoc);
+        m_occtWidget2D->fitAll();
+        
+        QList<int> sizes;
+        sizes << width() / 2 << width() / 2;
+        m_splitter->setSizes(sizes);
+    }
+
+    m_modelExplorerDock->setModel(m_currentModel);
+    statusBar()->showMessage("Master project loaded: " + fileName, 3000);
+}
+
 void MainWindow::onImportBrep() {
     QString fileName = QFileDialog::getOpenFileName(this, "Import BREP", "", "BREP Files (*.brep *.occ);;All Files (*.*)");
     if (fileName.isEmpty()) return;
@@ -1211,6 +1403,12 @@ void MainWindow::onExportIfcClicked() {
 
 void MainWindow::onCloseModel() {
     m_occtWidget->clearAll();
+    m_occtWidget2D->clearAll();
+    m_occtWidget2D->hide();
+    if (m_projectManager) {
+        delete m_projectManager;
+        m_projectManager = nullptr;
+    }
     if (!m_currentModel.IsNull()) {
         m_currentModel->Release();
         m_currentModel.Nullify();

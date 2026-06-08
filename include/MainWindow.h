@@ -17,6 +17,7 @@
 #include <QScrollArea>
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include <QSplitter>
 
 #include <TopoDS_Shape.hxx>
 
@@ -58,6 +59,7 @@ private slots:
   void onExplorerNodeSelected(Handle(BrNode_adObject) node);
   void onObjectSelected(const QVariantMap &metadata);
   void onLoadAsiModel();             // 加载ASI模型并显示
+  void onLoadMasterCbf();            // 加载Master CBF并显示3D/2D
   void onImportBrep();               // 导入BREP文件
   void onImportIfc();                // 导入IFC文件并显示
   void onCloseModel();               // 关闭/清理模型视图
@@ -77,6 +79,9 @@ private:
   QString readScript(const QString &modelName);
 
   OCCTWidget *m_occtWidget;
+  OCCTWidget *m_occtWidget2D;
+  QSplitter *m_splitter;
+  class ProjectManager *m_projectManager;
   QDockWidget *m_dockCq;
   QDockWidget *m_propertyDock;
   ModelExplorerPanel *m_modelExplorerDock;

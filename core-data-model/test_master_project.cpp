@@ -169,6 +169,28 @@ TEST(ProjectManagerTest, MultiDocLinkageAndSync)
     Standard_Boolean opened = pm->OpenMasterProject(masterPath);
     ASSERT_TRUE(opened);
 
+    // Add SubDocRefs to master document root
+    Handle(DataModel) masterModel = pm->GetMasterModel();
+    ASSERT_TRUE(!masterModel.IsNull());
+    masterModel->OpenCommand();
+    
+    Handle(BrNode_adSubDocRef) ref3D = masterModel->AddadSubDocRef();
+    ref3D->SetName("Subgrade_3D_Model");
+    ref3D->SetDocPath(modelPath3D.c_str());
+    ref3D->SetDocType("3DModel");
+    
+    Handle(BrNode_adSubDocRef) ref2D = masterModel->AddadSubDocRef();
+    ref2D->SetName("Plan_View_Drawing");
+    ref2D->SetDocPath(drawingPath2D.c_str());
+    ref2D->SetDocType("2DDrawing");
+    
+    Handle(BrNode_adModelRoot) masterRoot = Handle(BrNode_adModelRoot)::DownCast(masterModel->GetRootNode());
+    ASSERT_TRUE(!masterRoot.IsNull());
+    masterRoot->AddSubDocRefs(ref3D);
+    masterRoot->AddSubDocRefs(ref2D);
+    
+    masterModel->CommitCommand();
+
     // 2. Load and init 3D model sub doc, write 3D slope
     Handle(TDocStd_Document) modelDoc = pm->GetOrLoadSubDocument(modelPath3D);
     ASSERT_TRUE(!modelDoc.IsNull());
@@ -270,8 +292,8 @@ TEST(ProjectManagerTest, MultiDocLinkageAndSync)
     // Save again
     ASSERT_TRUE(pm->SaveAll());
 
-    // 5. Clean up test directory
-    std::filesystem::remove_all(testProjDir);
+    // 5. Clean up test directory (disabled to keep generated test files)
+    // std::filesystem::remove_all(testProjDir);
     delete pm;
 }
 

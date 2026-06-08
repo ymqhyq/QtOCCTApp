@@ -87,6 +87,7 @@ public:
                                 double spacing);
   void buildFullBridgeFromBatch(const QList<AssemblyPart> &parts);
   void loadXcafDocument(const Handle(TDocStd_Document)& doc);
+  void setAs2DView();
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
@@ -151,6 +152,8 @@ private:
 
   Handle(AIS_ViewCube) m_viewCube;
   QSize m_lastSize; // 用于检测 widget 大小变化
+  bool m_showViewCube;
+  bool m_enableRotation;
 };
 
 #endif // OCCTWIDGET_H
