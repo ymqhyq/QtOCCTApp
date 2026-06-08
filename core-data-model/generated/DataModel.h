@@ -51,6 +51,26 @@
   
 
   
+#include "BrNode_adSubDocRef.h"
+  
+
+  
+#include "BrNode_adDrawing2D.h"
+  
+
+  
+#include "BrNode_adRepresentation2D.h"
+  
+
+  
+#include "BrNode_adLeaderAnnotation.h"
+  
+
+  
+#include "BrNode_adSlopeIndication.h"
+  
+
+  
 
   
 
@@ -80,6 +100,7 @@ public:
     };
 
     DataModel();
+    DataModel(const Handle(TDocStd_Document)& theDoc);
 
     TDF_Label GetPartitionLabel(const PartitionID pid) const;
 
@@ -114,6 +135,26 @@ public:
     
     
     Handle(BrNode_adObject) AddadObject();
+    
+    
+    
+    Handle(BrNode_adSubDocRef) AddadSubDocRef();
+    
+    
+    
+    Handle(BrNode_adDrawing2D) AddadDrawing2D();
+    
+    
+    
+    Handle(BrNode_adRepresentation2D) AddadRepresentation2D();
+    
+    
+    
+    Handle(BrNode_adLeaderAnnotation) AddadLeaderAnnotation();
+    
+    
+    
+    Handle(BrNode_adSlopeIndication) AddadSlopeIndication();
     
     
     

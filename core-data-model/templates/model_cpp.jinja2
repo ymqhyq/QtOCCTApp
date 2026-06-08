@@ -22,6 +22,12 @@
 
 DataModel::DataModel() : ActData_BaseModel() {}
 
+DataModel::DataModel(const Handle(TDocStd_Document)& theDoc) : ActData_BaseModel() {
+    this->init(theDoc);
+    this->initPartitions();
+    this->initFunctionDrivers();
+}
+
 void DataModel::initPartitions() {
     this->OpenCommand();
     

@@ -19,6 +19,41 @@ Handle(BrNode_adObject) DataFactory::CreateObject(const Handle(ActData_BaseModel
     std::cout << "    Object base created." << std::endl;
 
     
+    if (typeName == "SubgradeSlope") {
+        std::cout << "    Initializing PropertySets for type: SubgradeSlope" << std::endl;
+        
+        {
+            Handle(BrNode_adPropertySet) pset = CreatePset(model, "Pset_SlopeGeometry");
+            if (obj->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: obj RootLabel is NULL!" << std::endl;
+            if (pset.IsNull()) std::cerr << "    [DataFactory] ERROR: pset is NULL!" << std::endl;
+            else if (pset->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: pset RootLabel is NULL!" << std::endl;
+            
+            try {
+                obj->AddPropertySets(pset);
+            } catch (Standard_Failure& e) {
+                std::cerr << "    [DataFactory] OCCT EXCEPTION in AddPropertySets: " << e.GetMessageString() << std::endl;
+            } catch (...) {
+                std::cerr << "    [DataFactory] UNKNOWN EXCEPTION in AddPropertySets!" << std::endl;
+            }
+        }
+        
+        {
+            Handle(BrNode_adPropertySet) pset = CreatePset(model, "Pset_MaterialConcrete");
+            if (obj->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: obj RootLabel is NULL!" << std::endl;
+            if (pset.IsNull()) std::cerr << "    [DataFactory] ERROR: pset is NULL!" << std::endl;
+            else if (pset->RootLabel().IsNull()) std::cerr << "    [DataFactory] ERROR: pset RootLabel is NULL!" << std::endl;
+            
+            try {
+                obj->AddPropertySets(pset);
+            } catch (Standard_Failure& e) {
+                std::cerr << "    [DataFactory] OCCT EXCEPTION in AddPropertySets: " << e.GetMessageString() << std::endl;
+            } catch (...) {
+                std::cerr << "    [DataFactory] UNKNOWN EXCEPTION in AddPropertySets!" << std::endl;
+            }
+        }
+        
+    }
+    
     if (typeName == "Bridge") {
         std::cout << "    Initializing PropertySets for type: Bridge" << std::endl;
         
@@ -443,6 +478,40 @@ Handle(BrNode_adPropertySet) DataFactory::CreatePset(const Handle(ActData_BaseMo
 
     pset->SetName(psetName);
 
+    
+    if (psetName == "Pset_SlopeGeometry") {
+        
+        {
+            Handle(BrNode_adProperty) prop = dm->AddadProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("Length");
+                prop->SetPropertyValue("20000.0");
+                prop->SetValueType("Real");
+                pset->AddProperties(prop);
+            }
+        }
+        
+        {
+            Handle(BrNode_adProperty) prop = dm->AddadProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("Height");
+                prop->SetPropertyValue("8000.0");
+                prop->SetValueType("Real");
+                pset->AddProperties(prop);
+            }
+        }
+        
+        {
+            Handle(BrNode_adProperty) prop = dm->AddadProperty();
+            if (!prop.IsNull()) {
+                prop->SetPropertyName("SlopeRatio");
+                prop->SetPropertyValue("1.5");
+                prop->SetValueType("Real");
+                pset->AddProperties(prop);
+            }
+        }
+        
+    }
     
     if (psetName == "Pset_MaterialConcrete") {
         

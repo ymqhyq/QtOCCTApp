@@ -6,8 +6,8 @@
 #endif
 #endif
 
-#ifndef BrNode_adModelRoot_HeaderFile
-#define BrNode_adModelRoot_HeaderFile
+#ifndef BrNode_adRepresentation2D_HeaderFile
+#define BrNode_adRepresentation2D_HeaderFile
 
 // OCCT & Active Data includes
 #include <Standard_Boolean.hxx>
@@ -23,37 +23,35 @@
 // Parameter specific includes
 
 
+  
+#include <ActData_NameParameter.h>
+    
+  
+
+  
+#include <ActData_ShapeParameter.h>
+    
+  
+
 
 
 #include "BrNode_adRoot.h"
 
 
 
-  
-#include "BrNode_adObject.h"
-  
-
-  
-#include "BrNode_adDrawing2D.h"
-  
-
-  
-#include "BrNode_adSubDocRef.h"
-  
-
 
 /**
- * @brief MDA Generated Node for BrNode_adModelRoot
+ * @brief MDA Generated Node for BrNode_adRepresentation2D
  */
-class BR_EXPORT BrNode_adModelRoot : public BrNode_adRoot
+class BR_EXPORT BrNode_adRepresentation2D : public BrNode_adRoot
 {
 public:
     // OCCT RTTI
-    DEFINE_STANDARD_RTTI_INLINE(BrNode_adModelRoot, BrNode_adRoot)
+    DEFINE_STANDARD_RTTI_INLINE(BrNode_adRepresentation2D, BrNode_adRoot)
 
     // Active Data Node Factory registration
-    static Handle(ActAPI_INode) AllocInstance() { return BrNode_adModelRoot::Instance(); }
-    DEFINE_NODE_FACTORY(BrNode_adModelRoot, BrNode_adModelRoot::AllocInstance)
+    static Handle(ActAPI_INode) AllocInstance() { return BrNode_adRepresentation2D::Instance(); }
+    DEFINE_NODE_FACTORY(BrNode_adRepresentation2D, BrNode_adRepresentation2D::AllocInstance)
 
 public:
     // Parameter IDs (Tags)
@@ -64,12 +62,16 @@ public:
         
         
         
+        PID_RepresentationType,
+        
+        PID_GeneratedShape,
+        
         
         PID_Last
     };
 
 public:
-    static Handle(BrNode_adModelRoot) Instance();
+    static Handle(BrNode_adRepresentation2D) Instance();
 
     // Custom initialization
     virtual void InitNode();
@@ -82,28 +84,23 @@ public:
 public:
     // Get/Set methods for attributes
     
+    
+    void SetRepresentationType(const TCollection_ExtendedString& value);
+    TCollection_ExtendedString GetRepresentationType() const;
+    
+    
+    
+    void SetGeneratedShape(const TopoDS_Shape& value);
+    TopoDS_Shape GetGeneratedShape() const;
+    
+    
 
 public:
     // Children management (MDA Generated)
     
-    
-    void AddSubObjects(const Handle(BrNode_adObject)& node);
-    NCollection_Sequence<Handle(BrNode_adObject)> GetSubObjectsList() const;
-    
-    
-    
-    void AddDrawings(const Handle(BrNode_adDrawing2D)& node);
-    NCollection_Sequence<Handle(BrNode_adDrawing2D)> GetDrawingsList() const;
-    
-    
-    
-    void AddSubDocRefs(const Handle(BrNode_adSubDocRef)& node);
-    NCollection_Sequence<Handle(BrNode_adSubDocRef)> GetSubDocRefsList() const;
-    
-    
 
 protected:
-    BrNode_adModelRoot();
+    BrNode_adRepresentation2D();
 
 };
 

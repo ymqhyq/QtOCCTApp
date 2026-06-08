@@ -9,8 +9,8 @@ file(GLOB_RECURSE SOURCES "generated/*.cpp")
 file(GLOB_RECURSE HEADERS "generated/*.h")
 
 # GeometryService & IfcExportService (manual classes)
-list(APPEND SOURCES "GeometryService.cpp" "IfcExportService.cpp")
-list(APPEND HEADERS "GeometryService.h" "IfcExportService.h")
+list(APPEND SOURCES "GeometryService.cpp" "IfcExportService.cpp" "RwBuilder.cpp" "RwSlope2DGeometryBuilder.cpp" "ProjectManager.cpp")
+list(APPEND HEADERS "GeometryService.h" "IfcExportService.h" "RwBuilder.h" "RwSlope2DGeometryBuilder.h" "ProjectManager.h")
 
 # -----------------------------------------------------------------------------
 # Target Definition
@@ -85,11 +85,19 @@ target_link_libraries(test_load_bridge PRIVATE
     debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
 )
 
+add_executable(test_master_project test_master_project.cpp)
+target_link_libraries(test_master_project PRIVATE 
+    core_data_model 
+    ${OpenCASCADE_LIBRARIES} 
+    debug ${ASIACTIVEDATA_DEBUG} optimized ${ASIACTIVEDATA_RELEASE}
+)
+
 # -----------------------------------------------------------------------------
 # Output Paths
 # -----------------------------------------------------------------------------
 set_target_properties(core_data_model PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(test_load_bridge PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+set_target_properties(test_master_project PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # -----------------------------------------------------------------------------
 # brep_to_cbf CLI tool

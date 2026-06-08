@@ -76,3 +76,63 @@ NCollection_Sequence<Handle(BrNode_adObject)> BrNode_adModelRoot::GetSubObjectsL
     return res;
 }
 
+
+
+void BrNode_adModelRoot::AddDrawings(const Handle(BrNode_adDrawing2D)& node)
+{
+    TCollection_AsciiString entry1, entry2;
+    TDF_Tool::Entry(this->RootLabel(), entry1);
+    if (!node.IsNull()) TDF_Tool::Entry(node->RootLabel(), entry2);
+    std::cout << "    [AddChild] " << entry1.ToCString() << " -> " << entry2.ToCString() << std::endl << std::flush;
+    this->AddChildNode(node);
+}
+
+NCollection_Sequence<Handle(BrNode_adDrawing2D)> BrNode_adModelRoot::GetDrawingsList() const
+{
+    NCollection_Sequence<Handle(BrNode_adDrawing2D)> res;
+    Handle(ActAPI_IChildIterator) it = this->GetChildIterator();
+    if (!it.IsNull())
+    {
+        for (; it->More(); it->Next())
+        {
+            Handle(ActAPI_INode) childBase = it->Value();
+            if (childBase.IsNull()) continue;
+            
+            Handle(BrNode_adDrawing2D) child = Handle(BrNode_adDrawing2D)::DownCast(childBase);
+            if (!child.IsNull())
+                res.Append(child);
+        }
+    }
+    return res;
+}
+
+
+
+void BrNode_adModelRoot::AddSubDocRefs(const Handle(BrNode_adSubDocRef)& node)
+{
+    TCollection_AsciiString entry1, entry2;
+    TDF_Tool::Entry(this->RootLabel(), entry1);
+    if (!node.IsNull()) TDF_Tool::Entry(node->RootLabel(), entry2);
+    std::cout << "    [AddChild] " << entry1.ToCString() << " -> " << entry2.ToCString() << std::endl << std::flush;
+    this->AddChildNode(node);
+}
+
+NCollection_Sequence<Handle(BrNode_adSubDocRef)> BrNode_adModelRoot::GetSubDocRefsList() const
+{
+    NCollection_Sequence<Handle(BrNode_adSubDocRef)> res;
+    Handle(ActAPI_IChildIterator) it = this->GetChildIterator();
+    if (!it.IsNull())
+    {
+        for (; it->More(); it->Next())
+        {
+            Handle(ActAPI_INode) childBase = it->Value();
+            if (childBase.IsNull()) continue;
+            
+            Handle(BrNode_adSubDocRef) child = Handle(BrNode_adSubDocRef)::DownCast(childBase);
+            if (!child.IsNull())
+                res.Append(child);
+        }
+    }
+    return res;
+}
+

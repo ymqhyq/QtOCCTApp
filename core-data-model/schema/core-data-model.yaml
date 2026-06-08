@@ -35,6 +35,8 @@ adModelRoot:
   base: adRoot
   children:
     SubObjects: { type: "adObject", cardinality: "*" }
+    Drawings: { type: "adDrawing2D", cardinality: "0..*" }
+    SubDocRefs: { type: "adSubDocRef", cardinality: "0..*" }
 
 # [新] 几何原型定义：存储在几何分区
 adGeometricDef:
@@ -94,8 +96,66 @@ adObject:
     PropertySets: { type: "adPropertySet", cardinality: "0..*" }
     SubObjects: { type: "adObject", cardinality: "0..*" }
   default_partition: "Topology"
+
+adSubDocRef:
+  name: "子文档引用"
+  base: adRoot
+  attributes:
+    DocPath: { type: "String", default: "", label: "子文档相对路径 (e.g. './drawings/plan_view.cbf')" }
+    DocType: { type: "String", default: "3DModel", label: "子文档类型(3DModel / 2DDrawing)" }
+    IsLoaded: { type: "Bool", default: false, label: "内存加载状态" }
+  default_partition: "Topology"
+
+adDrawing2D:
+  name: "二维图纸"
+  base: adRoot
+  attributes:
+    DrawingType: { type: "String", default: "PlanView", label: "图纸类型(平面/剖面/横断)" }
+    Scale: { type: "Real", default: 1.0, label: "比例尺" }
+  children:
+    Representations: { type: "adRepresentation2D", cardinality: "0..*" }
+    LeaderAnnotations: { type: "adLeaderAnnotation", cardinality: "0..*" }
+  default_partition: "Topology"
+
+adRepresentation2D:
+  name: "二维表达基类"
+  base: adRoot
+  attributes:
+    RepresentationType: { type: "String", default: "PlanView", label: "表达视图类型(PlanView/SectionView)" }
+    GeneratedShape:      { type: "Shape", label: "缓存在本图纸中的二维几何" }
+  default_partition: "Topology"
+
+adLeaderAnnotation:
+  name: "引线标注"
+  base: adRepresentation2D
+  attributes:
+    NoteText: { type: "String", default: "", label: "标注文本" }
+    ArrowPoint: { type: "RealArray", label: "引线箭头指向的3D点" }
+    TextPoint: { type: "RealArray", label: "文本放置的3D点" }
+  default_partition: "Topology"
+
+adSlopeIndication:
+  name: "路基示坡线表达"
+  base: adRepresentation2D
+  attributes:
+    TargetModelDoc: { type: "String", default: "", label: "目标3D模型文档相对路径" }
+    TargetObjectID: { type: "GUID", default: "", label: "目标3D路基构件ID" }
+    ShoulderLine:   { type: "Shape", label: "路肩特征线" }
+    ToeLine:        { type: "Shape", label: "坡脚特征线" }
+    Spacing:        { type: "Real", default: 2000.0, label: "等间距距离" }
+    LongLineRatio:  { type: "Real", default: 0.6, label: "长齿线长度占比" }
+    ShortLineRatio: { type: "Real", default: 0.3, label: "短齿线长度占比" }
+  default_partition: "Topology"
+
 # --- 4. 属性集定义池 (Property Set Definitions) ---
 PropertySetDefinitions:
+  Pset_SlopeGeometry:
+    name: "边坡几何参数"
+    attributes:
+      Length: { type: "Real", default: 20000.0, label: "边坡长度", access: "input" }
+      Height: { type: "Real", default: 8000.0, label: "高度", access: "input" }
+      SlopeRatio: { type: "Real", default: 1.5, label: "坡率(1:m)", access: "input" }
+
   Pset_MaterialConcrete:
     name: "混凝土材料属性"
     attributes:
@@ -158,6 +218,11 @@ PropertySetDefinitions:
      
 # --- 5. 对象类型绑定 (Object Type Mapping) ---
 ObjectTypes:
+  SubgradeSlope:
+    name: "路基边坡"
+    ObjectTypes: ["路堤边坡", "路堑边坡"]
+    PropertySets: [Pset_SlopeGeometry, Pset_MaterialConcrete]
+
   Bridge:
     name: "桥梁"
     ObjectTypes: ["特大桥", "中桥", "小桥"]

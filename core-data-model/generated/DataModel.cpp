@@ -44,6 +44,26 @@
   
 
   
+#include "BrNode_adSubDocRef.h"
+  
+
+  
+#include "BrNode_adDrawing2D.h"
+  
+
+  
+#include "BrNode_adRepresentation2D.h"
+  
+
+  
+#include "BrNode_adLeaderAnnotation.h"
+  
+
+  
+#include "BrNode_adSlopeIndication.h"
+  
+
+  
 
   
 
@@ -53,6 +73,12 @@
 #include "BrNode_Partition.h"
 
 DataModel::DataModel() : ActData_BaseModel() {}
+
+DataModel::DataModel(const Handle(TDocStd_Document)& theDoc) : ActData_BaseModel() {
+    this->init(theDoc);
+    this->initPartitions();
+    this->initFunctionDrivers();
+}
 
 void DataModel::initPartitions() {
     this->OpenCommand();
@@ -287,6 +313,121 @@ Handle(BrNode_adObject) DataModel::AddadObject() {
     if ( part.IsNull() ) return nullptr;
     
     Handle(BrNode_adObject) node = BrNode_adObject::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adSubDocRef) DataModel::AddadSubDocRef() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adSubDocRef) node = BrNode_adSubDocRef::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adDrawing2D) DataModel::AddadDrawing2D() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adDrawing2D) node = BrNode_adDrawing2D::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adRepresentation2D) DataModel::AddadRepresentation2D() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adRepresentation2D) node = BrNode_adRepresentation2D::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adLeaderAnnotation) DataModel::AddadLeaderAnnotation() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adLeaderAnnotation) node = BrNode_adLeaderAnnotation::Instance();
+    
+    // Use partition to add node (this handles expandOn and Tree Node structure)
+    part->AddNode(node);
+    
+    // Initialize parameters
+    node->InitNode();
+    
+    return node;
+}
+
+
+
+Handle(BrNode_adSlopeIndication) DataModel::AddadSlopeIndication() {
+    // 自动分配分区
+    
+    
+    
+    
+    
+    Handle(ActAPI_IPartition) part = this->Partition((Standard_Integer) PID_Topology);
+    if ( part.IsNull() ) return nullptr;
+    
+    Handle(BrNode_adSlopeIndication) node = BrNode_adSlopeIndication::Instance();
     
     // Use partition to add node (this handles expandOn and Tree Node structure)
     part->AddNode(node);

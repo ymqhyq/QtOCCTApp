@@ -40,6 +40,7 @@ public:
     };
 
     DataModel();
+    DataModel(const Handle(TDocStd_Document)& theDoc);
 
     TDF_Label GetPartitionLabel(const PartitionID pid) const;
 
