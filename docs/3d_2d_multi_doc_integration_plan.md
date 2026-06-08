@@ -39,14 +39,33 @@
 ---
 
 #### [MODIFY] [core-data-model.yaml](file:///d:/QtOCCTApp/core-data-model/schema/core-data-model.yaml)
-在 Schema 中增加主控软链接节点和 2D 业务节点定义：
+在 Schema 中增加主控软链接节点、2D 业务节点以及 **Slope（路基边坡）** 对象类型：
 * **新增 `adSubDocRef` 节点**：用于主控文件对子工程的路径引用。
-* **新增 `adDrawing2D` 节点**：图纸管理节点，修改为支持挂载 `Representations`（示坡线等）以及新增的 `LeaderAnnotations`（引线标注）。
+* **新增 `adDrawing2D` 节点**：图纸管理节点，支持挂载 `Representations`（示坡线等）以及 `LeaderAnnotations`（引线标注）。
 * **新增 `adLeaderAnnotation` 节点**：引线标注节点，父级为 `adDrawing2D` 的 `children`。
 * **新增 `adRepresentation2D` 基类节点**：通用的二维表达基类，持有生成的拓扑几何。
 * **新增 `adSlopeIndication` 业务呈现节点**：继承自 `adRepresentation2D`。包含齿线等间距、长短线比例、特征输入线，以及跨文档引用的对象 ID 和路径属性。
+* **扩展 `adObject` 对象类型 (Slope)**：
+  * 为 `adObject` 增加 `"Slope"` 核心对象类型。
+  * 在 `PropertySetDefinitions` 中新增 **`Pset_SlopeGeometry`** (边坡几何参数属性集)，包含 `Length` (边坡长度)、`Height` (高度)、`SlopeRatio` (坡率)。
+  * 在 `ObjectTypes` 中绑定新类型 **`SubgradeSlope`** (路基边坡)，关联 `Pset_SlopeGeometry` 属性集。
 
 ```yaml
+# 属性集池中新增边坡几何参数定义
+Pset_SlopeGeometry:
+  name: "边坡几何参数"
+  attributes:
+    Length: { type: "Real", default: 20000.0, label: "边坡长度", access: "input" }
+    Height: { type: "Real", default: 8000.0, label: "高度", access: "input" }
+    SlopeRatio: { type: "Real", default: 1.5, label: "坡率(1:m)", access: "input" }
+
+# 对象类型绑定池中新增路基边坡类型
+ObjectTypes:
+  SubgradeSlope:
+    name: "路基边坡"
+    ObjectTypes: ["路堤边坡", "路堑边坡"]
+    PropertySets: [Pset_SlopeGeometry, Pset_MaterialConcrete]
+
 # 挂载在主控文件根下的子文档引用
 adSubDocRef:
   name: "子文档引用"
@@ -66,7 +85,7 @@ adDrawing2D:
     Scale: { type: "Real", default: 1.0, label: "比例尺" }
   children:
     Representations: { type: "adRepresentation2D", cardinality: "0..*" }
-    LeaderAnnotations: { type: "adLeaderAnnotation", cardinality: "0..*" } # [新] 挂载引线标注
+    LeaderAnnotations: { type: "adLeaderAnnotation", cardinality: "0..*" } # 挂载引线标注
   default_partition: "Topology"
 
 # 二维表达基类
@@ -127,7 +146,7 @@ adSlopeIndication:
 #### [NEW] [RwSlope2DGeometryBuilder.h](file:///d:/QtOCCTApp/core-data-model/RwSlope2DGeometryBuilder.h) & [RwSlope2DGeometryBuilder.cpp](file:///d:/QtOCCTApp/core-data-model/RwSlope2DGeometryBuilder.cpp)
 继承自 `RwBuilder` 基类，实现路基示坡线的专用构建器。
 * **`Build()`**：在路肩特征线（`TopoDS_Wire`）上通过弧长等间距参数化离散，计算出离散点；在各点上做垂直于路肩线切线的射线；射线与坡脚特征线进行求交并提取交点；根据长短线比例和奇偶项分别裁剪出长线与短线，最后打包输出齿线几何 Compound。
-* **`SaveToXDE(...)`**：实现将生成的示坡线拆解保存到 XDE。分别把路肩线、坡脚线、齿线注册至 `ShapeTool` 的独立 Label，使用 `LayerTool` 绑定各自的图层（如 `Layer_SlopeToe_Dashed`），并通过 `ColorTool` 设定其颜色外观。
+* **`SaveToXDE(...)`**：实现将生成的示坡线拆解保存到 XDE。分别把路肩线、坡脚线、齿线注册至 `ShapeTool` 的独立 Label，使用 `LayerTool` 绑定各自 of 图层（如 `Layer_SlopeToe_Dashed`），并通过 `ColorTool` 设定其颜色外观。
 
 ---
 
@@ -158,8 +177,21 @@ target_link_libraries(test_master_project PRIVATE
 
 #### [NEW] [test_master_project.cpp](file:///d:/QtOCCTApp/core-data-model/tests/test_master_project.cpp)
 编写 gtest 单元测试代码：
-* **多文档读写与同步测试**：新建主控文档与子文档，模拟 3D 模型特征线数据。
-* **RwSlope2DGeometryBuilder 生成与 XDE 存储验证**：测试 `Build()` 算法结果，调用 `SaveToXDE` 保存，并反向读取 XCAF 验证图层（`Layer_SlopeToe_Dashed` 等）与曲线颜色属性是否正确挂载。
+* **3D/2D 联动与多文档同步测试用例**：
+  * **第一阶段：创建与保存**
+    * 新建主控文档与子文档（包含 `3D模型文件` 和 `平面图图纸文件`）。
+    * 在 3D 模型中创建一个类型为 `"SubgradeSlope"`（路基边坡）的 `adObject`。
+    * 配置其 `Pset_SlopeGeometry` 几何参数：**长度 = 20m (20000.0), 高度 = 8m (8000.0), 坡率 = 1:1.5**。
+    * 构建并计算三维边坡实体几何。
+    * 获取其特征线（路肩线和坡脚线），使用 `RwSlope2DGeometryBuilder` 计算二维示坡线几何，并通过 `SaveToXDE` 接口将其存入平面图图纸文件中（分为路肩实线、坡脚虚线和示坡齿线）。
+    * 调用 `ProjectManager::SaveAll()` 保存到磁盘。
+  * **第二阶段：参数修改与联动更新**
+    * 将边坡长度参数修改为 **30m (30000.0)**。
+    * 重新触发 3D 边坡实体构建。
+    * 重算 2D 示坡线图形并保存至平面图文件。
+    * **断言验证**：
+      1. 3D 边坡实体的纵向长度确切变更为 30m。
+      2. 平面图文档中对应的 `adSlopeIndication` 节点的本地缓存 `GeneratedShape` 及 XCAF 中的特征线几何长度同步扩展为 30m。
 
 ---
 
@@ -167,14 +199,14 @@ target_link_libraries(test_master_project PRIVATE
 
 ### Automated Tests
 1. **MDA 生成验证**：
-   运行 `mda_generator.py`，检查 `generated/` 目录下是否正确生成 `BrNode_adSubDocRef.h`、`BrNode_adDrawing2D.h`、`BrNode_adRepresentation2D.h`、`BrNode_adLeaderAnnotation.h`、`BrNode_adSlopeIndication.h`。
+   运行 `mda_generator.py`，检查 `generated/` 目录下是否正确生成 `BrNode_adSubDocRef.h`、`BrNode_adDrawing2D.h`、`BrNode_adRepresentation2D.h` stimulant、`BrNode_adLeaderAnnotation.h`、`BrNode_adSlopeIndication.h`，且属性字段均已编译适配。
 2. **GTest 单元测试验证**：
    在 MSVC (v142) 环境下编译并运行测试程序：
    ```powershell
    # 运行 gtest 单元测试
    .\build_v142\bin\Release\test_master_project.exe
    ```
-   断言 `ProjectManager` 懒加载、`RwSlope2DGeometryBuilder` 几何裁剪以及 XDE 物理图层存储全部测试通过。
+   断言“长20m，高8m，坡率1:1.5”的边坡创建、保存、联动修改为 30m 后，3D 模型和 2D 图纸的几何尺寸同步更新测试完全通过。
 
 ### Manual Verification
 1. **多文档隔离性与协作测试**：
