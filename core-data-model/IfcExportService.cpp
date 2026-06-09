@@ -51,6 +51,7 @@ void throw_exception(std::exception const &e) {
 } // namespace boost
 
 // Data model headers
+#include <ActData_BasePartition.h>
 #include "generated/BrNode_adGeometricDef.h"
 #include "generated/BrNode_adGeometry.h"
 #include "generated/BrNode_adModelRoot.h"
@@ -1199,18 +1200,38 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     relSiteBuilding->setRelatingObject(site);
     relSiteBuilding->setRelatedObjects(buildingSet);
 
-    // Traverse ActiveData adObject tree directly
+    // Traverse ActiveData adObject tree directly (using top-level objects)
     int exportedCount = 0;
-    Handle(ActAPI_INode) rootBase = model->GetRootNode();
-    if (!rootBase.IsNull()) {
-      Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
-      for (; it->More(); it->Next()) {
-        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+    std::vector<Handle(BrNode_adObject)> topLevelObjs;
+    Handle(ActAPI_IPartition) topologyPart = model->Partition(2);
+    if (!topologyPart.IsNull()) {
+      for (ActData_BasePartition::Iterator it(topologyPart); it.More(); it.Next()) {
+        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it.Value());
         if (!obj.IsNull()) {
-          TraverseAndExport(obj, file, building, building, buildingPlacement,
-                            ownerHist, context, exportedCount);
+          Handle(ActAPI_INode) parent = obj->GetParentNode();
+          if (parent.IsNull() || !parent->IsKind(STANDARD_TYPE(BrNode_adObject))) {
+            topLevelObjs.push_back(obj);
+          }
         }
       }
+    }
+
+    if (topLevelObjs.empty()) {
+      Handle(ActAPI_INode) rootBase = model->GetRootNode();
+      if (!rootBase.IsNull()) {
+        Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
+        for (; it->More(); it->Next()) {
+          Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+          if (!obj.IsNull()) {
+            topLevelObjs.push_back(obj);
+          }
+        }
+      }
+    }
+
+    for (const auto& obj : topLevelObjs) {
+      TraverseAndExport(obj, file, building, building, buildingPlacement,
+                        ownerHist, context, exportedCount);
     }
     std::cout << "[IfcExportService] adObject tree exported " << exportedCount
               << " nodes. (VERSION: 2026-06-05-ADOBJECT-DRIVEN)" << std::endl;

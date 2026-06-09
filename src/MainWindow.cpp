@@ -78,6 +78,43 @@
 #include <XCAFDoc_LayerTool.hxx>
 #include <Standard_Failure.hxx>
 
+namespace {
+    std::vector<Handle(BrNode_adObject)> getTopLevelObjects(const Handle(DataModel)& model) {
+        std::vector<Handle(BrNode_adObject)> topLevelObjs;
+        if (model.IsNull()) return topLevelObjs;
+
+        // 优先从 Topology 分区中遍历并筛选顶级对象
+        Handle(ActAPI_IPartition) topologyPart = model->Partition(2);
+        if (!topologyPart.IsNull()) {
+            for (ActData_BasePartition::Iterator it(topologyPart); it.More(); it.Next()) {
+                Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it.Value());
+                if (!obj.IsNull()) {
+                    Handle(ActAPI_INode) parent = obj->GetParentNode();
+                    if (parent.IsNull() || !parent->IsKind(STANDARD_TYPE(BrNode_adObject))) {
+                        topLevelObjs.push_back(obj);
+                    }
+                }
+            }
+        }
+
+        // 如果 Partition 2 中没有任何构件，降级从根节点子节点获取
+        if (topLevelObjs.empty()) {
+            Handle(ActAPI_INode) rootBase = model->GetRootNode();
+            if (!rootBase.IsNull()) {
+                Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
+                for (; childIt->More(); childIt->Next()) {
+                    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
+                    if (!obj.IsNull()) {
+                        topLevelObjs.push_back(obj);
+                    }
+                }
+            }
+        }
+
+        return topLevelObjs;
+    }
+}
+
 static const char* const CHECKBOX_STYLE = 
     "QCheckBox { color: #333333; font-size: 12px; }"
     "QCheckBox::indicator {"
@@ -950,13 +987,9 @@ void MainWindow::onLoadAsiModel() {
 
         GeometryService geoService(m_currentModel);
 
-        Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
-        Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
-        for (; it->More(); it->Next()) {
-            Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
-            if (!obj.IsNull()) {
-                geoService.TraverseAndBuild(obj, visualShapes);
-            }
+        std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(m_currentModel);
+        for (const auto& obj : topObjs) {
+            geoService.TraverseAndBuild(obj, visualShapes);
         }
         m_currentModel->CommitCommand();
     } catch (Standard_Failure& e) {
@@ -1173,17 +1206,11 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
                 XCAFDoc_DocumentTool::LayerTool(model3D->Document()->Main());
 
                 GeometryService geoService(model3D);
-                Handle(ActAPI_INode) rootBase = model3D->GetRootNode();
-                Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
-                int childCount = 0;
-                for (; childIt->More(); childIt->Next()) {
-                    childCount++;
-                    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
-                    if (!obj.IsNull()) {
-                        qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
-                                 << "type:" << convertToUtf8(obj->GetObjectType());
-                        geoService.TraverseAndBuild(obj, visualShapes);
-                    }
+                std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(model3D);
+                for (const auto& obj : topObjs) {
+                    qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
+                             << "type:" << convertToUtf8(obj->GetObjectType());
+                    geoService.TraverseAndBuild(obj, visualShapes);
                 }
                 model3D->CommitCommand();
             } catch (...) {
@@ -1196,17 +1223,11 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
         m_currentModel->OpenCommand();
         try {
             GeometryService geoService(m_currentModel);
-            Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
-            Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
-            int childCount = 0;
-            for (; childIt->More(); childIt->Next()) {
-                childCount++;
-                Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
-                if (!obj.IsNull()) {
-                    qDebug() << "[GUI] loadMasterCbf: Found object in master:" << convertToUtf8(obj->GetName()) 
-                             << "type:" << convertToUtf8(obj->GetObjectType());
-                    geoService.TraverseAndBuild(obj, visualShapes);
-                }
+            std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(m_currentModel);
+            for (const auto& obj : topObjs) {
+                qDebug() << "[GUI] loadMasterCbf: Found object in master:" << convertToUtf8(obj->GetName()) 
+                         << "type:" << convertToUtf8(obj->GetObjectType());
+                geoService.TraverseAndBuild(obj, visualShapes);
             }
             m_currentModel->CommitCommand();
         } catch (...) {
@@ -1316,6 +1337,27 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
 
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
+
+    // 将加载结果写入 D:/QtOCCTApp/debug_paths.log
+    {
+        QFile dbgFile("D:/QtOCCTApp/debug_paths.log");
+        if (dbgFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream outStream(&dbgFile);
+            outStream << "======== LoadMasterCbf Result ========\n";
+            outStream << "visualShapes.size(): " << visualShapes.size() << "\n";
+            outStream << "has3DFile: " << (has3DFile ? "TRUE" : "FALSE") << "\n";
+            outStream << "has2DFile: " << (has2DFile ? "TRUE" : "FALSE") << "\n";
+            outStream << "m_projectManager is NULL: " << (m_projectManager == nullptr ? "TRUE" : "FALSE") << "\n";
+            if (m_projectManager) {
+                Handle(TDocStd_Document) m3d = m_projectManager->GetOrLoadSubDocument(path3D);
+                outStream << "modelDoc (3D) is NULL: " << (m3d.IsNull() ? "TRUE" : "FALSE") << "\n";
+                Handle(TDocStd_Document) m2d = m_projectManager->GetOrLoadSubDocument(path2D);
+                outStream << "drawingDoc (2D) is NULL: " << (m2d.IsNull() ? "TRUE" : "FALSE") << "\n";
+            }
+            outStream << "======================================\n";
+            dbgFile.close();
+        }
+    }
 
     m_loadedMasterPath = fileName;
     return true;
@@ -1869,11 +1911,9 @@ void MainWindow::refreshViews() {
         try {
             qDebug() << "[GUI] Rebuilding 3D geometries...";
             GeometryService geoService3D(model3D);
-            Handle(ActAPI_INode) root3DBase = model3D->GetRootNode();
-            Handle(ActAPI_IChildIterator) it = root3DBase->GetChildIterator();
-            for (; it->More(); it->Next()) {
-                Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
-                if (!obj.IsNull()) geoService3D.TraverseAndBuild(obj, visualShapes);
+            std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(model3D);
+            for (const auto& obj : topObjs) {
+                geoService3D.TraverseAndBuild(obj, visualShapes);
             }
             qDebug() << "[GUI] 3D geometries rebuilt, visualShapes count:" << visualShapes.size();
         } catch (...) {
@@ -1957,13 +1997,14 @@ void MainWindow::refreshViews() {
             // 为二维示坡线添加长度标注
             Handle(BrNode_adObject) found3DObj;
             if (!model3D.IsNull()) {
-                Handle(ActAPI_INode) root3DBase = model3D->GetRootNode();
-                Handle(ActAPI_IChildIterator) it = root3DBase->GetChildIterator();
-                for (; it->More(); it->Next()) {
-                    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
-                    if (!obj.IsNull() && QString::fromUtf16((const char16_t*)obj->GetObjectType().ToExtString()) == "SubgradeSlope") {
-                        found3DObj = obj;
-                        break;
+                Handle(ActAPI_IPartition) topologyPart = model3D->Partition(2);
+                if (!topologyPart.IsNull()) {
+                    for (ActData_BasePartition::Iterator it(topologyPart); it.More(); it.Next()) {
+                        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it.Value());
+                        if (!obj.IsNull() && QString::fromUtf16((const char16_t*)obj->GetObjectType().ToExtString()) == "SubgradeSlope") {
+                            found3DObj = obj;
+                            break;
+                        }
                     }
                 }
             }
