@@ -95,6 +95,8 @@ add_executable(${PROJECT_NAME}
     src/PythonSyntaxHighlighter.cpp
     include/ModelExplorerPanel.h
     src/ModelExplorerPanel.cpp
+    include/ComponentLibraryPanel.h
+    src/ComponentLibraryPanel.cpp
     resources.qrc
 )
 

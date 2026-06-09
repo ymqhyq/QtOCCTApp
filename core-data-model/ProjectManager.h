@@ -59,6 +59,11 @@ public:
     Standard_Boolean Sync2DDrawing(const Handle(BrNode_adDrawing2D)& drawingNode);
 
     /**
+     * @brief 跨文档查找节点 (返回所有匹配该 ID 的节点，解决 OCAF Label 冲突)
+     */
+    std::vector<std::pair<Handle(ActAPI_INode), Handle(DataModel)>> FindNodesAcrossModels(const std::string& nodeId) const;
+
+    /**
      * @brief 获取主控文档
      */
     Handle(TDocStd_Document) GetMasterDoc() const { return m_masterDoc; }
@@ -67,6 +72,15 @@ public:
      * @brief 获取主控文档业务包装 DataModel
      */
     Handle(DataModel) GetMasterModel() const { return m_masterModel; }
+
+    /**
+     * @brief 获取子文档的业务包装 DataModel (已缓存)
+     */
+    Handle(DataModel) GetSubModel(const std::string& relativePath) const {
+        auto it = m_loadedSubModels.find(relativePath);
+        if (it != m_loadedSubModels.end()) return it->second;
+        return nullptr;
+    }
 
 private:
     std::string ResolveAbsolutePath(const std::string& relativePath);
@@ -79,6 +93,7 @@ private:
 
     // 内存中缓存已加载的子文档，Key 为相对路径
     std::map<std::string, Handle(TDocStd_Document)> m_loadedSubDocs;
+    std::map<std::string, Handle(DataModel)>        m_loadedSubModels;
 };
 
 #endif
