@@ -1129,145 +1129,174 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     qDebug() << "[GUI] loadMasterCbf: path3D:" << QString::fromStdString(path3D);
     qDebug() << "[GUI] loadMasterCbf: path2D:" << QString::fromStdString(path2D);
 
-    // Load 3D model
-    Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
-    if (!modelDoc.IsNull()) {
-        qDebug() << "[GUI] loadMasterCbf: 3D model document loaded successfully.";
-        Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
-        model3D->OpenCommand();
-        std::vector<GeometryService::VisualShape> visualShapes;
-        try {
-            XCAFDoc_DocumentTool::ShapeTool(model3D->Document()->Main());
-            XCAFDoc_DocumentTool::ColorTool(model3D->Document()->Main());
-            XCAFDoc_DocumentTool::LayerTool(model3D->Document()->Main());
+    // 检测子文档的物理文件是否存在
+    QFileInfo masterInfo(fileName);
+    QDir masterDir = masterInfo.dir();
+    QString absPath3D = masterDir.absoluteFilePath(QString::fromStdString(path3D));
+    QString absPath2D = masterDir.absoluteFilePath(QString::fromStdString(path2D));
+    bool has3DFile = QFile::exists(absPath3D);
+    bool has2DFile = QFile::exists(absPath2D);
+    qDebug() << "[GUI] loadMasterCbf: absPath3D =" << absPath3D << "exists =" << has3DFile;
+    qDebug() << "[GUI] loadMasterCbf: absPath2D =" << absPath2D << "exists =" << has2DFile;
 
-            GeometryService geoService(model3D);
-            Handle(ActAPI_INode) rootBase = model3D->GetRootNode();
+    std::vector<GeometryService::VisualShape> visualShapes;
+
+    // Load 3D model
+    if (has3DFile) {
+        Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
+        if (!modelDoc.IsNull()) {
+            qDebug() << "[GUI] loadMasterCbf: 3D model document loaded successfully.";
+            Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
+            model3D->OpenCommand();
+            try {
+                XCAFDoc_DocumentTool::ShapeTool(model3D->Document()->Main());
+                XCAFDoc_DocumentTool::ColorTool(model3D->Document()->Main());
+                XCAFDoc_DocumentTool::LayerTool(model3D->Document()->Main());
+
+                GeometryService geoService(model3D);
+                Handle(ActAPI_INode) rootBase = model3D->GetRootNode();
+                Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
+                int childCount = 0;
+                for (; childIt->More(); childIt->Next()) {
+                    childCount++;
+                    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
+                    if (!obj.IsNull()) {
+                        qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
+                                 << "type:" << convertToUtf8(obj->GetObjectType());
+                        geoService.TraverseAndBuild(obj, visualShapes);
+                    }
+                }
+                model3D->CommitCommand();
+            } catch (...) {
+                qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
+                model3D->AbortCommand();
+            }
+        }
+    } else {
+        qDebug() << "[GUI] loadMasterCbf: 3D model file NOT found. Loading geometry directly from master model.";
+        m_currentModel->OpenCommand();
+        try {
+            GeometryService geoService(m_currentModel);
+            Handle(ActAPI_INode) rootBase = m_currentModel->GetRootNode();
             Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
             int childCount = 0;
             for (; childIt->More(); childIt->Next()) {
                 childCount++;
                 Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
                 if (!obj.IsNull()) {
-                    qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
+                    qDebug() << "[GUI] loadMasterCbf: Found object in master:" << convertToUtf8(obj->GetName()) 
                              << "type:" << convertToUtf8(obj->GetObjectType());
                     geoService.TraverseAndBuild(obj, visualShapes);
-                } else {
-                    qDebug() << "[GUI] loadMasterCbf: Child node is not adObject. Type:" 
-                             << QString(childIt->Value()->DynamicType()->Name());
                 }
             }
-            qDebug() << "[GUI] loadMasterCbf: Total child nodes in 3D doc:" << childCount;
-            model3D->CommitCommand();
+            m_currentModel->CommitCommand();
         } catch (...) {
-            qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
-            model3D->AbortCommand();
+            qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during master traverse-and-build!";
+            m_currentModel->AbortCommand();
         }
-
-        qDebug() << "[GUI] loadMasterCbf: Built visual shapes count:" << visualShapes.size();
-
-        // Display in 3D viewport
-        auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
-            std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
-                QVariantMap map;
-                for (auto it = js.begin(); it != js.end(); ++it) {
-                    QString key = QString::fromStdString(it.key());
-                    if (it.value().is_string()) {
-                        map[key] = QString::fromStdString(it.value().get<std::string>());
-                    } else if (it.value().is_number_float()) {
-                        map[key] = it.value().get<double>();
-                    } else if (it.value().is_number_integer()) {
-                        map[key] = it.value().get<int>();
-                    } else if (it.value().is_boolean()) {
-                        map[key] = it.value().get<bool>();
-                    } else if (it.value().is_object()) {
-                        map[key] = convert(it.value());
-                    } else if (it.value().is_array()) {
-                        QVariantList list;
-                        for (const auto& item : it.value()) {
-                            if (item.is_number()) list.append(item.get<double>());
-                            else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
-                        }
-                        map[key] = list;
-                    }
-                }
-                return map;
-            };
-            return convert(j);
-        };
-
-        for (const auto& vs : visualShapes) {
-            if (vs.shape.IsNull()) {
-                qDebug() << "[GUI] loadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
-                continue;
-            }
-            TopoDS_Shape transformedShape = vs.shape;
-            try {
-                BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
-                transformedShape = trans.Shape();
-            } catch (...) {}
-
-            QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
-            Quantity_Color color(Quantity_NOC_GRAY75);
-            if (meta.contains("Pset_MaterialPBR")) {
-                QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
-                if (pbr.contains("BaseColor")) {
-                    QVariantList colorList = pbr["BaseColor"].toList();
-                    if (colorList.size() >= 3) {
-                        color = Quantity_Color(colorList[0].toDouble(), 
-                                               colorList[1].toDouble(), 
-                                               colorList[2].toDouble(), 
-                                               Quantity_TOC_RGB);
-                    }
-                }
-            }
-            m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
-        }
-        m_occtWidget->fitAll();
-    } else {
-        qDebug() << "[GUI] loadMasterCbf: ERROR: 3D model document is NULL!";
     }
 
-    // Load 2D drawing
-    Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
-    if (!drawingDoc.IsNull()) {
-        qDebug() << "[GUI] loadMasterCbf: 2D drawing document loaded successfully.";
-        m_occtWidget2D->show();
-        
-        // 1. 同步生成二维图纸实体形状并保存到图纸 OCAF 的 XCAF 结构中
-        // 需要找到根节点或图纸节点，由于我们的图纸是 adDrawing2D，我们需要从根节点下找到它
-        Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
-        if (!drawingModel.IsNull()) {
-            Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
-            if (!topoPart.IsNull()) {
-                for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
-                    Handle(BrNode_adDrawing2D) drawNode = Handle(BrNode_adDrawing2D)::DownCast(it.Value());
-                    if (!drawNode.IsNull()) {
-                        m_projectManager->Sync2DDrawing(drawNode);
-                        break;
+    qDebug() << "[GUI] loadMasterCbf: Built visual shapes count:" << visualShapes.size();
+
+    // Display in 3D viewport
+    auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
+        std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
+            QVariantMap map;
+            for (auto it = js.begin(); it != js.end(); ++it) {
+                QString key = QString::fromStdString(it.key());
+                if (it.value().is_string()) {
+                    map[key] = QString::fromStdString(it.value().get<std::string>());
+                } else if (it.value().is_number_float()) {
+                    map[key] = it.value().get<double>();
+                } else if (it.value().is_number_integer()) {
+                    map[key] = it.value().get<int>();
+                } else if (it.value().is_boolean()) {
+                    map[key] = it.value().get<bool>();
+                } else if (it.value().is_object()) {
+                    map[key] = convert(it.value());
+                } else if (it.value().is_array()) {
+                    QVariantList list;
+                    for (const auto& item : it.value()) {
+                        if (item.is_number()) list.append(item.get<double>());
+                        else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
                     }
+                    map[key] = list;
+                }
+            }
+            return map;
+        };
+        return convert(j);
+    };
+
+    for (const auto& vs : visualShapes) {
+        if (vs.shape.IsNull()) {
+            qDebug() << "[GUI] loadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
+            continue;
+        }
+        TopoDS_Shape transformedShape = vs.shape;
+        try {
+            BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
+            transformedShape = trans.Shape();
+        } catch (...) {}
+
+        QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
+        Quantity_Color color(Quantity_NOC_GRAY75);
+        if (meta.contains("Pset_MaterialPBR")) {
+            QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
+            if (pbr.contains("BaseColor")) {
+                QVariantList colorList = pbr["BaseColor"].toList();
+                if (colorList.size() >= 3) {
+                    color = Quantity_Color(colorList[0].toDouble(), 
+                                           colorList[1].toDouble(), 
+                                           colorList[2].toDouble(), 
+                                           Quantity_TOC_RGB);
                 }
             }
         }
-        
-        // 2. 将图纸文档作为 XCAF 文档加载显示
-        m_occtWidget2D->loadXcafDocument(drawingDoc);
-        m_occtWidget2D->fitAll();
-        
-        QList<int> sizes;
-        sizes << width() / 2 << width() / 2;
-        m_splitter->setSizes(sizes);
+        m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
+    }
+    m_occtWidget->fitAll();
+
+    // Load 2D drawing
+    if (has2DFile) {
+        Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
+        if (!drawingDoc.IsNull()) {
+            qDebug() << "[GUI] loadMasterCbf: 2D drawing document loaded successfully.";
+            m_occtWidget2D->show();
+            
+            Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
+            if (!drawingModel.IsNull()) {
+                Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
+                if (!topoPart.IsNull()) {
+                    for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
+                        Handle(BrNode_adDrawing2D) drawNode = Handle(BrNode_adDrawing2D)::DownCast(it.Value());
+                        if (!drawNode.IsNull()) {
+                            m_projectManager->Sync2DDrawing(drawNode);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            m_occtWidget2D->loadXcafDocument(drawingDoc);
+            m_occtWidget2D->fitAll();
+            
+            QList<int> sizes;
+            sizes << width() / 2 << width() / 2;
+            m_splitter->setSizes(sizes);
+        } else {
+            qDebug() << "[GUI] loadMasterCbf: ERROR: 2D drawing document is NULL!";
+        }
     } else {
-        qDebug() << "[GUI] loadMasterCbf: ERROR: 2D drawing document is NULL!";
+        qDebug() << "[GUI] loadMasterCbf: 2D drawing file NOT found. Hiding 2D drawing viewport.";
+        m_occtWidget2D->hide();
+        QList<int> sizes;
+        sizes << width() << 0;
+        m_splitter->setSizes(sizes);
     }
 
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
-
-    qDebug() << "[TEST] Simulating initial selection of GUID_Slope_3D_1...";
-    QVariantMap testMeta;
-    testMeta["_adNodeId"] = "GUID_Slope_3D_1";
-    onObjectSelected(testMeta);
 
     m_loadedMasterPath = fileName;
     return true;
