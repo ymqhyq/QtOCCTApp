@@ -18,6 +18,7 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QSplitter>
+#include <QTemporaryDir>
 
 #include <TopoDS_Shape.hxx>
 
@@ -31,6 +32,7 @@ class QLabel;
 class QTextEdit;
 class PythonSyntaxHighlighter;
 class ModelExplorerPanel;
+class ComponentLibraryPanel;
 #include <Graphic3d_NameOfMaterial.hxx>
 
 class MainWindow : public SARibbonMainWindow {
@@ -63,15 +65,29 @@ private slots:
   void onImportBrep();               // 导入BREP文件
   void onImportIfc();                // 导入IFC文件并显示
   void onCloseModel();               // 关闭/清理模型视图
+  void onComponentSelected(const QString& category, const QString& name);
+  void onPropertyValueChanged(const QString& nodeId, const QString& propertyName, const QString& newValue);
+  void onExportRdeClicked();         // 导出为RDE打包文件
+  void refreshViews();
 
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
 
+protected:
+  void closeEvent(QCloseEvent *event) override;
+
 private:
+  void updatePropertyPanelUI(const QVariantMap &metadata);
+  void updateStretchHandles(const QVariantMap &flattenedMeta, Handle(BrNode_adObject) node);
   void createRibbon();
   void setupCadQueryUi();
+  void createScriptsCategory();
   void initializeCqNetwork();
   void createTestCategory();
+  bool openProjectFile(const QString &fileName);
+  bool loadMasterCbf(const QString &fileName);
+  bool extractRdeFile(const QString &rdePath, const QString &destDir);
+  bool packageToRde(const QString &sourceDir, const QString &rdePath);
   void sendScriptToMicroservice(const QString &code, const QJsonObject &args,
                                 int assemblyIndex,
                                 const QString &modelType = QString());
@@ -85,6 +101,7 @@ private:
   QDockWidget *m_dockCq;
   QDockWidget *m_propertyDock;
   ModelExplorerPanel *m_modelExplorerDock;
+  ComponentLibraryPanel *m_componentLibraryDock;
   QWidget *m_propertyWidget;
   QVBoxLayout *m_propertyLayout;
   QTextEdit *m_cqScriptEditor;
@@ -109,6 +126,8 @@ private:
   QList<OCCTWidget::AssemblyPart> m_assemblyParts;
   QList<OCCTWidget::AssemblyPart> m_batchParts;
   Handle(DataModel) m_currentModel;
+  QTemporaryDir *m_tempProjDir;
+  QString m_loadedMasterPath;
 };
 
 #endif // MAINWINDOW_H

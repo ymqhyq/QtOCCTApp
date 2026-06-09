@@ -1,4 +1,5 @@
 #include <AIS_ListOfInteractive.hxx>
+#include <AIS_Shape.hxx>
 
 #include "../include/OCCTWidget.h"
 #include "../include/AspectWindow.h"
@@ -10,6 +11,9 @@
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
@@ -50,6 +54,7 @@
 #include <TPrsStd_AISPresentation.hxx>
 #include <TPrsStd_AISViewer.hxx>
 #include <TDataStd_AsciiString.hxx>
+#include <TDataStd_Name.hxx>
 #include <TDF_LabelSequence.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
@@ -59,7 +64,8 @@ OCCTWidget::OCCTWidget(QWidget *parent)
       m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
       m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_usePbr(false),
-      m_showViewCube(true), m_enableRotation(true) {
+      m_showViewCube(true), m_enableRotation(true),
+      m_isDraggingLength(false), m_dragOriginalLength(0.0) {
   setFocusPolicy(Qt::StrongFocus);
 
   // 鍒濆鍖栦俊鎭彔鍔犳爣绛 
@@ -94,12 +100,23 @@ OCCTWidget::OCCTWidget(QWidget *parent)
   });
 }
 
+static Handle(OpenGl_GraphicDriver) s_graphicDriver;
+
+void OCCTWidget::releaseSharedDriver() {
+  if (!s_graphicDriver.IsNull()) {
+    s_graphicDriver.Nullify();
+  }
+}
+
 void OCCTWidget::initOCCT() {
   try {
-    Handle(Aspect_DisplayConnection) aDisplayConnection =
-        new Aspect_DisplayConnection();
-    m_graphicDriver = new OpenGl_GraphicDriver(aDisplayConnection);
-    // 閲嶈锛氳缃浘褰㈤┍鍔ㄥ櫒鐨勯€夐」
+    if (s_graphicDriver.IsNull()) {
+      Handle(Aspect_DisplayConnection) aDisplayConnection =
+          new Aspect_DisplayConnection();
+      s_graphicDriver = new OpenGl_GraphicDriver(aDisplayConnection);
+    }
+    m_graphicDriver = s_graphicDriver;
+    // 重要：设置图形驱动的选项
     // m_graphicDriver->ChangeOptions().buffersNoSwap = true;
     // m_graphicDriver->ChangeOptions().glslWarnings = false;
     // Create Viewer
@@ -171,7 +188,27 @@ void OCCTWidget::initViewCube() {
   }
 }
 
+void OCCTWidget::cleanup() {
+  if (!m_context.IsNull()) {
+    m_context->RemoveAll(Standard_False);
+    m_context.Nullify();
+  }
+  if (!m_view.IsNull()) {
+    m_view->Remove();
+    m_view.Nullify();
+  }
+  if (!m_viewer.IsNull()) {
+    m_viewer.Nullify();
+  }
+  if (!m_graphicDriver.IsNull()) {
+    m_graphicDriver.Nullify();
+  }
+  // 如果是共享的 s_graphicDriver，我们在 MainWindow 中主动将其置空
+}
+
 OCCTWidget::~OCCTWidget() {
+  // 不在析构函数里强行清理，而是依赖提前调用 cleanup()
+  // 以免 eglMakeCurrent() 因为窗口上下文已销毁而失败
 }
 
 void OCCTWidget::paintEvent(QPaintEvent *event) {
@@ -330,6 +367,29 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     }
   }
 
+  if (m_isDraggingLength) {
+    if (event->button() == Qt::LeftButton) {
+      // Confirm drag
+      m_isDraggingLength = false;
+      
+      // Notify main window to update property with the newest length
+      emit propertyDragged(m_dragNodeId, "Length", m_dragCurrentLength);
+      
+      // Clear preview
+      if (!m_dynamicPreview.IsNull()) {
+        m_context->Remove(m_dynamicPreview, false);
+        m_dynamicPreview.Nullify();
+      }
+      m_context->UpdateCurrentViewer();
+      this->update();
+      return;
+    } else if (event->button() == Qt::RightButton) {
+      // Cancel drag
+      cancelLengthDragging();
+      return;
+    }
+  }
+
   if (m_drawLineMode) {
     // First click - set the first point
     if (!m_firstPointSet) {
@@ -359,6 +419,24 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     m_context->InitSelected();
     if (m_context->MoreSelected()) {
       Handle(AIS_InteractiveObject) selObj = m_context->SelectedInteractive();
+
+      // Check if we clicked either of the length handles
+      bool isStart = (!m_startHandle.IsNull() && selObj == m_startHandle);
+      bool isEnd = (!m_lengthHandle.IsNull() && selObj == m_lengthHandle);
+      
+      if (isStart || isEnd) {
+        m_isDraggingLength = true;
+        m_dragIsStartHandle = isStart;
+        m_dragCurrentLength = m_dragOriginalLength;
+        
+        // 隐藏手柄球进行预览
+        m_context->Erase(m_startHandle, false);
+        m_context->Erase(m_lengthHandle, false);
+        m_context->UpdateCurrentViewer();
+        this->update();
+        return; // Enter dragging mode
+      }
+
       if (m_objectMetadata.contains(selObj)) {
         emit objectSelected(m_objectMetadata[selObj]);
       } else {
@@ -514,6 +592,96 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
   if (Get3DPoint(event->pos().x(), event->pos().y(), mouseWorldPos)) {
     emit mousePositionChanged(mouseWorldPos.X(), mouseWorldPos.Y(),
                               mouseWorldPos.Z());
+  }
+
+  // Check for Length Dragging
+  if (m_isDraggingLength) {
+    gp_Pnt currentPoint;
+    if (Get3DPoint(event->pos().x(), event->pos().y(), currentPoint)) {
+      // 1. 将 3D 世界坐标逆变换回局部坐标系，实现沿 X 轴轨道方向的任意三维投影
+      gp_Pnt currentLocalPoint = currentPoint.Transformed(m_dragTrsf.Inverted());
+      double localX = currentLocalPoint.X();
+      
+      double lStart = 0.0;
+      double lEnd = m_dragOriginalLength;
+      
+      if (m_dragIsStartHandle) {
+          lStart = localX;
+          if (lStart > lEnd - 100.0) lStart = lEnd - 100.0; // 最小预留 100mm 间距
+          m_dragCurrentLength = lEnd - lStart;
+      } else {
+          lEnd = localX;
+          if (lEnd < 100.0) lEnd = 100.0; // 最小预留 100mm 长度
+          m_dragCurrentLength = lEnd;
+      }
+      
+      // Update dynamic preview
+      if (!m_dynamicPreview.IsNull()) {
+        m_context->Remove(m_dynamicPreview, false);
+        m_dynamicPreview.Nullify();
+      }
+
+      try {
+        double W = m_dragHeight * m_dragSlopeRatio;
+        double H = m_dragHeight;
+
+        // 起点端截面顶点
+        gp_Pnt s1(lStart, 0, H);
+        gp_Pnt s2(lStart, W, 0);
+        gp_Pnt s3(lStart, 0, 0);
+
+        // 终点端截面顶点
+        gp_Pnt e1(lEnd, 0, H);
+        gp_Pnt e2(lEnd, W, 0);
+        gp_Pnt e3(lEnd, 0, 0);
+
+        // 构建端点截面的三角形线框
+        BRepBuilderAPI_MakeEdge meS1(s1, s2);
+        BRepBuilderAPI_MakeEdge meS2(s2, s3);
+        BRepBuilderAPI_MakeEdge meS3(s3, s1);
+
+        BRepBuilderAPI_MakeEdge meE1(e1, e2);
+        BRepBuilderAPI_MakeEdge meE2(e2, e3);
+        BRepBuilderAPI_MakeEdge meE3(e3, e1);
+
+        // 构建连接起点和终点端截面的三条轴线/脊骨线
+        BRepBuilderAPI_MakeEdge meL1(s1, e1);
+        BRepBuilderAPI_MakeEdge meL2(s2, e2);
+        BRepBuilderAPI_MakeEdge meL3(s3, e3);
+
+        // 打包组合成 Compound 作为三维线框包络
+        TopoDS_Compound compound;
+        BRep_Builder builder;
+        builder.MakeCompound(compound);
+
+        builder.Add(compound, meS1.Edge());
+        builder.Add(compound, meS2.Edge());
+        builder.Add(compound, meS3.Edge());
+
+        builder.Add(compound, meE1.Edge());
+        builder.Add(compound, meE2.Edge());
+        builder.Add(compound, meE3.Edge());
+
+        builder.Add(compound, meL1.Edge());
+        builder.Add(compound, meL2.Edge());
+        builder.Add(compound, meL3.Edge());
+
+        m_dynamicPreview = new AIS_Shape(compound);
+        m_context->SetColor(m_dynamicPreview, Quantity_Color(Quantity_NOC_YELLOW), false);
+        m_context->SetWidth(m_dynamicPreview, 3.0, false);
+        
+        // 应用绝对坐标变换
+        m_dynamicPreview->SetLocalTransformation(m_dragTrsf);
+        
+        m_context->Display(m_dynamicPreview, true);
+      } catch (...) {
+        qDebug() << "[OCCTWidget] mouseMoveEvent: ERROR: Failed to generate ghost preview shape!";
+      }
+    }
+    
+    m_xPos = event->pos().x();
+    m_yPos = event->pos().y();
+    return; // Block other mouse moves
   }
 
   // Check for Panning (Left Button and NOT in Draw Mode)
@@ -1080,19 +1248,24 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
 }
 
 void OCCTWidget::clearAll() {
+  qDebug() << "[OCCTWidget] clearAll: start";
   if (m_context.IsNull())
     return;
 
+  qDebug() << "[OCCTWidget] clearAll: calling RemoveAll";
   m_context->RemoveAll(true);
   
+  qDebug() << "[OCCTWidget] clearAll: handling viewCube";
   // 鍏抽敭淇锛歊emoveAll 浼氱Щ闄 ViewCube锛岃繖閲岄渶瑕侀噸鏂版樉绀哄畠
   if (!m_viewCube.IsNull()) {
     m_context->Display(m_viewCube, AIS_Shaded, 0, false);
     m_context->Activate(m_viewCube, 0);
   }
 
+  qDebug() << "[OCCTWidget] clearAll: UpdateCurrentViewer";
   m_context->UpdateCurrentViewer();
 
+  qDebug() << "[OCCTWidget] clearAll: clearing vectors";
   m_lines.clear();
   m_objectMetadata.clear();
 
@@ -1109,7 +1282,9 @@ void OCCTWidget::clearAll() {
     m_dynamicLine.Nullify();
   }
 
+  qDebug() << "[OCCTWidget] clearAll: final UpdateCurrentViewer";
   m_context->UpdateCurrentViewer();
+  qDebug() << "[OCCTWidget] clearAll: done";
 }
 
 void OCCTWidget::exportToSTEP(const QString &filename) {
@@ -1283,6 +1458,27 @@ void OCCTWidget::annotateBridgePierFooting() {
     m_dimensions.push_back(dims[i]);
   }
 
+  m_context->UpdateCurrentViewer();
+}
+
+void OCCTWidget::addLengthDimension(const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pln& plane, double flyout) {
+  if (m_context.IsNull()) return;
+  
+  Handle(PrsDim_LengthDimension) dim = new PrsDim_LengthDimension(p1, p2, plane);
+  dim->SetFlyout(flyout);
+  
+  Handle(Prs3d_DimensionAspect) aspect = dim->DimensionAspect();
+  if (!aspect.IsNull()) {
+    aspect->TextAspect()->SetHeight(12.0);
+    aspect->TextAspect()->SetColor(Quantity_NOC_BLACK);
+    aspect->LineAspect()->SetColor(Quantity_NOC_BLACK);
+    aspect->SetArrowOrientation(Prs3d_DAO_External);
+    aspect->SetTextHorizontalPosition(Prs3d_DTHP_Center);
+    aspect->SetTextVerticalPosition(Prs3d_DTVP_Above);
+  }
+  
+  m_context->Display(dim, false);
+  m_dimensions.push_back(dim);
   m_context->UpdateCurrentViewer();
 }
 
@@ -2158,12 +2354,45 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
   shapeTool->GetFreeShapes(freeShapes);
   qDebug() << "[OCCTWidget] loadXcafDocument: Free shapes count:" << freeShapes.Length();
 
-  // 4. 遍历并显示每个 Free Shape 作为 XCAFPrs_AISObject
+  // 4. 遍历并显示每个 Free Shape 作为 AIS_Shape
+  Handle(XCAFDoc_ColorTool) colorTool = XCAFDoc_DocumentTool::ColorTool(doc->Main());
   for (Standard_Integer i = 1; i <= freeShapes.Length(); ++i) {
       TDF_Label label = freeShapes.Value(i);
-      Handle(XCAFPrs_AISObject) aisObj = new XCAFPrs_AISObject(label);
-      m_context->Display(aisObj, Standard_False);
-      qDebug() << "[OCCTWidget] loadXcafDocument: Displayed free shape index:" << i;
+      
+      // 调试：打印 Label 上所挂的名字
+      Handle(TDataStd_Name) nameAttr;
+      std::string labelName = "Unknown";
+      if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
+          labelName = QString::fromUtf16((const char16_t*)nameAttr->Get().ToExtString()).toStdString();
+      }
+      qDebug() << "[OCCTWidget] loadXcafDocument: Free shape index" << i << "Name =" << QString::fromStdString(labelName);
+      
+      TopoDS_Shape shape;
+      if (XCAFDoc_ShapeTool::GetShape(label, shape) && !shape.IsNull()) {
+          Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
+          
+          Quantity_Color color;
+          if (!colorTool.IsNull() && colorTool->GetColor(label, XCAFDoc_ColorCurv, color)) {
+              aisShape->SetColor(color);
+          } else {
+              aisShape->SetColor(Quantity_NOC_BLACK);
+          }
+          
+          m_context->Display(aisShape, Standard_False);
+          
+          // 读取绑定的 3D nodeId 属性，建立 2D 选择与编辑联动
+          Handle(TDataStd_AsciiString) adNodeIdAttr;
+          if (label.FindAttribute(TDataStd_AsciiString::GetID(), adNodeIdAttr)) {
+              QVariantMap meta;
+              meta["_adNodeId"] = QString(adNodeIdAttr->Get().ToCString());
+              m_objectMetadata[aisShape] = meta;
+              qDebug() << "[OCCTWidget] loadXcafDocument: Bound 2D shape with 3D nodeId:" << meta["_adNodeId"].toString();
+          } else {
+              qDebug() << "[OCCTWidget] loadXcafDocument: WARNING: Free shape has NO AsciiString nodeId attribute!";
+          }
+          
+          qDebug() << "[OCCTWidget] loadXcafDocument: Displayed free shape index:" << i;
+      }
   }
 
   // 5. 刷新视口并进行 FitAll 适配画面
@@ -2187,3 +2416,136 @@ void OCCTWidget::setAs2DView() {
     m_view->Redraw();
   }
 }
+
+void OCCTWidget::showLengthHandle(const gp_Pnt& startPos, const gp_Pnt& endPos, double currentLength, const QString& nodeId, const gp_Trsf& trsf, double height, double slopeRatio) {
+  if (m_context.IsNull()) return;
+  hideLengthHandle();
+
+  m_dragNodeId = nodeId;
+  m_dragOriginalLength = currentLength;
+  m_dragCurrentLength = currentLength;
+  m_dragTrsf = trsf;
+  m_dragStartPos = startPos;
+  m_dragEndPos = endPos;
+  m_dragHeight = height;
+  m_dragSlopeRatio = slopeRatio;
+
+  // 使用专业的三维红色金属拉伸箭头替代原本简陋的小球手柄
+  try {
+    double arrowScale = (std::max(1000.0, currentLength * 0.05)) / 2.0;
+    
+    double rShaft = arrowScale * 0.25;  // 箭杆半径
+    double hShaft = arrowScale * 1.5;   // 箭杆长度
+    double rCone = arrowScale * 0.5;    // 锥体底半径
+    double hCone = arrowScale * 1.0;    // 锥体高度
+
+    BRep_Builder builder;
+
+    // 1. 构建起点端手柄（指向负 X 方向拉伸，位于 0 处）
+    gp_Ax2 shaftAxStart(gp_Pnt(0, 0, 0), gp_Dir(-1, 0, 0));
+    TopoDS_Shape shaftStart = BRepPrimAPI_MakeCylinder(shaftAxStart, rShaft, hShaft).Shape();
+    
+    gp_Ax2 coneAxStart(gp_Pnt(-hShaft, 0, 0), gp_Dir(-1, 0, 0));
+    TopoDS_Shape coneStart = BRepPrimAPI_MakeCone(coneAxStart, rCone, 0.0, hCone).Shape();
+    
+    TopoDS_Compound startArrow;
+    builder.MakeCompound(startArrow);
+    builder.Add(startArrow, shaftStart);
+    builder.Add(startArrow, coneStart);
+    
+    m_startHandle = new AIS_Shape(startArrow);
+    m_startHandle->SetLocalTransformation(trsf);
+    m_context->SetColor(m_startHandle, Quantity_Color(Quantity_NOC_RED), false);
+    m_context->SetMaterial(m_startHandle, Graphic3d_NOM_PLASTIC, false);
+    m_context->Display(m_startHandle, false);
+
+    // 2. 构建终点端手柄（指向正 X 方向拉伸，位于 currentLength 处）
+    gp_Ax2 shaftAxEnd(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0));
+    TopoDS_Shape shaftEnd = BRepPrimAPI_MakeCylinder(shaftAxEnd, rShaft, hShaft).Shape();
+    
+    gp_Ax2 coneAxEnd(gp_Pnt(hShaft, 0, 0), gp_Dir(1, 0, 0));
+    TopoDS_Shape coneEnd = BRepPrimAPI_MakeCone(coneAxEnd, rCone, 0.0, hCone).Shape();
+    
+    TopoDS_Compound endArrow;
+    builder.MakeCompound(endArrow);
+    builder.Add(endArrow, shaftEnd);
+    builder.Add(endArrow, coneEnd);
+    
+    gp_Trsf transEnd;
+    transEnd.SetTranslation(gp_Vec(currentLength, 0, 0));
+    gp_Trsf endGlobalTrsf = trsf * transEnd;
+    
+    m_lengthHandle = new AIS_Shape(endArrow);
+    m_lengthHandle->SetLocalTransformation(endGlobalTrsf);
+    m_context->SetColor(m_lengthHandle, Quantity_Color(Quantity_NOC_RED), false);
+    m_context->SetMaterial(m_lengthHandle, Graphic3d_NOM_PLASTIC, false);
+    m_context->Display(m_lengthHandle, false);
+    
+    m_context->UpdateCurrentViewer();
+    this->update();
+    
+    qDebug() << "[OCCTWidget] showLengthHandle: Created professional stretch arrows. scale =" << arrowScale << ", nodeId =" << nodeId;
+  } catch (...) {
+    qDebug() << "[OCCTWidget] showLengthHandle: ERROR: Failed to create professional arrow handles!";
+  }
+}
+
+void OCCTWidget::hideLengthHandle() {
+  if (m_context.IsNull()) return;
+  m_isDraggingLength = false;
+  
+  if (!m_startHandle.IsNull()) {
+    m_context->Remove(m_startHandle, false);
+    m_startHandle.Nullify();
+  }
+  if (!m_lengthHandle.IsNull()) {
+    m_context->Remove(m_lengthHandle, false);
+    m_lengthHandle.Nullify();
+  }
+  if (!m_dynamicPreview.IsNull()) {
+    m_context->Remove(m_dynamicPreview, false);
+    m_dynamicPreview.Nullify();
+  }
+  m_context->UpdateCurrentViewer();
+}
+
+void OCCTWidget::cancelLengthDragging() {
+  if (!m_isDraggingLength) return;
+  m_isDraggingLength = false;
+  
+  if (!m_dynamicPreview.IsNull()) {
+    m_context->Remove(m_dynamicPreview, false);
+    m_dynamicPreview.Nullify();
+  }
+  
+  // 恢复显示两端操作小球
+  if (!m_startHandle.IsNull()) {
+    m_context->Display(m_startHandle, false);
+  }
+  if (!m_lengthHandle.IsNull()) {
+    m_context->Display(m_lengthHandle, false);
+  }
+  
+  m_context->UpdateCurrentViewer();
+  this->update();
+  qDebug() << "[OCCTWidget] cancelLengthDragging: Dragging canceled. Reverted handles.";
+}
+
+void OCCTWidget::keyPressEvent(QKeyEvent *event) {
+  if (m_isDraggingLength && event->key() == Qt::Key_Escape) {
+    cancelLengthDragging();
+    event->accept();
+    return;
+  }
+  QWidget::keyPressEvent(event);
+}
+
+QVariantMap OCCTWidget::findMetadataByNodeId(const QString& nodeId) const {
+  for (auto it = m_objectMetadata.begin(); it != m_objectMetadata.end(); ++it) {
+    if (it.value().contains("_adNodeId") && it.value()["_adNodeId"].toString() == nodeId) {
+      return it.value();
+    }
+  }
+  return QVariantMap();
+}
+

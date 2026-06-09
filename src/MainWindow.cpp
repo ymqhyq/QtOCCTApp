@@ -44,6 +44,9 @@
 #include <QTextEdit>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QDirIterator>
+#include <QProcess>
+#include <QFileInfo>
 #include <BinXCAFDrivers.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
@@ -56,6 +59,8 @@
 #include <sstream>
 
 // core-data-model headers
+#include <ActData_BasePartition.h>
+#include <ActData_RealArrayParameter.h>
 #include "DataModel.h"
 #include "BrNode_adObject.h"
 #include "GeometryService.h"
@@ -101,6 +106,8 @@ MainWindow::MainWindow(QWidget *parent)
   setWindowIcon(QIcon(":/resources/icons/app_logo.png"));
   setMinimumSize(1024, 768);
   showMaximized();
+  m_tempProjDir = nullptr;
+  m_loadedMasterPath = "";
 
   m_occtWidget2D->setAs2DView();
   m_occtWidget2D->hide();
@@ -111,8 +118,9 @@ MainWindow::MainWindow(QWidget *parent)
   m_splitter->setCollapsible(1, true);
   setCentralWidget(m_splitter);
 
-  createRibbon();
   setupCadQueryUi();
+  createRibbon();
+  createScriptsCategory();
   createTestCategory();
   initializeCqNetwork();
 
@@ -125,6 +133,13 @@ MainWindow::MainWindow(QWidget *parent)
 
   connect(m_occtWidget, &OCCTWidget::mousePositionChanged, this, &MainWindow::onMousePositionChanged);
   connect(m_occtWidget, &OCCTWidget::objectSelected, this, &MainWindow::onObjectSelected);
+  connect(m_occtWidget2D, &OCCTWidget::objectSelected, this, &MainWindow::onObjectSelected);
+  connect(m_occtWidget, &OCCTWidget::propertyDragged, this, [this](const QString& nodeId, const QString& propertyName, double newValue) {
+    onPropertyValueChanged(nodeId, propertyName, QString::number(newValue));
+  });
+  connect(m_occtWidget2D, &OCCTWidget::propertyDragged, this, [this](const QString& nodeId, const QString& propertyName, double newValue) {
+    onPropertyValueChanged(nodeId, propertyName, QString::number(newValue));
+  });
 
   onObjectSelected(QVariantMap());
 }
@@ -133,6 +148,21 @@ MainWindow::~MainWindow() {
   if (m_projectManager) {
     delete m_projectManager;
   }
+}
+
+void MainWindow::closeEvent(QCloseEvent *event) {
+  // 提前清理 OpenGL 资源，防止 eglMakeCurrent() 失败
+  if (m_occtWidget) {
+    m_occtWidget->cleanup();
+  }
+  if (m_occtWidget2D) {
+    m_occtWidget2D->cleanup();
+  }
+  
+  // 释放共享的图形驱动
+  OCCTWidget::releaseSharedDriver();
+  
+  event->accept();
 }
 
 void MainWindow::createRibbon() {
@@ -180,6 +210,10 @@ void MainWindow::createRibbon() {
   connect(exportGltfAction, &QAction::triggered, this, &MainWindow::onExportGltfClicked);
   panelExport->addLargeAction(exportGltfAction);
 
+  QAction *exportRdeAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 RDE", this);
+  connect(exportRdeAction, &QAction::triggered, this, &MainWindow::onExportRdeClicked);
+  panelExport->addLargeAction(exportRdeAction);
+
   // View 修改为 "视图"
   SARibbonPanel *panelView = categoryMain->addPanel("视图");
   QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "适应屏幕", this);
@@ -193,6 +227,24 @@ void MainWindow::createRibbon() {
     m_occtWidget->setUsePbr(state == Qt::Checked);
   });
   panelView->addWidget(m_pbrCheckbox, SARibbonPanelItem::Small);
+
+  panelView->addSeparator();
+
+  QAction* toggleExplorer = m_modelExplorerDock->toggleViewAction();
+  toggleExplorer->setText("模型结构");
+  panelView->addSmallAction(toggleExplorer);
+
+  QAction* toggleComponent = m_componentLibraryDock->toggleViewAction();
+  toggleComponent->setText("构件库");
+  panelView->addSmallAction(toggleComponent);
+
+  QAction* toggleProperty = m_propertyDock->toggleViewAction();
+  toggleProperty->setText("属性面板");
+  panelView->addSmallAction(toggleProperty);
+
+  QAction* toggleScript = m_dockCq->toggleViewAction();
+  toggleScript->setText("脚本控制台");
+  panelView->addSmallAction(toggleScript);
 
   // 4. "Bridge Tools" 修改为 "桥梁"
   SARibbonCategory *categoryBridge = ribbon->addCategoryPage("桥梁");
@@ -375,6 +427,51 @@ void MainWindow::setupCadQueryUi() {
   font.setStyleHint(QFont::Monospace);
   m_cqScriptEditor->setFont(font);
 
+  content->setLayout(layout);
+  m_dockCq->setWidget(content);
+  addDockWidget(Qt::RightDockWidgetArea, m_dockCq);
+
+  m_propertyDock = new QDockWidget("Properties", this);
+  m_propertyDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
+  m_propertyWidget = new QWidget();
+  m_propertyLayout = new QVBoxLayout(m_propertyWidget);
+  m_propertyLayout->setAlignment(Qt::AlignTop);
+  QScrollArea *scroll = new QScrollArea();
+  scroll->setWidgetResizable(true);
+  scroll->setWidget(m_propertyWidget);
+  m_propertyDock->setWidget(scroll);
+  addDockWidget(Qt::RightDockWidgetArea, m_propertyDock);
+  
+  // Tabify Properties and CadQuery on the right
+  tabifyDockWidget(m_dockCq, m_propertyDock);
+  m_propertyDock->raise(); // Show Properties by default
+
+  m_modelExplorerDock = new ModelExplorerPanel(this);
+  addDockWidget(Qt::LeftDockWidgetArea, m_modelExplorerDock);
+
+  m_componentLibraryDock = new ComponentLibraryPanel(this);
+  addDockWidget(Qt::LeftDockWidgetArea, m_componentLibraryDock);
+  connect(m_componentLibraryDock, &ComponentLibraryPanel::componentSelected, this, &MainWindow::onComponentSelected);
+
+  // Set initial dock widths for a balanced look
+  QList<QDockWidget*> docks;
+  docks << m_modelExplorerDock << m_propertyDock;
+  QList<int> sizes;
+  sizes << 300 << 300;
+  resizeDocks(docks, sizes, Qt::Horizontal);
+  
+  // 默认不启动脚本窗口与构件库面板
+  m_dockCq->hide();
+  m_componentLibraryDock->hide();
+
+  connect(m_modelExplorerDock, &ModelExplorerPanel::nodeSelected, this, &MainWindow::onExplorerNodeSelected);
+
+  // Move dock titles/tabs to the bottom for a cleaner CAD-like look
+  setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::South);
+  setTabPosition(Qt::RightDockWidgetArea, QTabWidget::South);
+}
+
+void MainWindow::createScriptsCategory() {
   SARibbonBar *ribbon = ribbonBar();
   SARibbonCategory *categoryScripts = ribbon->addCategoryPage("脚本 (Scripts)");
   SARibbonPanel *panelScripts = categoryScripts->addPanel("示例代码");
@@ -432,49 +529,14 @@ void MainWindow::setupCadQueryUi() {
   QAction *runScriptBtn = new QAction(QIcon(":/resources/icons/random.svg"), "运行当前脚本", this);
   connect(runScriptBtn, &QAction::triggered, this, &MainWindow::onRunCqScript);
   panelRun->addLargeAction(runScriptBtn);
-
-  content->setLayout(layout);
-  m_dockCq->setWidget(content);
-  addDockWidget(Qt::RightDockWidgetArea, m_dockCq);
-
-  m_propertyDock = new QDockWidget("Properties", this);
-  m_propertyDock->setAllowedAreas(Qt::RightDockWidgetArea | Qt::LeftDockWidgetArea);
-  m_propertyWidget = new QWidget();
-  m_propertyLayout = new QVBoxLayout(m_propertyWidget);
-  m_propertyLayout->setAlignment(Qt::AlignTop);
-  QScrollArea *scroll = new QScrollArea();
-  scroll->setWidgetResizable(true);
-  scroll->setWidget(m_propertyWidget);
-  m_propertyDock->setWidget(scroll);
-  addDockWidget(Qt::RightDockWidgetArea, m_propertyDock);
-  
-  // Tabify Properties and CadQuery on the right
-  tabifyDockWidget(m_dockCq, m_propertyDock);
-  m_propertyDock->raise(); // Show Properties by default
-
-  m_modelExplorerDock = new ModelExplorerPanel(this);
-  addDockWidget(Qt::LeftDockWidgetArea, m_modelExplorerDock);
-
-  m_componentLibraryDock = new ComponentLibraryPanel(this);
-  addDockWidget(Qt::LeftDockWidgetArea, m_componentLibraryDock);
-  connect(m_componentLibraryDock, &ComponentLibraryPanel::componentSelected, this, &MainWindow::onComponentSelected);
-
-  // Set initial dock widths for a balanced look
-  QList<QDockWidget*> docks;
-  docks << m_modelExplorerDock << m_propertyDock;
-  QList<int> sizes;
-  sizes << 300 << 350;
-  resizeDocks(docks, sizes, Qt::Horizontal);
-
-  connect(m_modelExplorerDock, &ModelExplorerPanel::nodeSelected, this, &MainWindow::onExplorerNodeSelected);
-
-  // Move dock titles/tabs to the bottom for a cleaner CAD-like look
-  setTabPosition(Qt::LeftDockWidgetArea, QTabWidget::South);
-  setTabPosition(Qt::RightDockWidgetArea, QTabWidget::South);
 }
 
 void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
-    if (node.IsNull()) return;
+    if (node.IsNull()) {
+        qDebug() << "[MainWindow] onExplorerNodeSelected: ERROR: node is Null!";
+        return;
+    }
+    qDebug() << "[MainWindow] onExplorerNodeSelected entered for nodeId:" << node->GetId().ToCString();
 
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
         QByteArray bytes;
@@ -490,6 +552,7 @@ void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
     // Basic info
     metaMap["_Name"] = convertToUtf8(node->GetName());
     metaMap["_Type"] = convertToUtf8(node->GetObjectType());
+    metaMap["_adNodeId"] = QString(node->GetId().ToCString());
 
     // Iterate through all PropertySets
     NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = node->GetPropertySetsList();
@@ -511,10 +574,17 @@ void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
     }
 
     // Refresh Property Panel
-    onObjectSelected(metaMap);
+    updatePropertyPanelUI(metaMap);
 
     // 2. Highlighting and Focusing in OCCT View
-    m_occtWidget->selectAndCenterObject("_adNodeId", node->GetId().ToCString());
+    QString globalId = convertToUtf8(node->GetGlobalID());
+    m_occtWidget->selectAndCenterObject("_adNodeId", globalId);
+    m_occtWidget2D->selectAndCenterObject("_adNodeId", globalId);
+
+    // 3. 检查是否有边坡相关的长度属性，显示拖拽手柄
+    qDebug() << "[MainWindow] onExplorerNodeSelected: Calling updateStretchHandles...";
+    updateStretchHandles(metaMap, node);
+    qDebug() << "[MainWindow] onExplorerNodeSelected finished.";
 }
 
 void MainWindow::initializeCqNetwork() {
@@ -548,31 +618,90 @@ void MainWindow::onDrawBridgePier() {
 }
 
 void MainWindow::onObjectSelected(const QVariantMap &metadata) {
-    if (metadata.contains("_adNodeId")) {
-        QString nodeId = metadata["_adNodeId"].toString();
-        if (!m_currentModel.IsNull()) {
-            Handle(ActAPI_INode) node = m_currentModel->FindNode(nodeId.toStdString().c_str());
-            Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(node);
-            if (!adObj.IsNull()) {
-                onExplorerNodeSelected(adObj);
-                return;
-            }
-        }
+    qDebug() << "[MainWindow] onObjectSelected entered. Input metadata isEmpty:" << metadata.isEmpty();
+    if (metadata.isEmpty()) {
+        qDebug() << "[MainWindow] onObjectSelected: metadata is empty, hiding handles.";
+        m_occtWidget->hideLengthHandle();
+        m_occtWidget2D->hideLengthHandle();
+        updatePropertyPanelUI(QVariantMap());
+        return;
     }
+
+    QVariantMap flattenedMeta;
+    std::function<void(const QString&, const QVariant&)> flatten = [&](const QString& prefix, const QVariant& v) {
+        if (v.type() == QVariant::Map) {
+            QVariantMap m = v.toMap();
+            for (auto it = m.begin(); it != m.end(); ++it) {
+                QString newKey = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
+                flatten(newKey, it.value());
+            }
+        } else {
+            flattenedMeta[prefix] = v;
+        }
+    };
+    flatten("", metadata);
+
+    qDebug() << "[MainWindow] onObjectSelected: Flattened metadata keys:" << flattenedMeta.keys();
+    for (auto k : flattenedMeta.keys()) {
+        qDebug() << "  " << k << "=>" << flattenedMeta[k].toString();
+    }
+
+    if (flattenedMeta.contains("_adNodeId")) {
+        QString nodeId = flattenedMeta["_adNodeId"].toString();
+        qDebug() << "[MainWindow] onObjectSelected: _adNodeId exists:" << nodeId;
+        if (m_projectManager) {
+            std::vector<std::pair<Handle(ActAPI_INode), Handle(DataModel)>> matchingNodes = 
+                m_projectManager->FindNodesAcrossModels(nodeId.toStdString());
+            qDebug() << "[MainWindow] onObjectSelected: FindNodesAcrossModels results size:" << matchingNodes.size();
+            if (!matchingNodes.empty()) {
+                Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(matchingNodes[0].first);
+                qDebug() << "[MainWindow] onObjectSelected: DownCast adObj isNull:" << adObj.IsNull();
+                if (!adObj.IsNull()) {
+                    qDebug() << "[MainWindow] onObjectSelected: Delegating to onExplorerNodeSelected for NodeId:" << adObj->GetId().ToCString();
+                    onExplorerNodeSelected(adObj);
+                    return;
+                }
+            } else {
+                qDebug() << "[MainWindow] onObjectSelected: FindNodesAcrossModels found no match for NodeId:" << nodeId;
+            }
+        } else {
+            qDebug() << "[MainWindow] onObjectSelected: ERROR: m_projectManager is Null!";
+        }
+    } else {
+        qDebug() << "[MainWindow] onObjectSelected: No _adNodeId found in metadata.";
+    }
+
+    updatePropertyPanelUI(metadata);
+}
+
+void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
+    // 优先对元数据进行扁平化操作，得到 flattenedMeta
+    QVariantMap flattenedMeta;
+    std::function<void(const QString&, const QVariant&)> flatten = [&](const QString& prefix, const QVariant& v) {
+        if (v.type() == QVariant::Map) {
+            QVariantMap m = v.toMap();
+            for (auto it = m.begin(); it != m.end(); ++it) {
+                QString newKey = prefix.isEmpty() ? it.key() : prefix + "." + it.key();
+                flatten(newKey, it.value());
+            }
+        } else {
+            flattenedMeta[prefix] = v;
+        }
+    };
+    flatten("", metadata);
 
     // Clear layout
     QLayoutItem *child;
     while ((child = m_propertyLayout->takeAt(0)) != nullptr) {
         if (child->widget()) child->widget()->deleteLater();
         else if (child->layout()) {
-             // Deep clear for nested layouts
              QLayout* subLayout = child->layout();
              QLayoutItem* subChild;
              while ((subChild = subLayout->takeAt(0)) != nullptr) {
                  if (subChild->widget()) subChild->widget()->deleteLater();
                  delete subChild;
              }
-        }
+         }
         delete child;
     }
 
@@ -585,10 +714,9 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
     }
 
     // Organize by groups
-    // Map: GroupName -> Map<PropertyName, Value>
     QMap<QString, QMap<QString, QString>> groups;
-    
-    for (auto it = metadata.begin(); it != metadata.end(); ++it) {
+
+    for (auto it = flattenedMeta.begin(); it != flattenedMeta.end(); ++it) {
         QString fullKey = it.key();
         QString val = it.value().toString();
         
@@ -601,7 +729,6 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
             
             if (group.startsWith("Pset_")) group = group.mid(5);
             
-            // Normalize Geometry and Material names for sorting
             if (group.contains("Geometry", Qt::CaseInsensitive)) group = "Geometry (" + group + ")";
             else if (group.contains("Material", Qt::CaseInsensitive)) group = "Material (" + group + ")";
 
@@ -611,7 +738,7 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
         }
     }
 
-    // Sort groups according to priority: Basic Information > Geometry > Material > Others
+    // Sort groups
     QStringList groupPriority = {"Basic Information", "Geometry", "Material", "Attributes"};
     QStringList sortedGroupKeys = groups.keys();
     std::sort(sortedGroupKeys.begin(), sortedGroupKeys.end(), [&](const QString& a, const QString& b) {
@@ -627,9 +754,7 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
         return a < b;
     });
 
-    // Create UI elements for each group in sorted order
     for (const QString& groupName : sortedGroupKeys) {
-        // Section Header Widget
         QWidget* headerContainer = new QWidget();
         headerContainer->setStyleSheet("background-color: #333; border-left: 4px solid #00aaff; border-radius: 2px; margin-top: 5px;");
         QHBoxLayout* headerLayout = new QHBoxLayout(headerContainer);
@@ -641,7 +766,6 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
         
         m_propertyLayout->addWidget(headerContainer);
         
-        // Property Grid
         QFrame* groupFrame = new QFrame();
         groupFrame->setStyleSheet("background-color: transparent;");
         QGridLayout* grid = new QGridLayout(groupFrame);
@@ -650,10 +774,8 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
         grid->setColumnStretch(0, 1);
         grid->setColumnStretch(1, 2);
 
-        // Sort properties within the group
         QStringList propKeys = groups[groupName].keys();
         if (groupName.contains("Geometry", Qt::CaseInsensitive)) {
-            // Priority: ModelNumber (模型ID) > Length (长) > Width (宽) > Height (高)
             QStringList propPriority = {"ModelNumber", "Length", "Width", "Height"};
             std::sort(propKeys.begin(), propKeys.end(), [&](const QString& a, const QString& b) {
                 auto getPropPriority = [&](const QString& name) {
@@ -675,18 +797,39 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
             QLabel* propLabel = new QLabel(propKey);
             propLabel->setStyleSheet("color: #999; font-size: 12px;");
             
-            QLabel* valLabel = new QLabel(propValue);
-            valLabel->setStyleSheet("color: #eee; font-size: 12px; font-family: 'Consolas', monospace;");
-            valLabel->setWordWrap(true);
-            valLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            QWidget* valWidget = nullptr;
+            
+            if (groupName.contains("Geometry") && 
+               (propKey == "Length" || propKey == "Height" || propKey == "Width" || propKey == "SlopeRatio" || propKey == "Spacing" || propKey == "LongLineRatio" || propKey == "ShortLineRatio")) {
+                QDoubleSpinBox* spinBox = new QDoubleSpinBox();
+                spinBox->setRange(0.0, 1000000.0);
+                spinBox->setDecimals(2);
+                spinBox->setSingleStep(100.0);
+                spinBox->setValue(propValue.toDouble());
+                spinBox->setStyleSheet("color: #eee; background-color: #2a2a2a; border: 1px solid #444; border-radius: 2px; padding: 2px;");
+                valWidget = spinBox;
+                
+                QString nodeId = metadata["_adNodeId"].toString();
+                connect(spinBox, &QDoubleSpinBox::editingFinished, this, [this, spinBox, nodeId, propKey]() {
+                    double newVal = spinBox->value();
+                    QTimer::singleShot(0, this, [this, nodeId, propKey, newVal]() {
+                        onPropertyValueChanged(nodeId, propKey, QString::number(newVal));
+                    });
+                });
+            } else {
+                QLabel* valLabel = new QLabel(propValue);
+                valLabel->setStyleSheet("color: #eee; font-size: 12px; font-family: 'Consolas', monospace;");
+                valLabel->setWordWrap(true);
+                valLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+                valWidget = valLabel;
+            }
 
             grid->addWidget(propLabel, row, 0, Qt::AlignTop);
-            grid->addWidget(valLabel, row, 1, Qt::AlignTop);
+            grid->addWidget(valWidget, row, 1, Qt::AlignTop);
             row++;
         }
         m_propertyLayout->addWidget(groupFrame);
         
-        // Separator
         QFrame* line = new QFrame();
         line->setFrameShape(QFrame::HLine);
         line->setStyleSheet("background-color: #222;");
@@ -696,15 +839,95 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
     m_propertyLayout->addStretch();
 }
 
+void MainWindow::updateStretchHandles(const QVariantMap &flattenedMeta, Handle(BrNode_adObject) node) {
+    if (node.IsNull()) return;
+    auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
+        QByteArray bytes;
+        const Standard_ExtCharacter* p = extStr.ToExtString();
+        for (int i = 0; i < extStr.Length(); ++i) {
+            bytes.append((char)(p[i] & 0xFF));
+        }
+        return QString::fromUtf8(bytes);
+    };
+    QString nodeId = convertToUtf8(node->GetGlobalID());
+
+    QVariantMap full3DMeta = m_occtWidget->findMetadataByNodeId(nodeId);
+
+    double currentLength = -1;
+    if (flattenedMeta.contains("Pset_SlopeGeometry.Length")) currentLength = flattenedMeta["Pset_SlopeGeometry.Length"].toDouble();
+    else if (flattenedMeta.contains("Geometry.Length")) currentLength = flattenedMeta["Geometry.Length"].toDouble();
+    else if (flattenedMeta.contains("Length")) currentLength = flattenedMeta["Length"].toDouble();
+    else if (full3DMeta.contains("Pset_SlopeGeometry.Length")) currentLength = full3DMeta["Pset_SlopeGeometry.Length"].toDouble();
+    else if (full3DMeta.contains("Geometry.Length")) currentLength = full3DMeta["Geometry.Length"].toDouble();
+    else if (full3DMeta.contains("Length")) currentLength = full3DMeta["Length"].toDouble();
+
+    double height = 8000.0;
+    double slopeRatio = 1.5;
+    if (flattenedMeta.contains("Pset_SlopeGeometry.Height")) height = flattenedMeta["Pset_SlopeGeometry.Height"].toDouble();
+    else if (flattenedMeta.contains("Geometry.Height")) height = flattenedMeta["Geometry.Height"].toDouble();
+    else if (flattenedMeta.contains("Height")) height = flattenedMeta["Height"].toDouble();
+    else if (full3DMeta.contains("Pset_SlopeGeometry.Height")) height = full3DMeta["Pset_SlopeGeometry.Height"].toDouble();
+    else if (full3DMeta.contains("Geometry.Height")) height = full3DMeta["Geometry.Height"].toDouble();
+    else if (full3DMeta.contains("Height")) height = full3DMeta["Height"].toDouble();
+
+    if (flattenedMeta.contains("Pset_SlopeGeometry.SlopeRatio")) slopeRatio = flattenedMeta["Pset_SlopeGeometry.SlopeRatio"].toDouble();
+    else if (flattenedMeta.contains("Geometry.SlopeRatio")) slopeRatio = flattenedMeta["Geometry.SlopeRatio"].toDouble();
+    else if (flattenedMeta.contains("SlopeRatio")) slopeRatio = flattenedMeta["SlopeRatio"].toDouble();
+    else if (full3DMeta.contains("Pset_SlopeGeometry.SlopeRatio")) slopeRatio = full3DMeta["Pset_SlopeGeometry.SlopeRatio"].toDouble();
+    else if (full3DMeta.contains("Geometry.SlopeRatio")) slopeRatio = full3DMeta["Geometry.SlopeRatio"].toDouble();
+    else if (full3DMeta.contains("SlopeRatio")) slopeRatio = full3DMeta["SlopeRatio"].toDouble();
+
+    qDebug() << "[MainWindow] updateStretchHandles: nodeId =" << nodeId << ", currentLength =" << currentLength << ", height =" << height << ", slopeRatio =" << slopeRatio;
+
+    if (currentLength > 0) {
+        gp_Pnt handlePos2D_start(0, 0, 0);
+        gp_Pnt handlePos2D_end(currentLength, 0, 0);
+        
+        gp_Pnt handlePos3D_start = handlePos2D_start;
+        gp_Pnt handlePos3D_end = handlePos2D_end;
+        
+        gp_Trsf trsf;
+        QVariantList trsfList;
+        if (flattenedMeta.contains("_globalTrsf")) {
+            trsfList = flattenedMeta["_globalTrsf"].toList();
+        } else if (full3DMeta.contains("_globalTrsf")) {
+            trsfList = full3DMeta["_globalTrsf"].toList();
+        }
+        
+        if (trsfList.size() == 12) {
+            trsf.SetValues(trsfList[0].toDouble(), trsfList[1].toDouble(), trsfList[2].toDouble(), trsfList[3].toDouble(),
+                           trsfList[4].toDouble(), trsfList[5].toDouble(), trsfList[6].toDouble(), trsfList[7].toDouble(),
+                           trsfList[8].toDouble(), trsfList[9].toDouble(), trsfList[10].toDouble(), trsfList[11].toDouble());
+            handlePos3D_start.Transform(trsf);
+            handlePos3D_end.Transform(trsf);
+            qDebug() << "[MainWindow] updateStretchHandles: Applied global trsf to 3D handle positions. Start:" 
+                     << handlePos3D_start.X() << handlePos3D_start.Y() << handlePos3D_start.Z();
+        } else {
+            qDebug() << "[MainWindow] updateStretchHandles: WARNING: _globalTrsf size is not 12, size =" << trsfList.size();
+        }
+        
+        gp_Trsf identityTrsf;
+        m_occtWidget2D->showLengthHandle(handlePos2D_start, handlePos2D_end, currentLength, nodeId, identityTrsf, height, slopeRatio);
+        m_occtWidget->showLengthHandle(handlePos3D_start, handlePos3D_end, currentLength, nodeId, trsf, height, slopeRatio);
+    } else {
+        m_occtWidget2D->hideLengthHandle();
+        m_occtWidget->hideLengthHandle();
+    }
+}
+
 
 
 void MainWindow::onLoadAsiModel() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Open", "", "ASI Files (*.asi *.asi.cbf);;All Files (*.*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Open", "", "Project Packages (*.rde);;Master Projects (*.cbf);;ASI Files (*.asi *.asi.cbf);;All Files (*.*)");
     if (fileName.isEmpty()) return;
+
+    if (fileName.endsWith(".rde", Qt::CaseInsensitive) || fileName.endsWith("master.cbf", Qt::CaseInsensitive)) {
+        openProjectFile(fileName);
+        return;
+    }
 
     m_occtWidget->clearAll();
     if (!m_currentModel.IsNull()) {
-        m_currentModel->Release();
         m_currentModel.Nullify();
     }
 
@@ -820,10 +1043,14 @@ void MainWindow::onLoadAsiModel() {
 }
 
 void MainWindow::onLoadMasterCbf() {
-    QString fileName = QFileDialog::getOpenFileName(this, "Open Master Project", "", "CBF Files (*.cbf);;All Files (*.*)");
+    QString fileName = QFileDialog::getOpenFileName(this, "Open Master Project", "", "CBF/RDE Files (master.cbf *.rde);;All Files (*.*)");
     if (fileName.isEmpty()) return;
 
-    qDebug() << "[GUI] onLoadMasterCbf: Opening master project:" << fileName;
+    openProjectFile(fileName);
+}
+
+bool MainWindow::loadMasterCbf(const QString &fileName) {
+    qDebug() << "[GUI] loadMasterCbf: Opening master project:" << fileName;
 
     m_occtWidget->clearAll();
     m_occtWidget2D->clearAll();
@@ -835,7 +1062,6 @@ void MainWindow::onLoadMasterCbf() {
     }
 
     if (!m_currentModel.IsNull()) {
-        m_currentModel->Release();
         m_currentModel.Nullify();
     }
 
@@ -844,20 +1070,20 @@ void MainWindow::onLoadMasterCbf() {
         QMessageBox::critical(this, "Error", "Failed to open master project: " + fileName);
         delete m_projectManager;
         m_projectManager = nullptr;
-        return;
+        return false;
     }
-    qDebug() << "[GUI] onLoadMasterCbf: Master project opened successfully.";
+    qDebug() << "[GUI] loadMasterCbf: Master project opened successfully.";
 
     m_currentModel = m_projectManager->GetMasterModel();
     if (m_currentModel.IsNull()) {
         QMessageBox::critical(this, "Error", "Master project has no root data model.");
-        return;
+        return false;
     }
 
     Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
     if (rootNode.IsNull()) {
-        qDebug() << "[GUI] onLoadMasterCbf: ERROR: Root node is NULL!";
-        return;
+        qDebug() << "[GUI] loadMasterCbf: ERROR: Root node is NULL!";
+        return false;
     }
     
     // Helper lambda for converting ExtendedString to QString
@@ -870,11 +1096,11 @@ void MainWindow::onLoadMasterCbf() {
         return QString::fromUtf8(bytes);
     };
 
-    qDebug() << "[GUI] onLoadMasterCbf: Root node name:" << convertToUtf8(rootNode->GetName());
+    qDebug() << "[GUI] loadMasterCbf: Root node name:" << convertToUtf8(rootNode->GetName());
 
     // Traverse sub-documents
     NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
-    qDebug() << "[GUI] onLoadMasterCbf: SubDocRefs count:" << subDocs.Length();
+    qDebug() << "[GUI] loadMasterCbf: SubDocRefs count:" << subDocs.Length();
     std::string path3D = "";
     std::string path2D = "";
 
@@ -884,7 +1110,7 @@ void MainWindow::onLoadMasterCbf() {
 
         QString docType = convertToUtf8(refNode->GetDocType());
         QString docPath = convertToUtf8(refNode->GetDocPath());
-        qDebug() << "[GUI] onLoadMasterCbf: SubDocRef index:" << i << "Type:" << docType << "Path:" << docPath;
+        qDebug() << "[GUI] loadMasterCbf: SubDocRef index:" << i << "Type:" << docType << "Path:" << docPath;
 
         if (docType == "3DModel") {
             path3D = docPath.toStdString();
@@ -900,14 +1126,14 @@ void MainWindow::onLoadMasterCbf() {
     if (path2D.empty()) {
         path2D = "drawings/plan_view.cbf";
     }
-    qDebug() << "[GUI] onLoadMasterCbf: path3D:" << QString::fromStdString(path3D);
-    qDebug() << "[GUI] onLoadMasterCbf: path2D:" << QString::fromStdString(path2D);
+    qDebug() << "[GUI] loadMasterCbf: path3D:" << QString::fromStdString(path3D);
+    qDebug() << "[GUI] loadMasterCbf: path2D:" << QString::fromStdString(path2D);
 
     // Load 3D model
     Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
     if (!modelDoc.IsNull()) {
-        qDebug() << "[GUI] onLoadMasterCbf: 3D model document loaded successfully.";
-        Handle(DataModel) model3D = new DataModel(modelDoc);
+        qDebug() << "[GUI] loadMasterCbf: 3D model document loaded successfully.";
+        Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
         model3D->OpenCommand();
         std::vector<GeometryService::VisualShape> visualShapes;
         try {
@@ -923,22 +1149,22 @@ void MainWindow::onLoadMasterCbf() {
                 childCount++;
                 Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
                 if (!obj.IsNull()) {
-                    qDebug() << "[GUI] onLoadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
+                    qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
                              << "type:" << convertToUtf8(obj->GetObjectType());
                     geoService.TraverseAndBuild(obj, visualShapes);
                 } else {
-                    qDebug() << "[GUI] onLoadMasterCbf: Child node is not adObject. Type:" 
+                    qDebug() << "[GUI] loadMasterCbf: Child node is not adObject. Type:" 
                              << QString(childIt->Value()->DynamicType()->Name());
                 }
             }
-            qDebug() << "[GUI] onLoadMasterCbf: Total child nodes in 3D doc:" << childCount;
+            qDebug() << "[GUI] loadMasterCbf: Total child nodes in 3D doc:" << childCount;
             model3D->CommitCommand();
         } catch (...) {
-            qDebug() << "[GUI] onLoadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
+            qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
             model3D->AbortCommand();
         }
 
-        qDebug() << "[GUI] onLoadMasterCbf: Built visual shapes count:" << visualShapes.size();
+        qDebug() << "[GUI] loadMasterCbf: Built visual shapes count:" << visualShapes.size();
 
         // Display in 3D viewport
         auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
@@ -972,7 +1198,7 @@ void MainWindow::onLoadMasterCbf() {
 
         for (const auto& vs : visualShapes) {
             if (vs.shape.IsNull()) {
-                qDebug() << "[GUI] onLoadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
+                qDebug() << "[GUI] loadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
                 continue;
             }
             TopoDS_Shape transformedShape = vs.shape;
@@ -999,14 +1225,32 @@ void MainWindow::onLoadMasterCbf() {
         }
         m_occtWidget->fitAll();
     } else {
-        qDebug() << "[GUI] onLoadMasterCbf: ERROR: 3D model document is NULL!";
+        qDebug() << "[GUI] loadMasterCbf: ERROR: 3D model document is NULL!";
     }
 
     // Load 2D drawing
     Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
     if (!drawingDoc.IsNull()) {
-        qDebug() << "[GUI] onLoadMasterCbf: 2D drawing document loaded successfully.";
+        qDebug() << "[GUI] loadMasterCbf: 2D drawing document loaded successfully.";
         m_occtWidget2D->show();
+        
+        // 1. 同步生成二维图纸实体形状并保存到图纸 OCAF 的 XCAF 结构中
+        // 需要找到根节点或图纸节点，由于我们的图纸是 adDrawing2D，我们需要从根节点下找到它
+        Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
+        if (!drawingModel.IsNull()) {
+            Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
+            if (!topoPart.IsNull()) {
+                for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
+                    Handle(BrNode_adDrawing2D) drawNode = Handle(BrNode_adDrawing2D)::DownCast(it.Value());
+                    if (!drawNode.IsNull()) {
+                        m_projectManager->Sync2DDrawing(drawNode);
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // 2. 将图纸文档作为 XCAF 文档加载显示
         m_occtWidget2D->loadXcafDocument(drawingDoc);
         m_occtWidget2D->fitAll();
         
@@ -1014,11 +1258,19 @@ void MainWindow::onLoadMasterCbf() {
         sizes << width() / 2 << width() / 2;
         m_splitter->setSizes(sizes);
     } else {
-        qDebug() << "[GUI] onLoadMasterCbf: ERROR: 2D drawing document is NULL!";
+        qDebug() << "[GUI] loadMasterCbf: ERROR: 2D drawing document is NULL!";
     }
 
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
+
+    qDebug() << "[TEST] Simulating initial selection of GUID_Slope_3D_1...";
+    QVariantMap testMeta;
+    testMeta["_adNodeId"] = "GUID_Slope_3D_1";
+    onObjectSelected(testMeta);
+
+    m_loadedMasterPath = fileName;
+    return true;
 }
 
 void MainWindow::onImportBrep() {
@@ -1442,16 +1694,260 @@ void MainWindow::onCloseModel() {
     m_occtWidget->clearAll();
     m_occtWidget2D->clearAll();
     m_occtWidget2D->hide();
+    m_modelExplorerDock->setModel(nullptr);
+    m_currentModel.Nullify();
+    updatePropertyPanelUI(QVariantMap());
+    m_loadedMasterPath = "";
+    if (m_tempProjDir) {
+        delete m_tempProjDir;
+        m_tempProjDir = nullptr;
+    }
     if (m_projectManager) {
         delete m_projectManager;
         m_projectManager = nullptr;
     }
-    if (!m_currentModel.IsNull()) {
-        m_currentModel->Release();
-        m_currentModel.Nullify();
+}
+
+void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& propertyName, const QString& newValue) {
+    qDebug() << "[GUI] onPropertyValueChanged called for Node:" << nodeId << "Prop:" << propertyName << "NewVal:" << newValue;
+    
+    if (!m_projectManager) {
+        qDebug() << "[GUI] ERROR: m_projectManager is null";
+        return;
     }
-    m_modelExplorerDock->setModel(nullptr);
-    statusBar()->showMessage("Model closed.", 3000);
+    
+    std::vector<std::pair<Handle(ActAPI_INode), Handle(DataModel)>> matchingNodes = m_projectManager->FindNodesAcrossModels(nodeId.toStdString());
+    if (matchingNodes.empty()) {
+        qDebug() << "[GUI] ERROR: Could not find node with ID" << nodeId;
+        return;
+    }
+    
+    Handle(BrNode_adProperty) targetProp;
+    Handle(DataModel) model;
+    Handle(ActAPI_INode) node;
+    
+    for (const auto& pair : matchingNodes) {
+        Handle(ActAPI_INode) candidateNode = pair.first;
+        Handle(DataModel) candidateModel = pair.second;
+        
+        Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(candidateNode);
+        if (adObj.IsNull() || candidateModel.IsNull()) continue;
+        
+        // Find property
+        NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
+        for (int i = 1; i <= psets.Length() && targetProp.IsNull(); ++i) {
+            Handle(BrNode_adPropertySet) pset = psets.Value(i);
+            if (pset.IsNull()) continue;
+            NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
+            for (int j = 1; j <= props.Length(); ++j) {
+                Handle(BrNode_adProperty) prop = props.Value(j);
+                if (!prop.IsNull()) {
+                    QString pName = QString::fromUtf16((const char16_t*)prop->GetPropertyName().ToExtString());
+                    if (pName == propertyName) {
+                        targetProp = prop;
+                        model = candidateModel;
+                        node = candidateNode;
+                        qDebug() << "[GUI] Property MATCH found in model with ID" << nodeId;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!targetProp.IsNull()) break;
+    }
+    
+    if (targetProp.IsNull()) {
+        // If not found in property sets, check if it's a direct property of a 2D node (e.g. adSlopeIndication)
+        Handle(BrNode_adSlopeIndication) slope2D = Handle(BrNode_adSlopeIndication)::DownCast(node);
+        if (!slope2D.IsNull()) {
+            model->OpenCommand();
+            if (propertyName == "Spacing") slope2D->SetSpacing(newValue.toDouble());
+            else if (propertyName == "LongLineRatio") slope2D->SetLongLineRatio(newValue.toDouble());
+            else if (propertyName == "ShortLineRatio") slope2D->SetShortLineRatio(newValue.toDouble());
+            model->CommitCommand();
+            refreshViews();
+        }
+        return;
+    }
+    
+    // Update value
+    QString oldVal = QString::fromUtf16((const char16_t*)targetProp->GetPropertyValue().ToExtString());
+    if (oldVal == newValue || (oldVal.toDouble() == newValue.toDouble())) {
+        qDebug() << "[GUI] Property" << propertyName << "unchanged, skipping rebuild.";
+        return;
+    }
+    
+    model->OpenCommand();
+    targetProp->SetPropertyValue(TCollection_ExtendedString(newValue.toStdString().c_str()));
+    model->CommitCommand();
+    
+    qDebug() << "[GUI] Property" << propertyName << "updated to" << newValue << "for node" << nodeId;
+    
+    // Re-build geometry and refresh views
+    refreshViews();
+}
+
+void MainWindow::refreshViews() {
+    if (!m_projectManager || m_currentModel.IsNull()) return;
+    
+    qDebug() << "[GUI] Refreshing views...";
+    
+    // Rebuild and display 3D geometries
+    m_occtWidget->clearAll();
+    
+    // In master mode, we need to gather from loaded sub-models
+    std::string path3D, path2D;
+    std::vector<GeometryService::VisualShape> visualShapes;
+    Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
+    if (!rootNode.IsNull()) {
+        NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+        for (int i = 1; i <= subDocs.Length(); ++i) {
+            Handle(BrNode_adSubDocRef) refNode = subDocs.Value(i);
+            if (!refNode.IsNull()) {
+                QString docType = QString::fromUtf16((const char16_t*)refNode->GetDocType().ToExtString());
+                QString docPath = QString::fromUtf16((const char16_t*)refNode->GetDocPath().ToExtString());
+                if (docType == "3DModel") path3D = docPath.toStdString();
+                else if (docType == "2DDrawing") path2D = docPath.toStdString();
+            }
+        }
+    }
+    
+    if (path3D.empty()) path3D = "models/subgrade_3d.cbf";
+    if (path2D.empty()) path2D = "drawings/plan_view.cbf";
+    
+    Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
+    if (!model3D.IsNull()) {
+        model3D->OpenCommand();
+        try {
+            qDebug() << "[GUI] Rebuilding 3D geometries...";
+            GeometryService geoService3D(model3D);
+            Handle(ActAPI_INode) root3DBase = model3D->GetRootNode();
+            Handle(ActAPI_IChildIterator) it = root3DBase->GetChildIterator();
+            for (; it->More(); it->Next()) {
+                Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+                if (!obj.IsNull()) geoService3D.TraverseAndBuild(obj, visualShapes);
+            }
+            qDebug() << "[GUI] 3D geometries rebuilt, visualShapes count:" << visualShapes.size();
+        } catch (...) {
+            qDebug() << "[GUI] Exception during 3D geometry rebuild";
+        }
+        model3D->CommitCommand();
+        qDebug() << "[GUI] CommitCommand done for 3D model.";
+    }
+    
+    // Display in 3D widget
+    auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
+        std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
+            QVariantMap map;
+            for (auto it = js.begin(); it != js.end(); ++it) {
+                QString key = QString::fromStdString(it.key());
+                if (it.value().is_string()) map[key] = QString::fromStdString(it.value().get<std::string>());
+                else if (it.value().is_number_float()) map[key] = it.value().get<double>();
+                else if (it.value().is_number_integer()) map[key] = it.value().get<int>();
+                else if (it.value().is_boolean()) map[key] = it.value().get<bool>();
+                else if (it.value().is_object()) map[key] = convert(it.value());
+                else if (it.value().is_array()) {
+                    QVariantList list;
+                    for (const auto& item : it.value()) {
+                        if (item.is_number()) list.append(item.get<double>());
+                        else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
+                    }
+                    map[key] = list;
+                }
+            }
+            return map;
+        };
+        return convert(j);
+    };
+
+    for (const auto& vs : visualShapes) {
+        if (vs.shape.IsNull()) continue;
+        TopoDS_Shape transformedShape = vs.shape;
+        try {
+            BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
+            transformedShape = trans.Shape();
+        } catch (...) {}
+
+        QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
+        Quantity_Color color(Quantity_NOC_GRAY75);
+        if (meta.contains("Pset_MaterialPBR")) {
+            QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
+            if (pbr.contains("BaseColor")) {
+                QVariantList colorList = pbr["BaseColor"].toList();
+                if (colorList.size() >= 3) {
+                    color = Quantity_Color(colorList[0].toDouble(), colorList[1].toDouble(), colorList[2].toDouble(), Quantity_TOC_RGB);
+                }
+            }
+        }
+        qDebug() << "[GUI] displayShape for shape index";
+        m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
+    }
+    qDebug() << "[GUI] Calling fitAll on 3D widget";
+    m_occtWidget->fitAll();
+    
+    qDebug() << "[GUI] Starting Sync and refresh 2D view";
+    // Sync and refresh 2D view
+    Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
+    if (!drawingModel.IsNull()) {
+        Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
+        if (!topoPart.IsNull()) {
+            for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
+                Handle(BrNode_adDrawing2D) drawNode = Handle(BrNode_adDrawing2D)::DownCast(it.Value());
+                if (!drawNode.IsNull()) {
+                    m_projectManager->Sync2DDrawing(drawNode);
+                    break;
+                }
+            }
+        }
+        
+        // Reload into 2D view
+        Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
+        if (!drawingDoc.IsNull()) {
+            m_occtWidget2D->clearAll();
+            m_occtWidget2D->loadXcafDocument(drawingDoc);
+            
+            // 为二维示坡线添加长度标注
+            Handle(BrNode_adObject) found3DObj;
+            if (!model3D.IsNull()) {
+                Handle(ActAPI_INode) root3DBase = model3D->GetRootNode();
+                Handle(ActAPI_IChildIterator) it = root3DBase->GetChildIterator();
+                for (; it->More(); it->Next()) {
+                    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
+                    if (!obj.IsNull() && QString::fromUtf16((const char16_t*)obj->GetObjectType().ToExtString()) == "SubgradeSlope") {
+                        found3DObj = obj;
+                        break;
+                    }
+                }
+            }
+            if (!found3DObj.IsNull()) {
+                double L = 20000.0;
+                NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = found3DObj->GetPropertySetsList();
+                for (int p = 1; p <= psets.Length(); ++p) {
+                    Handle(BrNode_adPropertySet) pset = psets.Value(p);
+                    if (!pset.IsNull() && QString::fromUtf16((const char16_t*)pset->GetName().ToExtString()) == "Pset_SlopeGeometry") {
+                        NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
+                        for (int k = 1; k <= props.Length(); ++k) {
+                            if (QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyName().ToExtString()) == "Length") {
+                                L = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyValue().ToExtString()).toDouble();
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+                
+                gp_Pnt p1(0, 0, 0);
+                gp_Pnt p2(L, 0, 0);
+                gp_Pln plane(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1));
+                // 向上偏移标注
+                m_occtWidget2D->addLengthDimension(p1, p2, plane, -1500.0);
+            }
+            
+            m_occtWidget2D->fitAll();
+        }
+    }
+    
+    m_modelExplorerDock->setModel(m_currentModel);
 }
 
 void MainWindow::onComponentSelected(const QString& category, const QString& name) {
@@ -1463,6 +1959,130 @@ void MainWindow::onComponentSelected(const QString& category, const QString& nam
         QJsonObject args;
         args["ComponentFile"] = name;
         sendScriptToMicroservice("", args, -1, "NonParametric");
+    }
+}
+
+bool MainWindow::openProjectFile(const QString &fileName) {
+    if (fileName.endsWith(".rde", Qt::CaseInsensitive)) {
+        qDebug() << "Opening RDE package:" << fileName;
+        
+        if (m_tempProjDir) {
+            delete m_tempProjDir;
+            m_tempProjDir = nullptr;
+        }
+        
+        m_tempProjDir = new QTemporaryDir();
+        if (!m_tempProjDir->isValid()) {
+            QMessageBox::critical(this, "Error", "Failed to create temporary directory for extraction.");
+            delete m_tempProjDir;
+            m_tempProjDir = nullptr;
+            return false;
+        }
+        
+        QString tempPath = m_tempProjDir->path();
+        qDebug() << "Temporary directory created:" << tempPath;
+        
+        if (!extractRdeFile(fileName, tempPath)) {
+            QMessageBox::critical(this, "Error", "Failed to extract RDE package.");
+            delete m_tempProjDir;
+            m_tempProjDir = nullptr;
+            return false;
+        }
+        
+        QString masterPath = tempPath + "/master.cbf";
+        if (!QFile::exists(masterPath)) {
+            QDirIterator it(tempPath, QStringList() << "master.cbf", QDir::Files, QDirIterator::Subdirectories);
+            if (it.hasNext()) {
+                masterPath = it.next();
+            } else {
+                QMessageBox::critical(this, "Error", "Could not find master.cbf inside the RDE package.");
+                delete m_tempProjDir;
+                m_tempProjDir = nullptr;
+                return false;
+            }
+        }
+        
+        return loadMasterCbf(masterPath);
+    } else {
+        if (m_tempProjDir) {
+            delete m_tempProjDir;
+            m_tempProjDir = nullptr;
+        }
+        return loadMasterCbf(fileName);
+    }
+}
+
+bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) {
+    QProcess process;
+    QStringList arguments;
+    arguments << "-xf" << QDir::toNativeSeparators(rdePath) 
+              << "-C" << QDir::toNativeSeparators(destDir);
+    
+    qDebug() << "Extracting archive using tar:" << "tar" << arguments;
+    process.start("tar", arguments);
+    if (!process.waitForFinished(10000)) {
+        qWarning() << "Failed to extract RDE file: tar process timeout";
+        return false;
+    }
+    if (process.exitCode() != 0) {
+        qWarning() << "tar exited with code:" << process.exitCode() << process.readAllStandardError();
+        return false;
+    }
+    return true;
+}
+
+bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) {
+    QString tempZip = QDir::tempPath() + "/temp_rde_pkg.zip";
+    if (QFile::exists(tempZip)) {
+        QFile::remove(tempZip);
+    }
+    
+    QProcess process;
+    QStringList arguments;
+    arguments << "-cf" << QDir::toNativeSeparators(tempZip)
+              << "-C" << QDir::toNativeSeparators(sourceDir)
+              << ".";
+              
+    qDebug() << "Packaging using tar:" << "tar" << arguments;
+    process.start("tar", arguments);
+    if (!process.waitForFinished(15000)) {
+        qWarning() << "Failed to package: tar process timeout";
+        return false;
+    }
+    if (process.exitCode() != 0) {
+        qWarning() << "tar package exited with code:" << process.exitCode() << process.readAllStandardError();
+        return false;
+    }
+    
+    if (QFile::exists(rdePath)) {
+        QFile::remove(rdePath);
+    }
+    
+    bool success = QFile::copy(tempZip, rdePath);
+    QFile::remove(tempZip);
+    return success;
+}
+
+void MainWindow::onExportRdeClicked() {
+    if (m_loadedMasterPath.isEmpty()) {
+        QMessageBox::warning(this, "Export RDE", "No master project currently loaded to package.");
+        return;
+    }
+    
+    QString savePath = QFileDialog::getSaveFileName(this, "Export RDE Package", "", "RDE Packages (*.rde)");
+    if (savePath.isEmpty()) return;
+    
+    QFileInfo fileInfo(m_loadedMasterPath);
+    QString sourceDir = fileInfo.absolutePath();
+    
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    bool success = packageToRde(sourceDir, savePath);
+    QApplication::restoreOverrideCursor();
+    
+    if (success) {
+        QMessageBox::information(this, "Export RDE", "Successfully packaged master project to " + savePath);
+    } else {
+        QMessageBox::critical(this, "Export RDE", "Failed to package project. Please check if tar utility is available.");
     }
 }
 

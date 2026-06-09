@@ -54,6 +54,8 @@ public:
   void loadBrepFile(const QString &filename,
                     Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void clearAll();
+  void cleanup(); // 主动清理显卡资源
+  static void releaseSharedDriver(); // 主动清理共享的底层图形驱动
   void setUsePbr(bool enabled);
   void applyMaterial(const Handle(AIS_InteractiveObject)& aisShape, const QVariantMap& metadata);
   void exportToSTEP(const QString &filename);
@@ -88,6 +90,12 @@ public:
   void buildFullBridgeFromBatch(const QList<AssemblyPart> &parts);
   void loadXcafDocument(const Handle(TDocStd_Document)& doc);
   void setAs2DView();
+  void addLengthDimension(const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pln& plane, double flyout);
+
+  // 边坡长度拉伸交互接口
+  void showLengthHandle(const gp_Pnt& startPos, const gp_Pnt& endPos, double currentLength, const QString& nodeId, const gp_Trsf& trsf, double height = 8000.0, double slopeRatio = 1.5);
+  void hideLengthHandle();
+  QVariantMap findMetadataByNodeId(const QString& nodeId) const;
 
 private:
   TopoDS_Shape makeTextShape(const QString &text, double height,
@@ -101,6 +109,7 @@ signals:
   void lineSelected();
   void mousePositionChanged(double x, double y, double z);
   void objectSelected(const QVariantMap &metadata);
+  void propertyDragged(const QString& nodeId, const QString& propertyName, double newValue);
 
 protected:
   void paintEvent(QPaintEvent *event) override;
@@ -110,6 +119,7 @@ protected:
   void mouseMoveEvent(QMouseEvent *event) override;
   void mouseReleaseEvent(QMouseEvent *event) override;
   void wheelEvent(QWheelEvent *event) override;
+  void keyPressEvent(QKeyEvent *event) override;
 
 private:
   Standard_Integer m_xPos;
@@ -154,6 +164,23 @@ private:
   QSize m_lastSize; // 用于检测 widget 大小变化
   bool m_showViewCube;
   bool m_enableRotation;
+
+  // 长度拉伸交互状态
+  Handle(AIS_Shape) m_startHandle;
+  Handle(AIS_Shape) m_lengthHandle;
+  Handle(AIS_Shape) m_dynamicPreview;
+  bool m_isDraggingLength;
+  bool m_dragIsStartHandle;
+  QString m_dragNodeId;
+  double m_dragOriginalLength;
+  double m_dragCurrentLength;
+  gp_Trsf m_dragTrsf;
+  gp_Pnt m_dragStartPos;
+  gp_Pnt m_dragEndPos;
+  double m_dragHeight;
+  double m_dragSlopeRatio;
+
+  void cancelLengthDragging();
 };
 
 #endif // OCCTWIDGET_H
