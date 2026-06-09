@@ -9,6 +9,7 @@
 #include "../include/PythonSyntaxHighlighter.h"
 #include "../include/ShxTextGenerator.h"
 #include "../include/ModelExplorerPanel.h"
+#include "../include/ComponentLibraryPanel.h"
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
@@ -94,7 +95,7 @@ MainWindow::MainWindow(QWidget *parent)
       m_projectManager(nullptr),
       m_solidTextCheckbox(nullptr), m_pbrCheckbox(nullptr), m_coordLabel(nullptr),
       m_highlighter(nullptr), m_currentMaterial(Graphic3d_NOM_PLASTIC),
-      m_propertyDock(nullptr), m_modelExplorerDock(nullptr), m_propertyWidget(nullptr),
+      m_propertyDock(nullptr), m_modelExplorerDock(nullptr), m_componentLibraryDock(nullptr), m_propertyWidget(nullptr),
       m_propertyLayout(nullptr), m_currentModelType("BridgePier2") {
   setWindowTitle("Qt OCCT Application - Schema Enabled");
   setWindowIcon(QIcon(":/resources/icons/app_logo.png"));
@@ -453,6 +454,10 @@ void MainWindow::setupCadQueryUi() {
 
   m_modelExplorerDock = new ModelExplorerPanel(this);
   addDockWidget(Qt::LeftDockWidgetArea, m_modelExplorerDock);
+
+  m_componentLibraryDock = new ComponentLibraryPanel(this);
+  addDockWidget(Qt::LeftDockWidgetArea, m_componentLibraryDock);
+  connect(m_componentLibraryDock, &ComponentLibraryPanel::componentSelected, this, &MainWindow::onComponentSelected);
 
   // Set initial dock widths for a balanced look
   QList<QDockWidget*> docks;
@@ -818,6 +823,8 @@ void MainWindow::onLoadMasterCbf() {
     QString fileName = QFileDialog::getOpenFileName(this, "Open Master Project", "", "CBF Files (*.cbf);;All Files (*.*)");
     if (fileName.isEmpty()) return;
 
+    qDebug() << "[GUI] onLoadMasterCbf: Opening master project:" << fileName;
+
     m_occtWidget->clearAll();
     m_occtWidget2D->clearAll();
     m_occtWidget2D->hide();
@@ -839,6 +846,7 @@ void MainWindow::onLoadMasterCbf() {
         m_projectManager = nullptr;
         return;
     }
+    qDebug() << "[GUI] onLoadMasterCbf: Master project opened successfully.";
 
     m_currentModel = m_projectManager->GetMasterModel();
     if (m_currentModel.IsNull()) {
@@ -847,8 +855,11 @@ void MainWindow::onLoadMasterCbf() {
     }
 
     Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
-    if (rootNode.IsNull()) return;
-
+    if (rootNode.IsNull()) {
+        qDebug() << "[GUI] onLoadMasterCbf: ERROR: Root node is NULL!";
+        return;
+    }
+    
     // Helper lambda for converting ExtendedString to QString
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
         QByteArray bytes;
@@ -859,8 +870,11 @@ void MainWindow::onLoadMasterCbf() {
         return QString::fromUtf8(bytes);
     };
 
+    qDebug() << "[GUI] onLoadMasterCbf: Root node name:" << convertToUtf8(rootNode->GetName());
+
     // Traverse sub-documents
     NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+    qDebug() << "[GUI] onLoadMasterCbf: SubDocRefs count:" << subDocs.Length();
     std::string path3D = "";
     std::string path2D = "";
 
@@ -870,6 +884,7 @@ void MainWindow::onLoadMasterCbf() {
 
         QString docType = convertToUtf8(refNode->GetDocType());
         QString docPath = convertToUtf8(refNode->GetDocPath());
+        qDebug() << "[GUI] onLoadMasterCbf: SubDocRef index:" << i << "Type:" << docType << "Path:" << docPath;
 
         if (docType == "3DModel") {
             path3D = docPath.toStdString();
@@ -885,10 +900,13 @@ void MainWindow::onLoadMasterCbf() {
     if (path2D.empty()) {
         path2D = "drawings/plan_view.cbf";
     }
+    qDebug() << "[GUI] onLoadMasterCbf: path3D:" << QString::fromStdString(path3D);
+    qDebug() << "[GUI] onLoadMasterCbf: path2D:" << QString::fromStdString(path2D);
 
     // Load 3D model
     Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
     if (!modelDoc.IsNull()) {
+        qDebug() << "[GUI] onLoadMasterCbf: 3D model document loaded successfully.";
         Handle(DataModel) model3D = new DataModel(modelDoc);
         model3D->OpenCommand();
         std::vector<GeometryService::VisualShape> visualShapes;
@@ -900,16 +918,27 @@ void MainWindow::onLoadMasterCbf() {
             GeometryService geoService(model3D);
             Handle(ActAPI_INode) rootBase = model3D->GetRootNode();
             Handle(ActAPI_IChildIterator) childIt = rootBase->GetChildIterator();
+            int childCount = 0;
             for (; childIt->More(); childIt->Next()) {
+                childCount++;
                 Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(childIt->Value());
                 if (!obj.IsNull()) {
+                    qDebug() << "[GUI] onLoadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
+                             << "type:" << convertToUtf8(obj->GetObjectType());
                     geoService.TraverseAndBuild(obj, visualShapes);
+                } else {
+                    qDebug() << "[GUI] onLoadMasterCbf: Child node is not adObject. Type:" 
+                             << QString(childIt->Value()->DynamicType()->Name());
                 }
             }
+            qDebug() << "[GUI] onLoadMasterCbf: Total child nodes in 3D doc:" << childCount;
             model3D->CommitCommand();
         } catch (...) {
+            qDebug() << "[GUI] onLoadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
             model3D->AbortCommand();
         }
+
+        qDebug() << "[GUI] onLoadMasterCbf: Built visual shapes count:" << visualShapes.size();
 
         // Display in 3D viewport
         auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
@@ -942,7 +971,10 @@ void MainWindow::onLoadMasterCbf() {
         };
 
         for (const auto& vs : visualShapes) {
-            if (vs.shape.IsNull()) continue;
+            if (vs.shape.IsNull()) {
+                qDebug() << "[GUI] onLoadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
+                continue;
+            }
             TopoDS_Shape transformedShape = vs.shape;
             try {
                 BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
@@ -966,11 +998,14 @@ void MainWindow::onLoadMasterCbf() {
             m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
         }
         m_occtWidget->fitAll();
+    } else {
+        qDebug() << "[GUI] onLoadMasterCbf: ERROR: 3D model document is NULL!";
     }
 
     // Load 2D drawing
     Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
     if (!drawingDoc.IsNull()) {
+        qDebug() << "[GUI] onLoadMasterCbf: 2D drawing document loaded successfully.";
         m_occtWidget2D->show();
         m_occtWidget2D->loadXcafDocument(drawingDoc);
         m_occtWidget2D->fitAll();
@@ -978,6 +1013,8 @@ void MainWindow::onLoadMasterCbf() {
         QList<int> sizes;
         sizes << width() / 2 << width() / 2;
         m_splitter->setSizes(sizes);
+    } else {
+        qDebug() << "[GUI] onLoadMasterCbf: ERROR: 2D drawing document is NULL!";
     }
 
     m_modelExplorerDock->setModel(m_currentModel);
@@ -1416,3 +1453,16 @@ void MainWindow::onCloseModel() {
     m_modelExplorerDock->setModel(nullptr);
     statusBar()->showMessage("Model closed.", 3000);
 }
+
+void MainWindow::onComponentSelected(const QString& category, const QString& name) {
+    statusBar()->showMessage(tr("正在加载构件: %1 ...").arg(name));
+    
+    if (category == "parametric") {
+        sendScriptToMicroservice("", QJsonObject(), -1, name);
+    } else {
+        QJsonObject args;
+        args["ComponentFile"] = name;
+        sendScriptToMicroservice("", args, -1, "NonParametric");
+    }
+}
+

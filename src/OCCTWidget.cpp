@@ -50,6 +50,9 @@
 #include <TPrsStd_AISPresentation.hxx>
 #include <TPrsStd_AISViewer.hxx>
 #include <TDataStd_AsciiString.hxx>
+#include <TDF_LabelSequence.hxx>
+#include <XCAFDoc_DocumentTool.hxx>
+#include <XCAFDoc_ShapeTool.hxx>
 
 OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
@@ -2132,50 +2135,43 @@ void OCCTWidget::selectAndCenterObject(const QString& key, const QVariant& value
 }
 
 void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
-  if (m_context.IsNull() || doc.IsNull())
+  if (m_context.IsNull() || doc.IsNull()) {
+    qDebug() << "[OCCTWidget] loadXcafDocument: context or doc is NULL!";
     return;
+  }
+
+  qDebug() << "[OCCTWidget] loadXcafDocument: Starting...";
 
   // 1. 清除视口当前显示的普通对象和元数据映射
   m_context->EraseAll(Standard_True);
   m_objectMetadata.clear();
 
-  // 开启事务保护以允许写入 OCAF 展示属性 (TPrsStd_AISViewer 和 TPrsStd_AISPresentation)
-  Standard_Boolean hasOpenCommand = doc->HasOpenCommand();
-  if (!hasOpenCommand) {
-      doc->NewCommand();
+  // 2. 获取 ShapeTool
+  Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
+  if (shapeTool.IsNull()) {
+      qDebug() << "[OCCTWidget] loadXcafDocument: ERROR: ShapeTool is NULL!";
+      return;
   }
 
-  try {
-      // 2. 关联并获取 TPrsStd_AISViewer
-      Handle(TPrsStd_AISViewer) viewer;
-      if (!TPrsStd_AISViewer::Find(doc->Main(), viewer)) {
-          viewer = TPrsStd_AISViewer::New(doc->Main(), m_context);
-      }
+  // 3. 获取所有 Free Shapes
+  TDF_LabelSequence freeShapes;
+  shapeTool->GetFreeShapes(freeShapes);
+  qDebug() << "[OCCTWidget] loadXcafDocument: Free shapes count:" << freeShapes.Length();
 
-      // 3. 在根 Label 上添加并显示 Presentation 属性以驱动递归 XCAF 渲染
-      Handle(TPrsStd_AISPresentation) pres = TPrsStd_AISPresentation::Set(doc->Main(), TPrsStd_AISPresentation::GetID());
-      if (!pres.IsNull()) {
-          pres->Display(Standard_True);
-      }
-
-      if (!hasOpenCommand) {
-          doc->CommitCommand();
-      }
-  } catch (...) {
-      if (!hasOpenCommand) {
-          doc->AbortCommand();
-      }
-      qWarning() << "Exception inside loadXcafDocument during OCAF attribute writing";
+  // 4. 遍历并显示每个 Free Shape 作为 XCAFPrs_AISObject
+  for (Standard_Integer i = 1; i <= freeShapes.Length(); ++i) {
+      TDF_Label label = freeShapes.Value(i);
+      Handle(XCAFPrs_AISObject) aisObj = new XCAFPrs_AISObject(label);
+      m_context->Display(aisObj, Standard_False);
+      qDebug() << "[OCCTWidget] loadXcafDocument: Displayed free shape index:" << i;
   }
-
-  // 4. 驱动原生展现更新
-  TPrsStd_AISViewer::Update(doc->Main());
 
   // 5. 刷新视口并进行 FitAll 适配画面
   if (!m_view.IsNull()) {
       m_view->Redraw();
   }
   fitAll();
+  qDebug() << "[OCCTWidget] loadXcafDocument: Done.";
 }
 
 void OCCTWidget::setAs2DView() {
