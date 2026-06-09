@@ -2338,6 +2338,11 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
 
   qDebug() << "[OCCTWidget] loadXcafDocument: Starting...";
 
+  if (!XCAFDoc_DocumentTool::IsXCAFDocument(doc)) {
+    qDebug() << "[OCCTWidget] loadXcafDocument: ERROR: Document is NOT a valid XCAF assembly!";
+    return;
+  }
+
   // 1. 清除视口当前显示的普通对象和元数据映射
   m_context->EraseAll(Standard_True);
   m_objectMetadata.clear();
