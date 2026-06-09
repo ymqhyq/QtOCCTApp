@@ -35,12 +35,13 @@ set "VTK=%TP%\vtk-9.4.1-x64\bin"
 set "ZLIB=%TP%\zlib-1.2.8-vc14-64\bin"
 
 set "IFC_BIN=D:\QtOCCTApp\3rpart\ifcopenshell-vs2026-x64-v142\bin"
+set "RIBBON_BIN=D:\QtOCCTApp\3rpart\SARibbon_qt6.7.0_MSVC_x64_v142\bin"
 set "APP_BIN=D:\QtOCCTApp\build_v142\Release"
 set "APP_BIN2=D:\QtOCCTApp\build_v142\bin\Release"
 set "APP_BIN3=D:\QtOCCTApp\build_v142\libs\shxparser\Release"
-set "APP_BIN4=D:\QtOCCTApp\build_v142\3rpart\asiActiveData\Release"
+set "APP_BIN4=D:\QtOCCTApp\3rpart\asiActiveData\build\Release"
 
-set "PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_BIND%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%IFC_BIN%;%APP_BIN%;%APP_BIN2%;%APP_BIN3%;%APP_BIN4%;%PATH%"
+set "PATH=%QT_BIN%;%OCCT_BIN%;%OCCT_BIND%;%ANGLE%;%DRACO%;%FFMPEG%;%FREEIMAGE%;%FREETYPE%;%GL2PS%;%JEMALLOC%;%LZMA%;%OPENVR%;%TBB%;%TCLTK%;%VTK%;%ZLIB%;%IFC_BIN%;%RIBBON_BIN%;%APP_BIN%;%APP_BIN2%;%APP_BIN3%;%APP_BIN4%;%PATH%"
 
 echo Starting QtOCCTApp (v142 Release)...
 "%APP_BIN%\QtOCCTApp.exe"
