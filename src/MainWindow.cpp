@@ -1139,6 +1139,25 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     qDebug() << "[GUI] loadMasterCbf: absPath3D =" << absPath3D << "exists =" << has3DFile;
     qDebug() << "[GUI] loadMasterCbf: absPath2D =" << absPath2D << "exists =" << has2DFile;
 
+    // 将路径调试信息写入 D:/QtOCCTApp/debug_paths.log
+    {
+        QFile dbgFile("D:/QtOCCTApp/debug_paths.log");
+        if (dbgFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream outStream(&dbgFile);
+            outStream << "======== LoadMasterCbf Debug ========\n";
+            outStream << "fileName: " << fileName << "\n";
+            outStream << "path3D: " << QString::fromStdString(path3D) << " (len=" << path3D.length() << ")\n";
+            outStream << "path2D: " << QString::fromStdString(path2D) << " (len=" << path2D.length() << ")\n";
+            outStream << "absPath3D: " << absPath3D << "\n";
+            outStream << "absPath2D: " << absPath2D << "\n";
+            outStream << "has3DFile: " << (has3DFile ? "TRUE" : "FALSE") << "\n";
+            outStream << "has2DFile: " << (has2DFile ? "TRUE" : "FALSE") << "\n";
+            outStream << "=====================================\n";
+            dbgFile.close();
+        }
+    }
+
+
     std::vector<GeometryService::VisualShape> visualShapes;
 
     // Load 3D model
