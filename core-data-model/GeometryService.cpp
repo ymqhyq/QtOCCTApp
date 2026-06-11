@@ -18,6 +18,7 @@
 #include <gp_Ax1.hxx>
 
 // XCAF & OCAF Copy
+#include <XCAFApp_Application.hxx>
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
 #include <XCAFDoc_ColorTool.hxx>
@@ -53,6 +54,8 @@
 
 // MD5 实现 (轻量级，无外部依赖)
 #include <functional>
+#include <ActAPI_IPartition.h>
+#include <ActData_BasePartition.h>
 
 // ============================================================
 // 辅助工具函数
@@ -256,6 +259,12 @@ GeometryService::GeometryService(const Handle(DataModel) & model,
                                  const std::string &serviceUrl) 
     : m_model(model), m_serviceUrl(serviceUrl)
 {
+    Handle(TDocStd_Application) app = XCAFApp_Application::GetApplication();
+    BinXCAFDrivers::DefineFormat(app);
+    app->NewDocument("BinXCAF", m_xcafDoc);
+    if (!m_xcafDoc.IsNull()) {
+        XCAFDoc_DocumentTool::ShapeTool(m_xcafDoc->Main());
+    }
     InitializeCacheMap();
 }
 
@@ -293,7 +302,7 @@ void GeometryService::InitializeCacheMap()
 TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, const std::string& paramGeoId)
 {
     if (m_model.IsNull()) return TDF_Label();
-    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(TDocStd_Document) destDoc = m_xcafDoc;
     if (destDoc.IsNull()) return TDF_Label();
 
     // 显式为临时文档注册格式，以防在独立 exe 或测试环境中未定义
@@ -327,7 +336,9 @@ TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, c
     TDF_Label srcProtoLabel = tempShapes.Value(1);
 
     // 4. 将临时文档的原型拷贝合并到主文档中
-    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  std::cout << "[Helper] CP3.7: ShapeTool got.\n";
     if (destShapeTool.IsNull()) return TDF_Label();
 
     TDF_Label destProtoLabel = destShapeTool->NewShape();
@@ -415,8 +426,19 @@ GeometryService::ExtractGeoParams(const Handle(BrNode_adObject) & adObj) {
   result.modelType = ToStdString(adObj->GetObjectType());
 
   // 遍历属性集，找到名称含 "Geometry" 的 Pset
-  NCollection_Sequence<Handle(BrNode_adPropertySet)> psets =
-      adObj->GetPropertySetsList();
+  NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
+  if (psets.IsEmpty() && !m_model.IsNull()) {
+      Handle(ActAPI_IPartition) part = m_model->Partition(2);
+      if (!part.IsNull()) {
+          for (ActData_BasePartition::Iterator pit(part); pit.More(); pit.Next()) {
+              Handle(BrNode_adPropertySet) child = Handle(BrNode_adPropertySet)::DownCast(pit.Value());
+              if (!child.IsNull()) {
+                  // If tree relations are broken, append the property set directly.
+                  psets.Append(child);
+              }
+          }
+      }
+  }
   for (int i = 1; i <= psets.Length(); ++i) {
     Handle(BrNode_adPropertySet) ps = psets.Value(i);
     if (ps.IsNull())
@@ -663,8 +685,10 @@ TDF_Label
     TopoDS_Shape shape = cachedGeoDef->GetShape();
     if (!shape.IsNull()) {
       // 注册为 XCAF 零件原型并放入内存缓存
-      Handle(TDocStd_Document) destDoc = m_model->Document();
-      Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+      Handle(TDocStd_Document) destDoc = m_xcafDoc;
+      std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  std::cout << "[Helper] CP3.7: ShapeTool got.\n";
       TDF_Label protoLabel = destShapeTool->AddShape(shape, Standard_False);
       TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
       m_cacheMap[paramGeoId] = protoLabel;
@@ -682,7 +706,7 @@ TDF_Label
   }
 
   // 5. 调用建模服务
-  std::cout << "[GeometryService] Cache MISS, calling service..." << std::endl;
+  std::cout << "[GeometryService] Cache MISS, calling service for type:" << ep.modelType << std::endl;
   ServiceResult sr = CallModelingService(ep.modelType, ep.params);
   
   TDF_Label protoLabel;
@@ -707,8 +731,10 @@ TDF_Label
     }
 
     // 注册为 XCAF 零件原型
-    Handle(TDocStd_Document) destDoc = m_model->Document();
-    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    Handle(TDocStd_Document) destDoc = m_xcafDoc;
+    std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  std::cout << "[Helper] CP3.7: ShapeTool got.\n";
     protoLabel = destShapeTool->AddShape(shape, Standard_False);
     TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
     m_cacheMap[paramGeoId] = protoLabel;
@@ -719,8 +745,10 @@ TDF_Label
     // 5. 反序列化并合并 BREP 字节流到 XCAF
     protoLabel = ImportAndMergeCbf(sr.brepData, paramGeoId);
     
-    Handle(TDocStd_Document) destDoc = m_model->Document();
-    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    Handle(TDocStd_Document) destDoc = m_xcafDoc;
+    std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  std::cout << "[Helper] CP3.7: ShapeTool got.\n";
     if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
         // 创建 adGeometricDef 保存到几何分区
         geoDef = CreateGeoDef(paramGeoId, sr.allParams, shape);
@@ -755,8 +783,10 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
   // 2. 查找缓存
   auto it = m_cacheMap.find(result.paramGeoId);
   if (it != m_cacheMap.end() && !it->second.IsNull()) {
-    Handle(TDocStd_Document) destDoc = m_model->Document();
-    Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    Handle(TDocStd_Document) destDoc = m_xcafDoc;
+    std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
+  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+  std::cout << "[Helper] CP3.7: ShapeTool got.\n";
     TopoDS_Shape shape;
     if (destShapeTool->GetShape(it->second, shape) && !shape.IsNull()) {
       result.shape = shape;
@@ -778,7 +808,7 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
   // 4. 解析并合并几何到 XCAF
   TDF_Label protoLabel = ImportAndMergeCbf(sr.brepData, result.paramGeoId);
   if (!protoLabel.IsNull()) {
-    Handle(TDocStd_Document) destDoc = m_model->Document();
+    Handle(TDocStd_Document) destDoc = m_xcafDoc;
     Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
     TopoDS_Shape shape;
     if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
@@ -790,193 +820,6 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
   return result;
 }
 
-// ------ 遍历并构建 ------
-void GeometryService::TraverseAndBuild(const Handle(BrNode_adObject) & rootObj,
-                                       std::vector<VisualShape> &outShapes,
-                                       const gp_Trsf &parentTrsf) {
-  if (rootObj.IsNull() || m_model.IsNull())
-    return;
-
-  Handle(TDocStd_Document) destDoc = m_model->Document();
-  if (destDoc.IsNull()) return;
-  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
-  if (destShapeTool.IsNull()) return;
-
-  // 创建顶级根装配 Label
-  TDF_Label bridgeAssembly = destShapeTool->NewShape();
-  TDataStd_Name::Set(bridgeAssembly, ToExtString(ToStdString(rootObj->GetName())));
-
-  // 递归调用 Helper 开始多层装配构建
-  TraverseAndBuildHelper(rootObj, outShapes, bridgeAssembly, parentTrsf);
-}
-
-void GeometryService::TraverseAndBuildHelper(const Handle(BrNode_adObject) & rootObj,
-                                             std::vector<VisualShape> &outShapes,
-                                             const TDF_Label & parentAssemblyLabel,
-                                             const gp_Trsf &parentTrsf) {
-  if (rootObj.IsNull() || m_model.IsNull() || parentAssemblyLabel.IsNull())
-    return;
-
-  // 1. 获取局部相对坐标变换 localTrsf
-  gp_Trsf localTrsf;
-  Handle(ActAPI_IUserParameter) p =
-      rootObj->Parameter(BrNode_adObject::PID_ObjectPlacement);
-  Handle(ActData_RealArrayParameter) typedP =
-      ActData_ParameterFactory::AsRealArray(p);
-
-  if (!typedP.IsNull() && typedP->NbElements() >= 3) {
-    localTrsf.SetTranslation(gp_Vec(
-        typedP->GetElement(0), typedP->GetElement(1), typedP->GetElement(2)));
-    if (typedP->NbElements() >= 6) {
-      double rx = typedP->GetElement(3);
-      double ry = typedP->GetElement(4);
-      double rz = typedP->GetElement(5);
-      gp_Trsf rot;
-      if (std::abs(rz) > 1e-6) {
-        gp_Trsf r;
-        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
-                      rz * 3.14159265358979323846 / 180.0);
-        rot.Multiply(r);
-      }
-      if (std::abs(ry) > 1e-6) {
-        gp_Trsf r;
-        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 1, 0)),
-                      ry * 3.14159265358979323846 / 180.0);
-        rot.Multiply(r);
-      }
-      if (std::abs(rx) > 1e-6) {
-        gp_Trsf r;
-        r.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(1, 0, 0)),
-                      rx * 3.14159265358979323846 / 180.0);
-        rot.Multiply(r);
-      }
-      localTrsf.Multiply(rot);
-    }
-  }
-
-  // 计算全局绝对坐标变换以填充 VisualShape (用于渲染和 PBR 提取)
-  gp_Trsf currentTrsf = parentTrsf * localTrsf;
-
-  Handle(TDocStd_Document) destDoc = m_model->Document();
-  Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
-  
-  TDF_Label myLabel = parentAssemblyLabel;
-
-  // 2. 构建当前对象的几何
-  TDF_Label protoLabel = this->BuildGeometry(rootObj);
-  if (!protoLabel.IsNull()) {
-    // 这是一个有几何原型的叶子构件 (Simple Shape零件)
-    TopoDS_Shape shape;
-    if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
-      // 在父装配下添加组件，并传入相对局部坐标矩阵
-      TDF_Label instLabel = destShapeTool->AddComponent(parentAssemblyLabel, protoLabel, TopLoc_Location(localTrsf));
-      if (!instLabel.IsNull()) {
-          TDataStd_Name::Set(instLabel, ToExtString(ToStdString(rootObj->GetName())));
-          // 关联 _adNodeId 业务 ID，实现三维双向高亮选中联动
-          TDataStd_AsciiString::Set(instLabel, rootObj->GetId());
-          
-          // 将组件映射到图层
-          std::string modelType = ToStdString(rootObj->GetObjectType());
-          if (!modelType.empty()) {
-            Handle(XCAFDoc_LayerTool) destLayerTool = XCAFDoc_DocumentTool::LayerTool(destDoc->Main());
-            if (!destLayerTool.IsNull()) {
-                TDF_Label layerLabel = destLayerTool->AddLayer(ToExtString(modelType + "_Layer"));
-                if (!layerLabel.IsNull()) {
-                    destLayerTool->SetLayer(instLabel, layerLabel);
-                }
-            }
-          }
-      }
-
-      VisualShape vs;
-      vs.shape = shape;
-      vs.name = ToStdString(rootObj->GetName());
-      vs.transform = currentTrsf; // 绝对坐标供渲染使用
-      
-      // 提取全部属性集作为元数据以支持 PBR 材质颜色渲染
-      NCollection_Sequence<Handle(BrNode_adPropertySet)> psets =
-          rootObj->GetPropertySetsList();
-      for (int i = 1; i <= psets.Length(); ++i) {
-        Handle(BrNode_adPropertySet) ps = psets.Value(i);
-        if (ps.IsNull())
-          continue;
-        std::string psName = ToStdString(ps->GetName());
-        json psJson;
-        NCollection_Sequence<Handle(BrNode_adProperty)> props =
-            ps->GetPropertiesList();
-        for (int j = 1; j <= props.Length(); ++j) {
-          Handle(BrNode_adProperty) p = props.Value(j);
-          if (p.IsNull())
-            continue;
-
-          std::string key = ToStdString(p->GetPropertyName());
-          std::string val = ToStdString(p->GetPropertyValue());
-
-          if (key == "BaseColor" && psName == "Pset_MaterialPBR") {
-            std::stringstream ss(val);
-            std::string segment;
-            json colorList = json::array();
-            while (std::getline(ss, segment, ',')) {
-              try {
-                colorList.push_back(std::stod(segment));
-              } catch (...) {
-              }
-            }
-            psJson[key] = colorList;
-          } else {
-            try {
-              if (val.find('.') != std::string::npos)
-                psJson[key] = std::stod(val);
-              else
-                psJson[key] = std::stol(val);
-            } catch (...) {
-              psJson[key] = val;
-            }
-          }
-        }
-        vs.metadata[psName] = psJson;
-      }
-
-      // 提取主文档中绑定在 protoLabel 上的原生 XCAF 材质参数并补充/覆盖到 Pset_MaterialPBR 里 (XDE 规范)
-      Handle(XCAFDoc_VisMaterialTool) destVisMatTool = XCAFDoc_DocumentTool::VisMaterialTool(destDoc->Main());
-      if (!destVisMatTool.IsNull()) {
-        Handle(XCAFDoc_VisMaterial) aVisMat = destVisMatTool->GetShapeMaterial(protoLabel);
-        if (!aVisMat.IsNull() && aVisMat->HasPbrMaterial()) {
-            XCAFDoc_VisMaterialPBR aPbrMat = aVisMat->PbrMaterial();
-            if (aPbrMat.IsDefined) {
-                json pbrJson;
-                pbrJson["BaseColor"] = { aPbrMat.BaseColor.GetRGB().Red(), aPbrMat.BaseColor.GetRGB().Green(), aPbrMat.BaseColor.GetRGB().Blue() };
-                pbrJson["Metallic"] = aPbrMat.Metallic;
-                pbrJson["Roughness"] = aPbrMat.Roughness;
-                pbrJson["IOR"] = aPbrMat.RefractionIndex;
-                vs.metadata["Pset_MaterialPBR"] = pbrJson;
-            }
-        }
-      }
-
-      vs.metadata["_adNodeId"] = rootObj->GetId().ToCString();
-      outShapes.push_back(vs);
-    }
-  } else {
-    // 这是一个中间装配节点 (Assembly)。在 XCAF 树中为此业务装配节点创建一个空标签！
-    myLabel = destShapeTool->NewShape();
-    TDataStd_Name::Set(myLabel, ToExtString(ToStdString(rootObj->GetName())));
-    
-    // 把该子装配以 Component 实例的方式挂到父装配体下
-    TDF_Label instLabel = destShapeTool->AddComponent(parentAssemblyLabel, myLabel, TopLoc_Location(localTrsf));
-    if (!instLabel.IsNull()) {
-        TDataStd_Name::Set(instLabel, ToExtString(ToStdString(rootObj->GetName())));
-        TDataStd_AsciiString::Set(instLabel, rootObj->GetId());
-    }
-  }
-
-  // 3. 递归子对象：向下传递 myLabel 作为父装配体，currentTrsf 传递全局变换坐标
-  NCollection_Sequence<Handle(BrNode_adObject)> children =
-      rootObj->GetSubObjectsList();
-  for (int i = 1; i <= children.Length(); ++i) {
-    TraverseAndBuildHelper(children.Value(i), outShapes, myLabel, currentTrsf);
-  }
-}
 
 // ------ 初始化对象 ------
 void GeometryService::InitializeObject(const Handle(BrNode_adObject) & adObj,

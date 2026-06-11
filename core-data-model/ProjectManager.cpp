@@ -1,5 +1,5 @@
 #include "ProjectManager.h"
-#include "RwSlope2DGeometryBuilder.h"
+#include "RwSlopeGeometryBuilder.h"
 #include "generated/BrNode_adGeometry.h"
 
 // OCCT 核心驱动与 OCAF
@@ -26,6 +26,8 @@
 #include <XCAFDoc_DocumentTool.hxx>
 #include <XCAFDoc_ShapeTool.hxx>
 #include <TDF_LabelSequence.hxx>
+#include <ActAPI_IPartition.h>
+#include <ActData_BasePartition.h>
 
 static std::string ToStdString(const TCollection_ExtendedString &es) {
     std::string result;
@@ -264,6 +266,20 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
             // 使用 GeometryService 的参数提取功能（需引入 GeometryService 头文件，或者直接硬编码读取 Pset）
             // 为了直接可用，我们查找对象的属性集：
             NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = found3DObj->GetPropertySetsList();
+            if (psets.IsEmpty() && !model3D.IsNull()) {
+                Handle(ActAPI_IPartition) part = model3D->Partition(2);
+                if (!part.IsNull()) {
+                    for (ActData_BasePartition::Iterator pit(part); pit.More(); pit.Next()) {
+                        Handle(BrNode_adPropertySet) child = Handle(BrNode_adPropertySet)::DownCast(pit.Value());
+                        if (!child.IsNull()) {
+                            Handle(ActAPI_INode) p = child->GetParentNode();
+                            if (!p.IsNull() && p->GetId() == found3DObj->GetId()) {
+                                psets.Append(child);
+                            }
+                        }
+                    }
+                }
+            }
             for (int p = 1; p <= psets.Length(); ++p) {
                 Handle(BrNode_adPropertySet) pset = psets.Value(p);
                 if (!pset.IsNull() && ToStdString(pset->GetName()) == "Pset_SlopeGeometry") {
@@ -301,8 +317,8 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
             // 从 3D 模型获取最新的路肩特征几何，如果为空则跳过
             if (latestShoulderShape.IsNull() || latestToeShape.IsNull()) continue;
 
-            // 调用 RwSlope2DGeometryBuilder 进行前端本地重算
-            Handle(RwSlope2DGeometryBuilder) builder = new RwSlope2DGeometryBuilder(
+            // 调用 RwSlopeGeometryBuilder 进行前端本地重算
+            Handle(RwSlopeGeometryBuilder) builder = new RwSlopeGeometryBuilder(
                 TopoDS::Wire(latestShoulderShape),
                 TopoDS::Wire(latestToeShape),
                 slopeNode->GetSpacing(),
@@ -323,8 +339,8 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
                 }
             }
 
-            TopoDS_Shape totalHatch = builder->Build();
-            builder->SaveToXDE(drawingDoc);
+            TopoDS_Shape totalHatch = builder->Build(RwBuilder::Rep_2D_Plan);
+            builder->SaveToXDE(drawingDoc, RwBuilder::Rep_2D_Plan, totalHatch);
 
             // 建立 2D 示坡线图元与 3D 边坡的业务 nodeId 关联
             if (!shapeTool.IsNull()) {
@@ -337,7 +353,7 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
                     if (fsLabel.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
                         std::string nameStr = ToStdString(nameAttr->Get());
                         std::cout << "[DEBUG] Sync2DDrawing: Free shape index " << k << " Name = " << nameStr << std::endl;
-                        if (nameStr == "RoadShoulderLine" || nameStr == "SlopeToeLine" || nameStr == "SlopeTeeth") {
+                        if (nameStr == "Slope2DPlan") {
                             std::string guidStr = ToStdString(targetGuid);
                             TDataStd_AsciiString::Set(fsLabel, TCollection_AsciiString(guidStr.c_str()));
                             std::cout << "[DEBUG] Sync2DDrawing: Successfully set AsciiString NodeId on Label: " << guidStr << std::endl;

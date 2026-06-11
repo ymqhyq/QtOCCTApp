@@ -9,8 +9,8 @@ file(GLOB_RECURSE SOURCES "generated/*.cpp")
 file(GLOB_RECURSE HEADERS "generated/*.h")
 
 # GeometryService & IfcExportService (manual classes)
-list(APPEND SOURCES "GeometryService.cpp" "IfcExportService.cpp" "RwBuilder.cpp" "RwSlope2DGeometryBuilder.cpp" "ProjectManager.cpp")
-list(APPEND HEADERS "GeometryService.h" "IfcExportService.h" "RwBuilder.h" "RwSlope2DGeometryBuilder.h" "ProjectManager.h")
+list(APPEND SOURCES "GeometryService.cpp" "IfcExportService.cpp" "RwBuilder.cpp" "RwSlopeGeometryBuilder.cpp" "ProjectManager.cpp" "SceneDataExtractor.cpp")
+list(APPEND HEADERS "GeometryService.h" "IfcExportService.h" "RwBuilder.h" "RwSlopeGeometryBuilder.h" "ProjectManager.h" "SceneDataExtractor.h")
 
 # -----------------------------------------------------------------------------
 # Target Definition

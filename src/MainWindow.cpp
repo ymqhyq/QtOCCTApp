@@ -13,6 +13,25 @@
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
 #include <BRepBuilderAPI_Transform.hxx>
+#include "RwSlopeGeometryBuilder.h"
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeWire.hxx>
+
+namespace {
+    struct SlopeWires { TopoDS_Wire shoulder; TopoDS_Wire toe; };
+    static SlopeWires CreateSlopeWiresLocal(double L, double H, double ratio) {
+        SlopeWires res;
+        double offset = H * ratio;
+        gp_Pnt p1(0, offset, H);
+        gp_Pnt p2(L, offset, H);
+        res.shoulder = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p1, p2));
+        
+        gp_Pnt p3(0, 0, 0);
+        gp_Pnt p4(L, 0, 0);
+        res.toe = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p3, p4));
+        return res;
+    }
+}
 #include "IfcExportService.h"
 #include <ifcparse/IfcFile.h>
 #include <ifcgeom/Iterator.h>
@@ -64,6 +83,7 @@
 #include "DataModel.h"
 #include "BrNode_adObject.h"
 #include "GeometryService.h"
+#include "SceneDataExtractor.h"
 #include "BrNode_adGeometry.h"
 #include "BrNode_adGeometricDef.h"
 #include "ProjectManager.h"
@@ -77,6 +97,8 @@
 #include <XCAFDoc_ColorTool.hxx>
 #include <XCAFDoc_LayerTool.hxx>
 #include <Standard_Failure.hxx>
+#include <ActAPI_IPartition.h>
+#include <ActData_BasePartition.h>
 
 namespace {
     std::vector<Handle(BrNode_adObject)> getTopLevelObjects(const Handle(DataModel)& model) {
@@ -975,23 +997,10 @@ void MainWindow::onLoadAsiModel() {
         return;
     }
 
-    std::vector<GeometryService::VisualShape> visualShapes;
+    std::vector<SceneDataExtractor::VisualShape> visualShapes;
 
-    // 开启 Command 事务并在事务中构建几何并挂载到 XCAF 树上
-    m_currentModel->OpenCommand();
     try {
-        // 显式在事务内初始化 XCAF 的各种 Tools 以避免懒加载崩溃
-        XCAFDoc_DocumentTool::ShapeTool(m_currentModel->Document()->Main());
-        XCAFDoc_DocumentTool::ColorTool(m_currentModel->Document()->Main());
-        XCAFDoc_DocumentTool::LayerTool(m_currentModel->Document()->Main());
-
-        GeometryService geoService(m_currentModel);
-
-        std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(m_currentModel);
-        for (const auto& obj : topObjs) {
-            geoService.TraverseAndBuild(obj, visualShapes);
-        }
-        m_currentModel->CommitCommand();
+        SceneDataExtractor::Extract(m_currentModel, visualShapes);
     } catch (Standard_Failure& e) {
         m_currentModel->AbortCommand();
         QString errMsg = QString("OCCT Exception: %1").arg(e.GetMessageString());
@@ -1133,6 +1142,20 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
 
     // Traverse sub-documents
     NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+        if (subDocs.IsEmpty() && !m_currentModel.IsNull()) {
+            Handle(ActAPI_IPartition) part = m_currentModel->Partition(2);
+            if (!part.IsNull()) {
+                for (ActData_BasePartition::Iterator pit(part); pit.More(); pit.Next()) {
+                    Handle(BrNode_adSubDocRef) child = Handle(BrNode_adSubDocRef)::DownCast(pit.Value());
+                    if (!child.IsNull()) {
+                        Handle(ActAPI_INode) p = child->GetParentNode();
+                        if (!p.IsNull() && p->GetId() == rootNode->GetId()) {
+                            subDocs.Append(child);
+                        }
+                    }
+                }
+            }
+        }
     qDebug() << "[GUI] loadMasterCbf: SubDocRefs count:" << subDocs.Length();
     std::string path3D = "";
     std::string path2D = "";
@@ -1191,149 +1214,23 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     }
 
 
-    std::vector<GeometryService::VisualShape> visualShapes;
+    std::vector<SceneDataExtractor::VisualShape> visualShapes;
 
-    // Load 3D model
-    if (has3DFile) {
-        Handle(TDocStd_Document) modelDoc = m_projectManager->GetOrLoadSubDocument(path3D);
-        if (!modelDoc.IsNull()) {
-            qDebug() << "[GUI] loadMasterCbf: 3D model document loaded successfully.";
-            Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
-            model3D->OpenCommand();
-            try {
-                XCAFDoc_DocumentTool::ShapeTool(model3D->Document()->Main());
-                XCAFDoc_DocumentTool::ColorTool(model3D->Document()->Main());
-                XCAFDoc_DocumentTool::LayerTool(model3D->Document()->Main());
-
-                GeometryService geoService(model3D);
-                std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(model3D);
-                for (const auto& obj : topObjs) {
-                    qDebug() << "[GUI] loadMasterCbf: Found 3D object:" << convertToUtf8(obj->GetName()) 
-                             << "type:" << convertToUtf8(obj->GetObjectType());
-                    geoService.TraverseAndBuild(obj, visualShapes);
-                }
-                model3D->CommitCommand();
-            } catch (...) {
-                qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during 3D traverse-and-build!";
-                model3D->AbortCommand();
-            }
-        }
-    } else {
-        qDebug() << "[GUI] loadMasterCbf: 3D model file NOT found. Loading geometry directly from master model.";
-        m_currentModel->OpenCommand();
-        try {
-            GeometryService geoService(m_currentModel);
-            std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(m_currentModel);
-            for (const auto& obj : topObjs) {
-                qDebug() << "[GUI] loadMasterCbf: Found object in master:" << convertToUtf8(obj->GetName()) 
-                         << "type:" << convertToUtf8(obj->GetObjectType());
-                geoService.TraverseAndBuild(obj, visualShapes);
-            }
-            m_currentModel->CommitCommand();
-        } catch (...) {
-            qDebug() << "[GUI] loadMasterCbf: ERROR: Exception occurred during master traverse-and-build!";
-            m_currentModel->AbortCommand();
-        }
-    }
-
-    qDebug() << "[GUI] loadMasterCbf: Built visual shapes count:" << visualShapes.size();
-
-    // Display in 3D viewport
-    auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
-        std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
-            QVariantMap map;
-            for (auto it = js.begin(); it != js.end(); ++it) {
-                QString key = QString::fromStdString(it.key());
-                if (it.value().is_string()) {
-                    map[key] = QString::fromStdString(it.value().get<std::string>());
-                } else if (it.value().is_number_float()) {
-                    map[key] = it.value().get<double>();
-                } else if (it.value().is_number_integer()) {
-                    map[key] = it.value().get<int>();
-                } else if (it.value().is_boolean()) {
-                    map[key] = it.value().get<bool>();
-                } else if (it.value().is_object()) {
-                    map[key] = convert(it.value());
-                } else if (it.value().is_array()) {
-                    QVariantList list;
-                    for (const auto& item : it.value()) {
-                        if (item.is_number()) list.append(item.get<double>());
-                        else if (item.is_string()) list.append(QString::fromStdString(item.get<std::string>()));
-                    }
-                    map[key] = list;
-                }
-            }
-            return map;
-        };
-        return convert(j);
-    };
-
-    for (const auto& vs : visualShapes) {
-        if (vs.shape.IsNull()) {
-            qDebug() << "[GUI] loadMasterCbf: Warning: Visual shape is NULL for" << QString::fromStdString(vs.name);
-            continue;
-        }
-        TopoDS_Shape transformedShape = vs.shape;
-        try {
-            BRepBuilderAPI_Transform trans(vs.shape, vs.transform);
-            transformedShape = trans.Shape();
-        } catch (...) {}
-
-        QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
-        Quantity_Color color(Quantity_NOC_GRAY75);
-        if (meta.contains("Pset_MaterialPBR")) {
-            QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
-            if (pbr.contains("BaseColor")) {
-                QVariantList colorList = pbr["BaseColor"].toList();
-                if (colorList.size() >= 3) {
-                    color = Quantity_Color(colorList[0].toDouble(), 
-                                           colorList[1].toDouble(), 
-                                           colorList[2].toDouble(), 
-                                           Quantity_TOC_RGB);
-                }
-            }
-        }
-        m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
-    }
-    m_occtWidget->fitAll();
-
-    // Load 2D drawing
+    // Set up UI layout based on available documents
     if (has2DFile) {
-        Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
-        if (!drawingDoc.IsNull()) {
-            qDebug() << "[GUI] loadMasterCbf: 2D drawing document loaded successfully.";
-            m_occtWidget2D->show();
-            
-            Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
-            if (!drawingModel.IsNull()) {
-                Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
-                if (!topoPart.IsNull()) {
-                    for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
-                        Handle(BrNode_adDrawing2D) drawNode = Handle(BrNode_adDrawing2D)::DownCast(it.Value());
-                        if (!drawNode.IsNull()) {
-                            m_projectManager->Sync2DDrawing(drawNode);
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            m_occtWidget2D->loadXcafDocument(drawingDoc);
-            m_occtWidget2D->fitAll();
-            
-            QList<int> sizes;
-            sizes << width() / 2 << width() / 2;
-            m_splitter->setSizes(sizes);
-        } else {
-            qDebug() << "[GUI] loadMasterCbf: ERROR: 2D drawing document is NULL!";
-        }
+        m_occtWidget2D->show();
+        QList<int> sizes;
+        sizes << width() / 2 << width() / 2;
+        m_splitter->setSizes(sizes);
     } else {
-        qDebug() << "[GUI] loadMasterCbf: 2D drawing file NOT found. Hiding 2D drawing viewport.";
         m_occtWidget2D->hide();
         QList<int> sizes;
         sizes << width() << 0;
         m_splitter->setSizes(sizes);
     }
+
+    // Call unified refresh to extract and display 3D geometries and 2D drawings
+    refreshViews();
 
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
@@ -1850,6 +1747,11 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
         // If not found in property sets, check if it's a direct property of a 2D node (e.g. adSlopeIndication)
         Handle(BrNode_adSlopeIndication) slope2D = Handle(BrNode_adSlopeIndication)::DownCast(node);
         if (!slope2D.IsNull()) {
+            if (propertyName == "Length") {
+                QString targetGuid = QString::fromUtf16((const char16_t*)slope2D->GetTargetObjectID().ToExtString());
+                onPropertyValueChanged(targetGuid, propertyName, newValue);
+                return;
+            }
             model->OpenCommand();
             if (propertyName == "Spacing") slope2D->SetSpacing(newValue.toDouble());
             else if (propertyName == "LongLineRatio") slope2D->SetLongLineRatio(newValue.toDouble());
@@ -1874,6 +1776,42 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     qDebug() << "[GUI] Property" << propertyName << "updated to" << newValue << "for node" << nodeId;
     
     // Re-build geometry and refresh views
+    Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(node);
+    if (!adObj.IsNull() && QString::fromUtf16((const char16_t*)adObj->GetObjectType().ToExtString()) == "SubgradeSlope") {
+        double L = 20000.0, H = 8000.0, Ratio = 1.5;
+        NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
+        for (int i = 1; i <= psets.Length(); ++i) {
+            Handle(BrNode_adPropertySet) pset = psets.Value(i);
+            if (!pset.IsNull() && QString::fromUtf16((const char16_t*)pset->GetName().ToExtString()) == "Pset_SlopeGeometry") {
+                NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
+                for (int k = 1; k <= props.Length(); ++k) {
+                    QString pn = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyName().ToExtString());
+                    QString pv = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyValue().ToExtString());
+                    if (pn == "Length") L = pv.toDouble();
+                    else if (pn == "Height") H = pv.toDouble();
+                    else if (pn == "Ratio") Ratio = pv.toDouble();
+                }
+                break;
+            }
+        }
+        
+        SlopeWires initWires3D = CreateSlopeWiresLocal(L, H, Ratio);
+        Handle(RwSlopeGeometryBuilder) builder3D = new RwSlopeGeometryBuilder(
+            initWires3D.shoulder, initWires3D.toe, 2000.0, 0.6, 0.3
+        );
+        TopoDS_Shape shape3D = builder3D->Build(RwBuilder::Rep_3D_Solid);
+        
+        model->OpenCommand();
+        Handle(BrNode_adGeometry) geoNode = Handle(BrNode_adGeometry)::DownCast(adObj->GetGeometry());
+        if (!geoNode.IsNull() && !geoNode->GetGeometryRef().IsNull()) {
+            Handle(BrNode_adGeometricDef) geoDef = Handle(BrNode_adGeometricDef)::DownCast(geoNode->GetGeometryRef());
+            if (!geoDef.IsNull()) {
+                geoDef->SetShape(shape3D);
+            }
+        }
+        model->CommitCommand();
+    }
+    
     refreshViews();
 }
 
@@ -1887,10 +1825,24 @@ void MainWindow::refreshViews() {
     
     // In master mode, we need to gather from loaded sub-models
     std::string path3D, path2D;
-    std::vector<GeometryService::VisualShape> visualShapes;
+    std::vector<SceneDataExtractor::VisualShape> visualShapes;
     Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
     if (!rootNode.IsNull()) {
         NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+        if (subDocs.IsEmpty() && !m_currentModel.IsNull()) {
+            Handle(ActAPI_IPartition) part = m_currentModel->Partition(2);
+            if (!part.IsNull()) {
+                for (ActData_BasePartition::Iterator pit(part); pit.More(); pit.Next()) {
+                    Handle(BrNode_adSubDocRef) child = Handle(BrNode_adSubDocRef)::DownCast(pit.Value());
+                    if (!child.IsNull()) {
+                        Handle(ActAPI_INode) p = child->GetParentNode();
+                        if (!p.IsNull() && p->GetId() == rootNode->GetId()) {
+                            subDocs.Append(child);
+                        }
+                    }
+                }
+            }
+        }
         for (int i = 1; i <= subDocs.Length(); ++i) {
             Handle(BrNode_adSubDocRef) refNode = subDocs.Value(i);
             if (!refNode.IsNull()) {
@@ -1905,24 +1857,21 @@ void MainWindow::refreshViews() {
     if (path3D.empty()) path3D = "models/subgrade_3d.cbf";
     if (path2D.empty()) path2D = "drawings/plan_view.cbf";
     
+    m_projectManager->GetOrLoadSubDocument(path3D);
     Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
     if (!model3D.IsNull()) {
         model3D->OpenCommand();
         try {
-            qDebug() << "[GUI] Rebuilding 3D geometries...";
-            GeometryService geoService3D(model3D);
-            std::vector<Handle(BrNode_adObject)> topObjs = getTopLevelObjects(model3D);
-            for (const auto& obj : topObjs) {
-                geoService3D.TraverseAndBuild(obj, visualShapes);
-            }
-            qDebug() << "[GUI] 3D geometries rebuilt, visualShapes count:" << visualShapes.size();
+            qDebug() << "[GUI] Extracting 3D geometries for rendering...";
+            SceneDataExtractor::Extract(model3D, visualShapes);
+            qDebug() << "[GUI] 3D geometries extracted, visualShapes count:" << visualShapes.size();
         } catch (...) {
             qDebug() << "[GUI] Exception during 3D geometry rebuild";
         }
         model3D->CommitCommand();
         qDebug() << "[GUI] CommitCommand done for 3D model.";
+        
     }
-    
     // Display in 3D widget
     auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
         std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
@@ -1957,6 +1906,11 @@ void MainWindow::refreshViews() {
         } catch (...) {}
 
         QVariantMap meta = convertJsonToQVariantMap(vs.metadata);
+        QVariantList trsfList;
+        trsfList << vs.transform.Value(1, 1) << vs.transform.Value(1, 2) << vs.transform.Value(1, 3) << vs.transform.Value(1, 4)
+                 << vs.transform.Value(2, 1) << vs.transform.Value(2, 2) << vs.transform.Value(2, 3) << vs.transform.Value(2, 4)
+                 << vs.transform.Value(3, 1) << vs.transform.Value(3, 2) << vs.transform.Value(3, 3) << vs.transform.Value(3, 4);
+        meta["_globalTrsf"] = trsfList;
         Quantity_Color color(Quantity_NOC_GRAY75);
         if (meta.contains("Pset_MaterialPBR")) {
             QVariantMap pbr = meta["Pset_MaterialPBR"].toMap();
@@ -1975,6 +1929,7 @@ void MainWindow::refreshViews() {
     
     qDebug() << "[GUI] Starting Sync and refresh 2D view";
     // Sync and refresh 2D view
+    m_projectManager->GetOrLoadSubDocument(path2D);
     Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
     if (!drawingModel.IsNull()) {
         Handle(ActAPI_IPartition) topoPart = drawingModel->Partition(2);
@@ -1992,7 +1947,31 @@ void MainWindow::refreshViews() {
         Handle(TDocStd_Document) drawingDoc = m_projectManager->GetOrLoadSubDocument(path2D);
         if (!drawingDoc.IsNull()) {
             m_occtWidget2D->clearAll();
-            m_occtWidget2D->loadXcafDocument(drawingDoc);
+            
+            // Render 2D geometry from active data models
+            if (!topoPart.IsNull()) {
+                for (ActData_BasePartition::Iterator it(topoPart); it.More(); it.Next()) {
+                    Handle(BrNode_adRepresentation2D) repNode = Handle(BrNode_adRepresentation2D)::DownCast(it.Value());
+                    if (!repNode.IsNull()) {
+                        TopoDS_Shape shape = repNode->GetGeneratedShape();
+                        if (!shape.IsNull()) {
+                            QVariantMap meta;
+                            meta["name"] = QString::fromUtf16((const char16_t*)repNode->GetName().ToExtString());
+                            
+                            // Check if it is a slope indication and get the target 3D object GUID
+                            Handle(BrNode_adSlopeIndication) slopeNode = Handle(BrNode_adSlopeIndication)::DownCast(repNode);
+                            if (!slopeNode.IsNull()) {
+                                QString targetGuid = QString::fromUtf16((const char16_t*)slopeNode->GetTargetObjectID().ToExtString());
+                                if (!targetGuid.isEmpty()) {
+                                    meta["_adNodeId"] = targetGuid;
+                                }
+                            }
+                            
+                            m_occtWidget2D->displayShape(shape, Graphic3d_NOM_PLASTIC, true, meta);
+                        }
+                    }
+                }
+            }
             
             // 为二维示坡线添加长度标注
             Handle(BrNode_adObject) found3DObj;

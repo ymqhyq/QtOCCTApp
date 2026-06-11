@@ -22,15 +22,21 @@ public:
     BR_EXPORT RwBuilder();
     BR_EXPORT virtual ~RwBuilder();
 
+    enum RepresentationType {
+        Rep_3D_Solid,
+        Rep_2D_Plan,
+        Rep_2D_Profile
+    };
+
     /**
      * @brief Build geometric shape
      */
-    BR_EXPORT virtual TopoDS_Shape Build() = 0;
+    BR_EXPORT virtual TopoDS_Shape Build(RepresentationType repType) = 0;
 
     /**
      * @brief Save generated geometry to sub-document XCAF layers
      */
-    BR_EXPORT virtual Standard_Boolean SaveToXDE(Handle(TDocStd_Document)& doc) = 0;
+    BR_EXPORT virtual Standard_Boolean SaveToXDE(Handle(TDocStd_Document)& doc, RepresentationType repType, const TopoDS_Shape& shape) = 0;
 
     // OCCT RTTI
     DEFINE_STANDARD_RTTIEXT(RwBuilder, Standard_Transient)

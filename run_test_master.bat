@@ -40,3 +40,4 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b %ERRORLEVEL%
 )
 echo [SUCCESS] All unit tests passed!
+pause

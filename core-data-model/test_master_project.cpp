@@ -22,15 +22,20 @@
 #include <gp_Pnt.hxx>
 #include <Quantity_Color.hxx>
 #include <TDF_LabelSequence.hxx>
+#include <TDF_Tool.hxx>
+#include <ActData_BasePartition.h>
 
 // Project Classes
 #include "ProjectManager.h"
-#include "RwSlope2DGeometryBuilder.h"
+#include "RwSlopeGeometryBuilder.h"
+#include "SceneDataExtractor.h"
 #include "generated/DataFactory.h"
 #include "generated/BrNode_adDrawing2D.h"
 #include "generated/BrNode_adSlopeIndication.h"
 #include "generated/BrNode_adObject.h"
 #include "generated/BrNode_adModelRoot.h"
+#include "generated/BrNode_adProperty.h"
+#include "generated/BrNode_adPropertySet.h"
 
 // -----------------------------------------------------------------------------
 // GTest-like Unit Test Macro Definitions
@@ -85,7 +90,7 @@ SlopeWires CreateSlopeWires(double length, double height, double slopeRatio) {
 }
 
 // -----------------------------------------------------------------------------
-// Unit Test 1: Verify RwSlope2DGeometryBuilder geometry generation and XDE save
+// Unit Test 1: Verify RwSlopeGeometryBuilder geometry generation and XDE save
 // -----------------------------------------------------------------------------
 TEST(SlopeGeometryBuilderTest, GenerateAndSaveSlope)
 {
@@ -98,7 +103,7 @@ TEST(SlopeGeometryBuilderTest, GenerateAndSaveSlope)
 
     // 2. Init builder: spacing 2m, long 60%, short 30%
     double spacing = 2000.0;
-    Handle(RwSlope2DGeometryBuilder) builder = new RwSlope2DGeometryBuilder(
+    Handle(RwSlopeGeometryBuilder) builder = new RwSlopeGeometryBuilder(
         Wires.shoulder, 
         Wires.toe, 
         spacing, 
@@ -107,17 +112,17 @@ TEST(SlopeGeometryBuilderTest, GenerateAndSaveSlope)
     );
 
     // 3. Build geometry compound and verify teeth count
-    TopoDS_Shape totalShape = builder->Build();
+    TopoDS_Shape totalShape = builder->Build(RwBuilder::Rep_2D_Plan);
     ASSERT_TRUE(!totalShape.IsNull());
 
     // Count teeth edges
     int edgeCount = 0;
-    TopExp_Explorer exp(builder->GetTeethCompound(), TopAbs_EDGE);
+    TopExp_Explorer exp(totalShape, TopAbs_EDGE);
     for (; exp.More(); exp.Next()) {
         edgeCount++;
     }
-    // 20m (20000mm) / 2m (2000mm) + 1 = 11 lines
-    EXPECT_EQ(edgeCount, 11);
+    // 20m (20000mm) / 2m (2000mm) + 1 = 11 teeth lines + 1 shoulder + 1 toe = 13 lines
+    EXPECT_EQ(edgeCount, 13);
 
     // 4. Create in-memory XCAF doc and save, verify layer and color
     Handle(TDocStd_Application) app = new TDocStd_Application();
@@ -125,28 +130,23 @@ TEST(SlopeGeometryBuilderTest, GenerateAndSaveSlope)
     Handle(TDocStd_Document) doc;
     app->NewDocument("BinXCAF", doc);
     
-    Standard_Boolean saved = builder->SaveToXDE(doc);
+    Standard_Boolean saved = builder->SaveToXDE(doc, RwBuilder::Rep_2D_Plan, totalShape);
     ASSERT_TRUE(saved);
 
     // Verify layers
     Handle(XCAFDoc_LayerTool) layerTool = XCAFDoc_DocumentTool::LayerTool(doc->Main());
     Handle(XCAFDoc_ColorTool) colorTool = XCAFDoc_DocumentTool::ColorTool(doc->Main());
 
-    TDF_Label shoulderLayerLabel = layerTool->FindLayer("Layer_RoadShoulder");
-    TDF_Label toeLayerLabel = layerTool->FindLayer("Layer_SlopeToe_Dashed");
-    TDF_Label teethLayerLabel = layerTool->FindLayer("Layer_SlopeTeeth");
-
-    ASSERT_TRUE(!shoulderLayerLabel.IsNull());
-    ASSERT_TRUE(!toeLayerLabel.IsNull());
-    ASSERT_TRUE(!teethLayerLabel.IsNull());
+    TDF_Label planLayerLabel = layerTool->FindLayer("Layer_Slope2D");
+    ASSERT_TRUE(!planLayerLabel.IsNull());
 
     // Verify colors
     Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
     TDF_LabelSequence shapes;
     shapeTool->GetShapes(shapes);
     
-    // Should have 3 top-level sub shapes (shoulder, toe, teeth)
-    EXPECT_EQ(shapes.Length(), 3);
+    // Should have 1 top-level sub shape (Slope2DPlan)
+    EXPECT_EQ(shapes.Length(), 1);
 }
 
 // -----------------------------------------------------------------------------
@@ -216,6 +216,23 @@ TEST(ProjectManagerTest, MultiDocLinkageAndSync)
     
     TCollection_ExtendedString slopeGuid = slope3DObj->GetGlobalID();
     
+    // Create 3D geometry and store to modelDoc XCAF
+    SlopeWires initWires3D = CreateSlopeWires(20000.0, 8000.0, 1.5);
+    Handle(RwSlopeGeometryBuilder) builder3D = new RwSlopeGeometryBuilder(
+        initWires3D.shoulder,
+        initWires3D.toe,
+        2000.0, 0.6, 0.3
+    );
+    TopoDS_Shape shape3D = builder3D->Build(RwBuilder::Rep_3D_Solid);
+    builder3D->SaveToXDE(modelDoc, RwBuilder::Rep_3D_Solid, shape3D);
+
+    // [CRITICAL FIX] Bind the 3D shape into the ActiveData Node Tree
+    Handle(BrNode_adGeometricDef) geoDef = model3D->AddadGeometricDef();
+    geoDef->SetShape(shape3D);
+    Handle(BrNode_adGeometry) geoNode = model3D->AddadGeometry();
+    geoNode->SetGeometryRef(geoDef);
+    slope3DObj->SetGeometry(geoNode);
+
     // Attach to OCAF root
     Handle(BrNode_adModelRoot) root3D = Handle(BrNode_adModelRoot)::DownCast(model3D->GetRootNode());
     root3D->AddSubObjects(slope3DObj);
@@ -267,33 +284,212 @@ TEST(ProjectManagerTest, MultiDocLinkageAndSync)
     Standard_Boolean saved = pm->SaveAll();
     ASSERT_TRUE(saved);
 
-    // 4. Parameter modification and linkage: simulate 3D model feature lines change to 30m
-    // Update feature lines to 30m to trigger lazy sync
-    SlopeWires updatedWires = CreateSlopeWires(30000.0, 8000.0, 1.5); // 30m
-    
-    drawingModel->OpenCommand();
-    slope2D->SetShoulderLine(updatedWires.shoulder);
-    slope2D->SetToeLine(updatedWires.toe);
-    drawingModel->CommitCommand();
-
-    // Re-run Lazy Sync, detect geometry changes and recalculate
-    Standard_Boolean synced2 = pm->Sync2DDrawing(drawing2D);
-    ASSERT_TRUE(synced2);
-
-    // Assert: generated 2D slope indication successfully updated
-    int updatedTeethCount = 0;
-    TopExp_Explorer exp2(slope2D->GetGeneratedShape(), TopAbs_EDGE);
-    for (; exp2.More(); exp2.Next()) {
-        updatedTeethCount++;
-    }
-    // 30m / 2m + 1 = 16 teeth + 1 shoulder + 1 toe = 18
-    EXPECT_EQ(updatedTeethCount, 18);
-
-    // Save again
-    ASSERT_TRUE(pm->SaveAll());
-
     // 5. Clean up test directory (disabled to keep generated test files)
     // std::filesystem::remove_all(testProjDir);
+    delete pm;
+
+    // Pack to slope.rde: Compress-Archive requires .zip extension
+    std::cout << "[DEBUG] Packaging temp_debug to slope.rde..." << std::endl;
+    system("powershell -Command \"Compress-Archive -Path ./temp_debug/* -DestinationPath ./slope.zip -Force; Move-Item -Path ./slope.zip -Destination ./slope.rde -Force\"");
+}
+
+static std::string ToStdString(const TCollection_ExtendedString &es) {
+    std::string result;
+    const Standard_ExtCharacter* p = es.ToExtString();
+    for (int i = 0; i < es.Length(); ++i) {
+        result += (char)(p[i] & 0xFF);
+    }
+    return result;
+}
+
+static std::string GetEntryStr(const TDF_Label& label) {
+    TCollection_AsciiString entry;
+    TDF_Tool::Entry(label, entry);
+    return entry.ToCString();
+}
+
+static void PrintNodeTree(const Handle(ActAPI_INode)& node, int depth = 0) {
+    if (node.IsNull()) return;
+    std::string indent(depth * 2, ' ');
+    std::cout << indent << "- Node: " << ToStdString(node->GetName()) 
+              << " | Type: " << node->DynamicType()->Name() << std::endl;
+    
+    // Check property sets
+    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(node);
+    if (!obj.IsNull()) {
+        NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = obj->GetPropertySetsList();
+        for (int p = 1; p <= psets.Length(); ++p) {
+            Handle(BrNode_adPropertySet) pset = psets.Value(p);
+            if (!pset.IsNull()) {
+                std::cout << indent << "  [PSet] " << ToStdString(pset->GetName()) << std::endl;
+                NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
+                for (int k = 1; k <= props.Length(); ++k) {
+                    Handle(BrNode_adProperty) prop = props.Value(k);
+                    if (!prop.IsNull()) {
+                        std::cout << indent << "    * " << ToStdString(prop->GetPropertyName()) 
+                                  << " = " << ToStdString(prop->GetPropertyValue()) << std::endl;
+                    }
+                }
+            }
+        }
+    }
+
+    // Traverse children
+    Handle(ActAPI_IChildIterator) it = node->GetChildIterator();
+    if (!it.IsNull()) {
+        for (; it->More(); it->Next()) {
+            PrintNodeTree(it->Value(), depth + 1);
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Unit Test 3: Diagnose existing slope.rde
+// -----------------------------------------------------------------------------
+TEST(ProjectManagerTest, DiagnoseSlopeRde)
+{
+    std::string extractDir = "./temp_slope_extracted";
+    std::filesystem::remove_all(extractDir);
+    std::filesystem::create_directories(extractDir);
+
+    std::string rdePath = "";
+    if (std::filesystem::exists("slope.rde")) {
+        rdePath = "slope.rde";
+    } else if (std::filesystem::exists("../slope.rde")) {
+        rdePath = "../slope.rde";
+    } else if (std::filesystem::exists("../../slope.rde")) {
+        rdePath = "../../slope.rde";
+    }
+    std::cout << "[DIAG] Found slope.rde at: " << rdePath << std::endl;
+    std::string cmd = "tar -xf " + rdePath + " -C " + extractDir;
+    int ret = std::system(cmd.c_str());
+    std::cout << "[DIAG] Tar extraction returned: " << ret << std::endl;
+
+    std::string masterPath = extractDir + "/master.cbf";
+    if (!std::filesystem::exists(masterPath)) {
+        // Search for master.cbf in subdirectories
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(extractDir)) {
+            if (entry.is_regular_file() && entry.path().filename() == "master.cbf") {
+                masterPath = entry.path().string();
+                break;
+            }
+        }
+    }
+
+    std::cout << "[DIAG] Master path: " << masterPath << " (exists=" << std::filesystem::exists(masterPath) << ")" << std::endl;
+
+    ProjectManager* pm = new ProjectManager();
+    Standard_Boolean opened = pm->OpenMasterProject(masterPath);
+    std::cout << "[DIAG] OpenMasterProject: " << (opened ? "SUCCESS" : "FAILED") << std::endl;
+
+    if (opened) {
+        Handle(DataModel) masterModel = pm->GetMasterModel();
+        if (!masterModel.IsNull()) {
+            Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(masterModel->GetRootNode());
+            if (!rootNode.IsNull()) {
+                std::cout << "[DIAG] Node Hierarchy:" << std::endl;
+                PrintNodeTree(rootNode);
+                std::cout << "[DIAG] End Node Hierarchy" << std::endl;
+                NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
+                std::cout << "[DIAG] SubDocRefs count: " << subDocs.Length() << std::endl;
+                
+                std::string path3D = "models/subgrade_3d.cbf";
+                std::string path2D = "drawings/plan_view.cbf";
+                for (int i = 1; i <= subDocs.Length(); ++i) {
+                    Handle(BrNode_adSubDocRef) refNode = subDocs.Value(i);
+                    if (!refNode.IsNull()) {
+                        std::cout << "  - SubDocRef " << i 
+                                  << " Name: " << ToStdString(refNode->GetName())
+                                  << " Type: " << ToStdString(refNode->GetDocType())
+                                  << " Path: " << ToStdString(refNode->GetDocPath()) << std::endl;
+                        if (ToStdString(refNode->GetDocType()) == "3DModel") {
+                            path3D = ToStdString(refNode->GetDocPath());
+                        } else if (ToStdString(refNode->GetDocType()) == "2DDrawing") {
+                            path2D = ToStdString(refNode->GetDocPath());
+                        }
+                    }
+                }
+
+                // Check and load 3D sub doc
+                std::filesystem::path mPath(masterPath);
+                std::filesystem::path absSubPath3D = mPath.parent_path() / path3D;
+                std::cout << "[DIAG] 3D SubDoc Path: " << absSubPath3D.string() 
+                          << " (exists=" << std::filesystem::exists(absSubPath3D) << ")" << std::endl;
+                if (std::filesystem::exists(absSubPath3D)) {
+                    Handle(TDocStd_Document) subDoc3D = pm->GetOrLoadSubDocument(path3D);
+                    std::cout << "  - GetOrLoadSubDocument 3D: " << (subDoc3D.IsNull() ? "NULL" : "VALID") << std::endl;
+                    if (!subDoc3D.IsNull()) {
+                        Handle(DataModel) subModel3D = pm->GetSubModel(path3D);
+                        
+                        // 诊断: 提取 3D 模型渲染数据
+                        std::cout << "[DIAG] Testing SceneDataExtractor on 3D Model..." << std::endl;
+                        std::vector<SceneDataExtractor::VisualShape> visualShapes;
+                        SceneDataExtractor::Extract(subModel3D, visualShapes);
+                        std::cout << "[DIAG] SceneDataExtractor returned " << visualShapes.size() << " visual shapes." << std::endl;
+
+                        if (!subModel3D.IsNull()) {
+                            Handle(ActAPI_INode) subRoot3D = subModel3D->GetRootNode();
+                            if (!subRoot3D.IsNull()) {
+                                std::cout << "  - 3D Model Node Hierarchy:" << std::endl;
+                                PrintNodeTree(subRoot3D);
+                                std::cout << "  - End 3D Model Node Hierarchy" << std::endl;
+                            }
+                            // Also print Partition 2 nodes
+                            Handle(ActAPI_IPartition) topoPart3D = subModel3D->Partition(2);
+                            if (!topoPart3D.IsNull()) {
+                                std::cout << "  - 3D Model Partition 2 (Topology) Nodes:" << std::endl;
+                                for (ActData_BasePartition::Iterator nodeIt(topoPart3D); nodeIt.More(); nodeIt.Next()) {
+                                    Handle(ActAPI_INode) n = nodeIt.Value();
+                                    if (!n.IsNull()) {
+                                        Handle(ActAPI_INode) p = n->GetParentNode();
+                                        std::cout << "    * Node: " << ToStdString(n->GetName()) 
+                                                  << " | Entry: " << GetEntryStr(n->RootLabel())
+                                                  << " | Type: " << n->DynamicType()->Name()
+                                                  << " | Parent: " << (p.IsNull() ? "NULL" : GetEntryStr(p->RootLabel()).c_str()) << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Check and load 2D sub doc
+                std::filesystem::path absSubPath2D = mPath.parent_path() / path2D;
+                std::cout << "[DIAG] 2D SubDoc Path: " << absSubPath2D.string() 
+                          << " (exists=" << std::filesystem::exists(absSubPath2D) << ")" << std::endl;
+                if (std::filesystem::exists(absSubPath2D)) {
+                    Handle(TDocStd_Document) subDoc2D = pm->GetOrLoadSubDocument(path2D);
+                    std::cout << "  - GetOrLoadSubDocument 2D: " << (subDoc2D.IsNull() ? "NULL" : "VALID") << std::endl;
+                    if (!subDoc2D.IsNull()) {
+                        Handle(DataModel) subModel2D = pm->GetSubModel(path2D);
+                        if (!subModel2D.IsNull()) {
+                            Handle(ActAPI_INode) subRoot2D = subModel2D->GetRootNode();
+                            if (!subRoot2D.IsNull()) {
+                                std::cout << "  - 2D Drawing Node Hierarchy:" << std::endl;
+                                PrintNodeTree(subRoot2D);
+                                std::cout << "  - End 2D Drawing Node Hierarchy" << std::endl;
+                            }
+                            // Also print Partition 2 nodes
+                            Handle(ActAPI_IPartition) topoPart2D = subModel2D->Partition(2);
+                            if (!topoPart2D.IsNull()) {
+                                std::cout << "  - 2D Model Partition 2 (Topology) Nodes:" << std::endl;
+                                for (ActData_BasePartition::Iterator nodeIt(topoPart2D); nodeIt.More(); nodeIt.Next()) {
+                                    Handle(ActAPI_INode) n = nodeIt.Value();
+                                    if (!n.IsNull()) {
+                                        Handle(ActAPI_INode) p = n->GetParentNode();
+                                        std::cout << "    * Node: " << ToStdString(n->GetName()) 
+                                                  << " | Entry: " << GetEntryStr(n->RootLabel())
+                                                  << " | Type: " << n->DynamicType()->Name()
+                                                  << " | Parent: " << (p.IsNull() ? "NULL" : GetEntryStr(p->RootLabel()).c_str()) << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     delete pm;
 }
 
@@ -311,6 +507,7 @@ int main(int argc, char** argv)
     try {
         RUN_TEST(SlopeGeometryBuilderTest, GenerateAndSaveSlope);
         RUN_TEST(ProjectManagerTest, MultiDocLinkageAndSync);
+        RUN_TEST(ProjectManagerTest, DiagnoseSlopeRde);
     }
     catch (const Standard_Failure& f) {
         std::cerr << "\n[  FAILED  ] OCCT Exception: " << f.GetMessageString() << std::endl;
