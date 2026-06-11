@@ -2323,9 +2323,10 @@ void OCCTWidget::selectAndCenterObject(const QString& key, const QVariant& value
             BRepBndLib::Add(aisShape->Shape(), bbox);
         }
         
-        if (!bbox.IsVoid()) {
-            m_view->FitAll(bbox, 0.1, Standard_True);
-        }
+        // 选中几何时不再执行适应屏幕 (FitAll) 操作
+        // if (!bbox.IsVoid()) {
+        //     m_view->FitAll(bbox, 0.1, Standard_True);
+        // }
     }
     m_view->Redraw();
 }
