@@ -30,12 +30,10 @@
 #include <ActData_BasePartition.h>
 
 static std::string ToStdString(const TCollection_ExtendedString &es) {
-    std::string result;
-    const Standard_ExtCharacter* p = es.ToExtString();
-    for (int i = 0; i < es.Length(); ++i) {
-        result += (char)(p[i] & 0xFF);
-    }
-    return result;
+    std::vector<char> buf(static_cast<size_t>(es.Length()) * 4 + 1);
+    Standard_PCharacter pBuffer = buf.data();
+    const Standard_Integer len = es.ToUTF8CString(pBuffer);
+    return std::string(pBuffer, len);
 }
 
 ProjectManager::ProjectManager()
@@ -328,6 +326,7 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
 
             // 5. 生成 2D 图形，并将其存入平面图 XCAF 树
             drawingDoc->NewCommand();
+            try {
             
             // 清理旧的二维呈现 (避免长度变短时残留旧图形)
             Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(drawingDoc->Main());
@@ -369,6 +368,11 @@ Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)&
             drawingDoc->CommitCommand();
 
             hasChanges = Standard_True;
+            } catch (...) {
+                drawingDoc->AbortCommand();
+                std::cerr << "[ProjectManager] Sync2DDrawing failed; command aborted." << std::endl;
+                continue;
+            }
         }
     }
 

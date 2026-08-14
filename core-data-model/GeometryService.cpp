@@ -62,12 +62,10 @@
 // ============================================================
 
 static std::string ToStdString(const TCollection_ExtendedString &es) {
-  std::string result;
-  const Standard_ExtCharacter* p = es.ToExtString();
-  for (int i = 0; i < es.Length(); ++i) {
-    result += (char)(p[i] & 0xFF);
-  }
-  return result;
+  std::vector<char> buf(static_cast<size_t>(es.Length()) * 4 + 1);
+  Standard_PCharacter pBuffer = buf.data();
+  const Standard_Integer len = es.ToUTF8CString(pBuffer);
+  return std::string(pBuffer, len);
 }
 
 static TCollection_ExtendedString ToExtString(const std::string &s) {
@@ -312,6 +310,10 @@ TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, c
     // 1. 创建临时 OCAF 文档 (格式为 BinXCAF) 并正确关联到 application
     Handle(TDocStd_Document) tempDoc;
     app->NewDocument("BinXCAF", tempDoc);
+    if (tempDoc.IsNull()) {
+        std::cerr << "[GeometryService] Failed to create temporary CBF document" << std::endl;
+        return TDF_Label();
+    }
     
     // 2. 从流反序列化
     std::istringstream iss(cbfByteStream, std::ios::binary);
@@ -342,6 +344,10 @@ TDF_Label GeometryService::ImportAndMergeCbf(const std::string& cbfByteStream, c
     if (destShapeTool.IsNull()) return TDF_Label();
 
     TDF_Label destProtoLabel = destShapeTool->NewShape();
+    if (destProtoLabel.IsNull()) {
+        std::cerr << "[GeometryService] Failed to create destination prototype label" << std::endl;
+        return TDF_Label();
+    }
     
     TDF_CopyLabel copyHelper;
     copyHelper.Load(srcProtoLabel, destProtoLabel);
@@ -571,7 +577,9 @@ GeometryService::CallModelingService(const std::string &modelType,
   uint32_t jsonLen = 0;
   memcpy(&jsonLen, response.data(), 4);
 
-  if (4 + jsonLen > response.size()) {
+  constexpr uint32_t kMaxJsonLen = 64u * 1024u * 1024u; // 64 MB 上限
+  if (jsonLen > kMaxJsonLen ||
+      static_cast<size_t>(4) + jsonLen > response.size()) {
     result.error = "Invalid JHB header";
     return result;
   }
@@ -689,7 +697,9 @@ TDF_Label
       std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
   Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
   std::cout << "[Helper] CP3.7: ShapeTool got.\n";
+      if (destShapeTool.IsNull()) return TDF_Label();
       TDF_Label protoLabel = destShapeTool->AddShape(shape, Standard_False);
+      if (protoLabel.IsNull()) return TDF_Label();
       TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
       m_cacheMap[paramGeoId] = protoLabel;
 
@@ -735,7 +745,9 @@ TDF_Label
     std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
   Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
   std::cout << "[Helper] CP3.7: ShapeTool got.\n";
+    if (destShapeTool.IsNull()) return TDF_Label();
     protoLabel = destShapeTool->AddShape(shape, Standard_False);
+    if (protoLabel.IsNull()) return TDF_Label();
     TDataStd_AsciiString::Set(protoLabel, paramGeoId.c_str());
     m_cacheMap[paramGeoId] = protoLabel;
 
@@ -744,11 +756,16 @@ TDF_Label
   } else {
     // 5. 反序列化并合并 BREP 字节流到 XCAF
     protoLabel = ImportAndMergeCbf(sr.brepData, paramGeoId);
+    if (protoLabel.IsNull()) {
+        std::cerr << "[GeometryService] ImportAndMergeCbf returned an empty label" << std::endl;
+        return TDF_Label();
+    }
     
     Handle(TDocStd_Document) destDoc = m_xcafDoc;
     std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
   Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
   std::cout << "[Helper] CP3.7: ShapeTool got.\n";
+    if (destShapeTool.IsNull()) return TDF_Label();
     if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
         // 创建 adGeometricDef 保存到几何分区
         geoDef = CreateGeoDef(paramGeoId, sr.allParams, shape);
@@ -787,6 +804,7 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
     std::cout << "[Helper] CP3.6: Getting ShapeTool...\n";
   Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
   std::cout << "[Helper] CP3.7: ShapeTool got.\n";
+    if (destShapeTool.IsNull()) return result;
     TopoDS_Shape shape;
     if (destShapeTool->GetShape(it->second, shape) && !shape.IsNull()) {
       result.shape = shape;
@@ -810,6 +828,7 @@ GeometryService::BuildGeometryFromParams(const std::string &modelType,
   if (!protoLabel.IsNull()) {
     Handle(TDocStd_Document) destDoc = m_xcafDoc;
     Handle(XCAFDoc_ShapeTool) destShapeTool = XCAFDoc_DocumentTool::ShapeTool(destDoc->Main());
+    if (destShapeTool.IsNull()) return result;
     TopoDS_Shape shape;
     if (destShapeTool->GetShape(protoLabel, shape) && !shape.IsNull()) {
       result.shape = shape;

@@ -1086,9 +1086,7 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     if (!schema)
       return false;
 
-    IfcParse::IfcFile *file_ptr =
-        new IfcParse::IfcFile(schema, IfcParse::FT_IFCSPF);
-    IfcParse::IfcFile &file = *file_ptr;
+    IfcParse::IfcFile file(schema, IfcParse::FT_IFCSPF);
 
     // OwnerHistory
     auto person = CreateEntity<Ifc4x3_add2::IfcPerson>(file);
@@ -1253,7 +1251,14 @@ bool IfcExportService::Export(const Handle(DataModel) & model,
     if (f.is_open()) {
       f << content;
       f.close();
+      if (f.fail()) {
+        std::cerr << "[IfcExportService] Failed to write file: " << filename << std::endl;
+        return false;
+      }
       std::cout << "[IfcExportService] File saved: " << filename << std::endl;
+    } else {
+      std::cerr << "[IfcExportService] Failed to open file for writing: " << filename << std::endl;
+      return false;
     }
 
     return true;

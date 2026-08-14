@@ -137,6 +137,9 @@ namespace {
     }
 }
 
+// 完整桥墩/全桥装配由固定 9 个子构件组成 (0:Pile 1:PileCap 2:PierBody 3:PierTray 4/5:BedStone 6/7:Bearing 8:Girder)
+static constexpr int kAssemblyPartCount = 9;
+
 static const char* const CHECKBOX_STYLE = 
     "QCheckBox { color: #333333; font-size: 12px; }"
     "QCheckBox::indicator {"
@@ -598,12 +601,10 @@ void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
     qDebug() << "[MainWindow] onExplorerNodeSelected entered for nodeId:" << node->GetId().ToCString();
 
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        QByteArray bytes;
-        const Standard_ExtCharacter* p = extStr.ToExtString();
-        for (int i = 0; i < extStr.Length(); ++i) {
-            bytes.append((char)(p[i] & 0xFF));
-        }
-        return QString::fromUtf8(bytes);
+        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
+        Standard_PCharacter pBuffer = buf.data();
+        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
+        return QString::fromUtf8(pBuffer, len);
     };
 
     // 1. Extract properties from the node for the Property Panel
@@ -901,12 +902,10 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
 void MainWindow::updateStretchHandles(const QVariantMap &flattenedMeta, Handle(BrNode_adObject) node) {
     if (node.IsNull()) return;
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        QByteArray bytes;
-        const Standard_ExtCharacter* p = extStr.ToExtString();
-        for (int i = 0; i < extStr.Length(); ++i) {
-            bytes.append((char)(p[i] & 0xFF));
-        }
-        return QString::fromUtf8(bytes);
+        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
+        Standard_PCharacter pBuffer = buf.data();
+        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
+        return QString::fromUtf8(pBuffer, len);
     };
     QString nodeId = convertToUtf8(node->GetGlobalID());
 
@@ -1130,12 +1129,10 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     
     // Helper lambda for converting ExtendedString to QString
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        QByteArray bytes;
-        const Standard_ExtCharacter* p = extStr.ToExtString();
-        for (int i = 0; i < extStr.Length(); ++i) {
-            bytes.append((char)(p[i] & 0xFF));
-        }
-        return QString::fromUtf8(bytes);
+        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
+        Standard_PCharacter pBuffer = buf.data();
+        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
+        return QString::fromUtf8(pBuffer, len);
     };
 
     qDebug() << "[GUI] loadMasterCbf: Root node name:" << convertToUtf8(rootNode->GetName());
@@ -1426,11 +1423,23 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
 
         if (m_isAssembling) {
             m_completedTasks++;
-            if (m_completedTasks == 9) {
+            if (m_completedTasks == kAssemblyPartCount) {
                 statusBar()->showMessage("脚本拼装中断", 5000);
                 m_isAssembling = false;
             } else {
                 dispatchTask();
+            }
+        } else if (m_isBatchProcessing) {
+            // 批量模式下任一请求失败也必须计数，否则 m_completedTasks 永远达不到目标数导致界面死等。
+            m_completedTasks++;
+            statusBar()->showMessage(QString("批量生成出错: %1/%2").arg(m_completedTasks).arg(m_bridgePierCount));
+            if (m_completedTasks >= m_bridgePierCount) {
+                m_isBatchProcessing = false;
+                if (!m_batchParts.isEmpty()) {
+                    m_occtWidget->buildFullBridgeFromBatch(m_batchParts);
+                    m_occtWidget->fitAll();
+                }
+                statusBar()->showMessage(QString("批量生成结束（含错误），已生成 %1/%2 个桥墩").arg(m_batchParts.size()).arg(m_bridgePierCount), 10000);
             }
         }
         reply->deleteLater();
@@ -1447,8 +1456,12 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
 
     uint32_t jsonLen = 0;
     memcpy(&jsonLen, data.constData(), 4);
-    if (data.size() < (int)(4 + jsonLen)) {
-        qWarning() << "JHB metadata length mismatch";
+
+    // 防御性校验：防止损坏/恶意长度字段导致越界或整数溢出
+    constexpr uint32_t kMaxJsonLen = 64u * 1024u * 1024u; // 64 MB 上限
+    if (jsonLen > kMaxJsonLen ||
+        data.size() < static_cast<qint64>(4) + jsonLen) {
+        qWarning() << "JHB metadata length mismatch or too large:" << jsonLen;
         return;
     }
 
@@ -1516,7 +1529,7 @@ void MainWindow::onCqNetworkReply(QNetworkReply *reply, int assemblyIndex) {
         m_assemblyParts[assemblyIndex] = {shape, mat, metadata};
         m_completedTasks++;
 
-        if (m_completedTasks == 9) {
+        if (m_completedTasks == kAssemblyPartCount) {
             m_occtWidget->buildFullBridgeFromParts(m_assemblyParts, m_bridgePierCount, m_bridgePierSpacing);
             statusBar()->showMessage(QString("全桥拼装完成，用时 %1 ms").arg(m_batchTimer.elapsed()), 10000);
             m_isAssembling = false;
@@ -1712,14 +1725,23 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     Handle(BrNode_adProperty) targetProp;
     Handle(DataModel) model;
     Handle(ActAPI_INode) node;
-    
+
     for (const auto& pair : matchingNodes) {
         Handle(ActAPI_INode) candidateNode = pair.first;
         Handle(DataModel) candidateModel = pair.second;
-        
+        if (candidateNode.IsNull() || candidateModel.IsNull()) continue;
+
+        // Keep the first valid candidate for direct properties (e.g.
+        // adSlopeIndication) when the requested property is not present in a
+        // PropertySet.
+        if (model.IsNull()) {
+            model = candidateModel;
+            node = candidateNode;
+        }
+
         Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(candidateNode);
-        if (adObj.IsNull() || candidateModel.IsNull()) continue;
-        
+        if (adObj.IsNull()) continue;
+
         // Find property
         NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
         for (int i = 1; i <= psets.Length() && targetProp.IsNull(); ++i) {
@@ -1742,22 +1764,41 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
         }
         if (!targetProp.IsNull()) break;
     }
-    
+
     if (targetProp.IsNull()) {
+        if (model.IsNull() || node.IsNull()) {
+            qDebug() << "[GUI] ERROR: Property not found and no valid model/node";
+            return;
+        }
+
         // If not found in property sets, check if it's a direct property of a 2D node (e.g. adSlopeIndication)
         Handle(BrNode_adSlopeIndication) slope2D = Handle(BrNode_adSlopeIndication)::DownCast(node);
         if (!slope2D.IsNull()) {
             if (propertyName == "Length") {
                 QString targetGuid = QString::fromUtf16((const char16_t*)slope2D->GetTargetObjectID().ToExtString());
-                onPropertyValueChanged(targetGuid, propertyName, newValue);
+                if (!targetGuid.isEmpty()) {
+                    onPropertyValueChanged(targetGuid, propertyName, newValue);
+                }
                 return;
             }
-            model->OpenCommand();
-            if (propertyName == "Spacing") slope2D->SetSpacing(newValue.toDouble());
-            else if (propertyName == "LongLineRatio") slope2D->SetLongLineRatio(newValue.toDouble());
-            else if (propertyName == "ShortLineRatio") slope2D->SetShortLineRatio(newValue.toDouble());
-            model->CommitCommand();
-            refreshViews();
+
+            bool commandOpen = false;
+            try {
+                model->OpenCommand();
+                commandOpen = true;
+                if (propertyName == "Spacing") slope2D->SetSpacing(newValue.toDouble());
+                else if (propertyName == "LongLineRatio") slope2D->SetLongLineRatio(newValue.toDouble());
+                else if (propertyName == "ShortLineRatio") slope2D->SetShortLineRatio(newValue.toDouble());
+                model->CommitCommand();
+                commandOpen = false;
+                refreshViews();
+            } catch (const std::exception& e) {
+                if (commandOpen) model->AbortCommand();
+                qWarning() << "[GUI] Failed to update slope property:" << e.what();
+            } catch (...) {
+                if (commandOpen) model->AbortCommand();
+                qWarning() << "[GUI] Failed to update slope property: unknown error";
+            }
         }
         return;
     }
@@ -1769,9 +1810,22 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
         return;
     }
     
-    model->OpenCommand();
-    targetProp->SetPropertyValue(TCollection_ExtendedString(newValue.toStdString().c_str()));
-    model->CommitCommand();
+    bool commandOpen = false;
+    try {
+        model->OpenCommand();
+        commandOpen = true;
+        targetProp->SetPropertyValue(TCollection_ExtendedString(newValue.toStdString().c_str()));
+        model->CommitCommand();
+        commandOpen = false;
+    } catch (const std::exception& e) {
+        if (commandOpen) model->AbortCommand();
+        qWarning() << "[GUI] Failed to update property:" << e.what();
+        return;
+    } catch (...) {
+        if (commandOpen) model->AbortCommand();
+        qWarning() << "[GUI] Failed to update property: unknown error";
+        return;
+    }
     
     qDebug() << "[GUI] Property" << propertyName << "updated to" << newValue << "for node" << nodeId;
     
@@ -1801,15 +1855,26 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
         );
         TopoDS_Shape shape3D = builder3D->Build(RwBuilder::Rep_3D_Solid);
         
-        model->OpenCommand();
-        Handle(BrNode_adGeometry) geoNode = Handle(BrNode_adGeometry)::DownCast(adObj->GetGeometry());
-        if (!geoNode.IsNull() && !geoNode->GetGeometryRef().IsNull()) {
-            Handle(BrNode_adGeometricDef) geoDef = Handle(BrNode_adGeometricDef)::DownCast(geoNode->GetGeometryRef());
-            if (!geoDef.IsNull()) {
-                geoDef->SetShape(shape3D);
+        bool geometryCommandOpen = false;
+        try {
+            model->OpenCommand();
+            geometryCommandOpen = true;
+            Handle(BrNode_adGeometry) geoNode = Handle(BrNode_adGeometry)::DownCast(adObj->GetGeometry());
+            if (!geoNode.IsNull() && !geoNode->GetGeometryRef().IsNull()) {
+                Handle(BrNode_adGeometricDef) geoDef = Handle(BrNode_adGeometricDef)::DownCast(geoNode->GetGeometryRef());
+                if (!geoDef.IsNull()) {
+                    geoDef->SetShape(shape3D);
+                }
             }
+            model->CommitCommand();
+            geometryCommandOpen = false;
+        } catch (const std::exception& e) {
+            if (geometryCommandOpen) model->AbortCommand();
+            qWarning() << "[GUI] Failed to rebuild slope geometry:" << e.what();
+        } catch (...) {
+            if (geometryCommandOpen) model->AbortCommand();
+            qWarning() << "[GUI] Failed to rebuild slope geometry: unknown error";
         }
-        model->CommitCommand();
     }
     
     refreshViews();
@@ -1860,17 +1925,23 @@ void MainWindow::refreshViews() {
     m_projectManager->GetOrLoadSubDocument(path3D);
     Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
     if (!model3D.IsNull()) {
+        bool commandOpen = false;
         model3D->OpenCommand();
+        commandOpen = true;
         try {
             qDebug() << "[GUI] Extracting 3D geometries for rendering...";
             SceneDataExtractor::Extract(model3D, visualShapes);
             qDebug() << "[GUI] 3D geometries extracted, visualShapes count:" << visualShapes.size();
+            model3D->CommitCommand();
+            commandOpen = false;
+            qDebug() << "[GUI] CommitCommand done for 3D model.";
         } catch (...) {
-            qDebug() << "[GUI] Exception during 3D geometry rebuild";
+            if (commandOpen) {
+                model3D->AbortCommand();
+                commandOpen = false;
+            }
+            qWarning() << "[GUI] Exception during 3D geometry rebuild; command aborted.";
         }
-        model3D->CommitCommand();
-        qDebug() << "[GUI] CommitCommand done for 3D model.";
-        
     }
     // Display in 3D widget
     auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {

@@ -3,6 +3,7 @@
 #include <QHeaderView>
 #include <TCollection_AsciiString.hxx>
 #include <NCollection_Sequence.hxx>
+#include <vector>
 
 ModelExplorerPanel::ModelExplorerPanel(QWidget* parent) : QDockWidget("Model Explorer", parent) {
     setObjectName("ModelExplorerPanel");
@@ -53,12 +54,10 @@ void ModelExplorerPanel::populateModel(Handle(BrNode_adObject) node, QStandardIt
     if (node.IsNull()) return;
 
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        QByteArray bytes;
-        const Standard_ExtCharacter* p = extStr.ToExtString();
-        for (int i = 0; i < extStr.Length(); ++i) {
-            bytes.append((char)(p[i] & 0xFF));
-        }
-        return QString::fromUtf8(bytes);
+        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
+        Standard_PCharacter pBuffer = buf.data();
+        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
+        return QString::fromUtf8(pBuffer, len);
     };
 
     QString qName = convertToUtf8(node->GetName());
