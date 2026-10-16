@@ -143,7 +143,13 @@ void SceneDataExtractor::ExtractFromObject(const Handle(BrNode_adObject)& rootOb
             }
             vs.metadata[psName] = psJson;
         }
-        vs.metadata["_adNodeId"] = ToStdString(rootObj->GetGlobalID());
+        // 联动用的节点标识：优先 GlobalID；部分工程数据没有设置 GlobalID（返回空串），
+        // 此时退化为 OCAF 条目 ID（如 "0:2:2:3"），保证视口对象仍能定位到业务节点。
+        std::string linkId = ToStdString(rootObj->GetGlobalID());
+        if (linkId.empty()) {
+            linkId = rootObj->GetId().ToCString();
+        }
+        vs.metadata["_adNodeId"] = linkId;
         outShapes.push_back(vs);
     }
 

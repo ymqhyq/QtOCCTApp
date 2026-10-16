@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -28,6 +29,18 @@
 #endif
 
 namespace shx {
+
+namespace {
+// 以 UTF-8 解释窄字符路径：MSVC 下 std::ifstream 直接把 char* 交给 ANSI 代码页，
+// 部署目录含中文时字体会打不开；转成 std::filesystem::path 后走宽字符 API。
+std::filesystem::path PathFromUtf8(const std::string &thePath) {
+#if defined(__cpp_lib_char8_t)
+  return std::filesystem::path(std::u8string(thePath.begin(), thePath.end()));
+#else
+  return std::filesystem::u8path(thePath);
+#endif
+}
+} // namespace
 
 //=============================================================================
 // Constants
@@ -215,7 +228,7 @@ private:
 };
 
 bool ShxFont::Impl::load(const std::string &filename) {
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
+  std::ifstream file(PathFromUtf8(filename), std::ios::binary | std::ios::ate);
   if (!file.is_open()) {
     lastError = "Cannot open file: " + filename;
     std::cout << "ShxParser: " << lastError << std::endl;
@@ -1228,7 +1241,7 @@ bool ShxFont::isValid() const { return pImpl->valid; }
 const char *getVersion() { return SHX_VERSION; }
 
 bool isValidShxFile(const std::string &filename) {
-  std::ifstream file(filename, std::ios::binary);
+  std::ifstream file(PathFromUtf8(filename), std::ios::binary);
   if (!file.is_open()) {
     return false;
   }

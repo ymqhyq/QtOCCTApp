@@ -101,6 +101,8 @@ add_executable(${PROJECT_NAME}
     src/ModelExplorerPanel.cpp
     include/ComponentLibraryPanel.h
     src/ComponentLibraryPanel.cpp
+    include/UiTheme.h
+    src/UiTheme.cpp
     resources.qrc
 )
 
@@ -210,4 +212,5 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 )
 
 # Add test directory
+enable_testing()
 add_subdirectory(test)

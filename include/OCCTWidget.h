@@ -4,7 +4,6 @@
 #include <QElapsedTimer>
 #include <QLabel>
 #include <QMouseEvent>
-#include <QTimer>
 #include <QWidget>
 
 #include <AIS_InteractiveContext.hxx>
@@ -30,6 +29,40 @@ class AspectWindow;
 
 class Line;
 
+/**
+ * @brief 统计真实重绘次数的视图
+ *
+ * OCCT 的交互操作（Rotation / Pan / ZoomAtPoint 等）以及 view cube 的即时刷新
+ * 都由 OCCT 内部直接调用 Redraw()/RedrawImmediate() 完成，不会经过 Qt 的
+ * paintEvent。因此按 paintEvent 统计帧率会严重偏低（交互很流畅、读数却接近 0）。
+ * 这两个函数都是虚函数，重写它们即可在真正的渲染点计数。
+ */
+class FrameCountingView : public V3d_View {
+public:
+  explicit FrameCountingView(const Handle(V3d_Viewer) & theViewer)
+      : V3d_View(theViewer) {}
+
+  void Redraw() const override {
+    ++m_frameCounter;
+    V3d_View::Redraw();
+  }
+
+  void RedrawImmediate() const override {
+    ++m_frameCounter;
+    V3d_View::RedrawImmediate();
+  }
+
+  /// 取走并清零累计的重绘次数
+  int takeFrameCount() const {
+    const int count = m_frameCounter;
+    m_frameCounter = 0;
+    return count;
+  }
+
+private:
+  mutable int m_frameCounter = 0;
+};
+
 class OCCTWidget : public QWidget {
   Q_OBJECT
 
@@ -42,7 +75,12 @@ public:
   addShape(const TopoDS_Shape &shape,
            const Quantity_Color &color = Quantity_Color(Quantity_NOC_YELLOW),
            Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC,
-           const QVariantMap &metadata = QVariantMap());
+           const QVariantMap &metadata = QVariantMap(),
+           bool isTextShape = false);
+  //! 显示并登记“文本对象”，使其可被 setTextsSolid 单独切换实体/空心显示
+  void addTextShape(const TopoDS_Shape &shape,
+                    const Quantity_Color &color = Quantity_Color(Quantity_NOC_YELLOW),
+                    Graphic3d_NameOfMaterial material = Graphic3d_NOM_PLASTIC);
   void selectAndCenterObject(const QString& key, const QVariant& value);
   void selectLine(const gp_Pnt &point);
   void setDrawLineMode(bool enabled) { m_drawLineMode = enabled; }
@@ -134,6 +172,10 @@ private:
   void initViewCube();
   void updateView();
   void updateOverlayInfo(bool forceShapeCount = false);
+  // 按固定节奏结算帧率（与 Qt 的重绘时机解耦，空闲时自然归零）
+  void sampleFrameRate();
+  // 取走本周期内的真实重绘次数
+  int takeFrameCount() const;
 
   Handle(V3d_Viewer) m_viewer;
   Handle(V3d_View) m_view;
@@ -156,10 +198,12 @@ private:
   bool Get3DPoint(int userX, int userY, gp_Pnt &outPoint);
 
   QElapsedTimer m_fpsTimer;
-  int m_frameCount;
+  QElapsedTimer m_statsTimer; // 限流刷新显示对象数量统计，避免每帧遍历
+  QTimer *m_fpsUpdateTimer; // 固定节奏刷新 FPS 读数
   double m_fps;
   int m_shapeCount;
   bool m_shapeCountDirty;
+  bool m_textsSolid; // 文本对象当前的实体/空心状态，供新加入的文本沿用
   QLabel *m_infoLabel;
 
   Handle(AIS_ViewCube) m_viewCube;

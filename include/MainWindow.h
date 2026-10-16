@@ -19,6 +19,7 @@
 #include <QVBoxLayout>
 #include <QSplitter>
 #include <QTemporaryDir>
+#include <QVector>
 
 #include <TopoDS_Shape.hxx>
 
@@ -26,10 +27,12 @@
 
 #include "OCCTWidget.h"
 #include "DataModel.h"
+#include "UiTheme.h"
 
 class ShxTextGenerator;
 class QLabel;
 class QTextEdit;
+class QComboBox;
 class PythonSyntaxHighlighter;
 class ModelExplorerPanel;
 class ComponentLibraryPanel;
@@ -70,6 +73,9 @@ private slots:
   void onExportRdeClicked();         // 导出为RDE打包文件
   void refreshViews();
 
+  // SARibbon 主题变化后同步图标与自有控件配色
+  void onRibbonThemeChanged(SARibbonTheme theme);
+
   // Microservice Connection
   void onCqNetworkReply(QNetworkReply *reply, int assemblyIndex);
 
@@ -93,6 +99,11 @@ private:
                                 const QString &modelType = QString());
   void dispatchTask(int dummy = 0);
   QString readScript(const QString &modelName);
+
+  // 创建Ribbon动作并按当前主题着色（图标资源路径会被记录，主题变化时重新着色）
+  QAction *makeIconAction(const QString &svgResourcePath, const QString &text);
+  // 把当前配色应用到所有自有控件（图标、停靠面板、属性面板、脚本编辑器等）
+  void applyUiThemeToWidgets();
 
   OCCTWidget *m_occtWidget;
   OCCTWidget *m_occtWidget2D;
@@ -128,6 +139,16 @@ private:
   Handle(DataModel) m_currentModel;
   QTemporaryDir *m_tempProjDir;
   QString m_loadedMasterPath;
+  // 主控文档引用的 3D/2D 子文档（相对主控文档的路径；空 = 没有可用子文档）
+  QString m_subDocPath3D;
+  QString m_subDocPath2D;
+
+  // 主题相关
+  QVector<QPair<QAction *, QString>> m_themedActions; // 动作 -> SVG 资源路径
+  UiColorScheme m_uiScheme = UiColorScheme::Light;
+  QComboBox *m_themeComboBox = nullptr;
+  bool m_applyingTheme = false;
+  QVariantMap m_lastPropertyMeta; // 主题变化后据此重绘属性面板
 };
 
 #endif // MAINWINDOW_H

@@ -1,11 +1,35 @@
 #include "../include/PythonSyntaxHighlighter.h"
 
 PythonSyntaxHighlighter::PythonSyntaxHighlighter(QTextDocument *parent)
-    : QSyntaxHighlighter(parent) {
+    : QSyntaxHighlighter(parent), m_darkScheme(false) {
+  buildRules(false);
+}
+
+void PythonSyntaxHighlighter::setDarkScheme(bool dark) {
+  if (m_darkScheme == dark) {
+    return;
+  }
+  m_darkScheme = dark;
+  buildRules(dark);
+  rehighlight();
+}
+
+void PythonSyntaxHighlighter::buildRules(bool dark) {
+  highlightingRules.clear();
+
+  // 浅色背景用深色系关键字色；深色背景改用浅色系，避免在深底上看不清
+  const QColor keywordColor = dark ? QColor("#569cd6") : QColor(Qt::darkBlue);
+  const QColor classColor = dark ? QColor("#4ec9b0") : QColor(Qt::darkMagenta);
+  const QColor stringColor = dark ? QColor("#ce9178") : QColor(Qt::darkGreen);
+  const QColor functionColor = dark ? QColor("#dcdcaa") : QColor(0, 100, 100);
+  const QColor specialColor = dark ? QColor("#d7ba7d") : QColor(200, 100, 0);
+  const QColor numberColor = dark ? QColor("#b5cea8") : QColor(Qt::darkRed);
+  const QColor commentColor = dark ? QColor("#6a9955") : QColor(Qt::gray);
+
   HighlightingRule rule;
 
   // 1. Keywords
-  keywordFormat.setForeground(Qt::darkBlue);
+  keywordFormat.setForeground(keywordColor);
   keywordFormat.setFontWeight(QFont::Bold);
   QStringList keywordPatterns;
   keywordPatterns << "\\bclass\\b" << "\\bdef\\b" << "\\breturn\\b"
@@ -29,14 +53,14 @@ PythonSyntaxHighlighter::PythonSyntaxHighlighter(QTextDocument *parent)
 
   // 2. Class Names (e.g. MyClass) - After 'class' keyword usually
   classFormat.setFontWeight(QFont::Bold);
-  classFormat.setForeground(Qt::darkMagenta);
+  classFormat.setForeground(classColor);
   rule.pattern =
       QRegularExpression("\\bQ[A-Za-z]+\\b"); // Qt classes convention
   rule.format = classFormat;
   highlightingRules.append(rule);
 
   // 3. Strings (Single and Double Quotes) - Using non-greedy match
-  quotationFormat.setForeground(Qt::darkGreen);
+  quotationFormat.setForeground(stringColor);
   rule.pattern = QRegularExpression("\".*?\"");
   rule.format = quotationFormat;
   highlightingRules.append(rule);
@@ -47,14 +71,14 @@ PythonSyntaxHighlighter::PythonSyntaxHighlighter(QTextDocument *parent)
 
   // 4. Function Calls (e.g. myFunction())
   functionFormat.setFontItalic(true);
-  functionFormat.setForeground(QColor(0, 100, 100)); // Teal
+  functionFormat.setForeground(functionColor); // Teal / 深色背景下的淡黄
   rule.pattern = QRegularExpression("\\b[A-Za-z0-9_]+(?=\\()");
   rule.format = functionFormat;
   highlightingRules.append(rule);
 
   // 5. Special Variables (cq, result)
   QTextCharFormat specialVarFormat;
-  specialVarFormat.setForeground(QColor(200, 100, 0)); // Orange/Brown
+  specialVarFormat.setForeground(specialColor); // Orange/Brown
   specialVarFormat.setFontWeight(QFont::Bold);
   QStringList specialVars;
   specialVars << "\\bcq\\b" << "\\bresult\\b";
@@ -65,13 +89,13 @@ PythonSyntaxHighlighter::PythonSyntaxHighlighter(QTextDocument *parent)
   }
 
   // 6. Numbers
-  numberFormat.setForeground(Qt::darkRed);
+  numberFormat.setForeground(numberColor);
   rule.pattern = QRegularExpression("\\b\\d+\\b");
   rule.format = numberFormat;
   highlightingRules.append(rule);
 
   // 7. Comments
-  singleLineCommentFormat.setForeground(Qt::gray);
+  singleLineCommentFormat.setForeground(commentColor);
   rule.pattern = QRegularExpression("#[^\n]*");
   rule.format = singleLineCommentFormat;
   highlightingRules.append(rule);

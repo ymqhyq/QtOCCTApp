@@ -33,6 +33,7 @@ namespace {
     }
 }
 #include "IfcExportService.h"
+#include "TextEncoding.h"
 #include <ifcparse/IfcFile.h>
 #include <ifcgeom/Iterator.h>
 #include <ifcgeom/kernels/opencascade/OpenCascadeKernel.h>
@@ -58,9 +59,12 @@ namespace {
 #include <QNetworkReply>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QSignalBlocker>
+#include <QSettings>
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTextEdit>
+#include <QTimer>
 #include <QUuid>
 #include <QVBoxLayout>
 #include <QDirIterator>
@@ -156,6 +160,40 @@ static const char* const CHECKBOX_STYLE =
     "  image: url(:/resources/icons/check.svg);"
     "}";
 
+// 可选界面主题（顺序即“主题”下拉框顺序），颜色明暗由 UiTheme 负责推导
+struct ThemeEntry {
+  SARibbonTheme theme;
+  const char *label;
+};
+
+static const ThemeEntry kThemeEntries[] = {
+    {SARibbonTheme::RibbonThemeOffice2021Blue, "Office 2021 蓝色"},
+    {SARibbonTheme::RibbonThemeOffice2021Green, "Office 2021 绿色"},
+    {SARibbonTheme::RibbonThemeOffice2021Dark, "Office 2021 深色"},
+    {SARibbonTheme::RibbonThemeOffice2016Blue, "Office 2016 蓝色"},
+    {SARibbonTheme::RibbonThemeOffice2016Green, "Office 2016 绿色"},
+    {SARibbonTheme::RibbonThemeOffice2016Dark, "Office 2016 深色"},
+    {SARibbonTheme::RibbonThemeOffice2013, "Office 2013"},
+    {SARibbonTheme::RibbonThemeWindows7, "Windows 7"},
+    {SARibbonTheme::RibbonThemeDark, "深色"},
+    {SARibbonTheme::RibbonThemeDark2, "深色 2"},
+};
+
+static constexpr int kThemeEntryCount =
+    int(sizeof(kThemeEntries) / sizeof(kThemeEntries[0]));
+
+static int themeIndexOf(SARibbonTheme theme) {
+  for (int i = 0; i < kThemeEntryCount; ++i) {
+    if (kThemeEntries[i].theme == theme) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// 主题偏好持久化键（记录的是 kThemeEntries 中的下标）
+static const char *const kThemeSettingsKey = "ui/ribbonTheme";
+
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
       m_occtWidget2D(new OCCTWidget(this)), m_splitter(new QSplitter(Qt::Horizontal, this)),
@@ -170,6 +208,12 @@ MainWindow::MainWindow(QWidget *parent)
   showMaximized();
   m_tempProjDir = nullptr;
   m_loadedMasterPath = "";
+
+  // SARibbon 在构造阶段可能已按系统暗色模式自动切换主题，这里先取一次实际主题，
+  // 以便随后创建的按钮图标和自有控件配色与之保持一致。
+  m_uiScheme = uiSchemeForRibbonTheme(ribbonTheme());
+  connect(this, &SARibbonMainWindow::ribbonThemeChanged, this,
+          &MainWindow::onRibbonThemeChanged);
 
   m_occtWidget2D->setAs2DView();
   m_occtWidget2D->hide();
@@ -204,21 +248,61 @@ MainWindow::MainWindow(QWidget *parent)
   });
 
   onObjectSelected(QVariantMap());
+
+  // 构造函数中直接设置主题不会完全生效（SARibbon 建议放到事件队列末尾执行），
+  // 因此界面构建完成后统一应用一次主题：图标着色 + 自有控件配色。
+  QTimer::singleShot(0, this, [this]() {
+    // 优先恢复上次选择的主题；没有记录时沿用 SARibbon 当前主题
+    // （首次运行可能已按系统暗色模式自动切到深色主题）
+    const QVariant savedTheme = QSettings().value(kThemeSettingsKey);
+    bool restored = false;
+    if (savedTheme.isValid()) {
+      const int index = savedTheme.toInt();
+      if (index >= 0 && index < kThemeEntryCount) {
+        restored = true;
+        setRibbonTheme(kThemeEntries[index].theme); // 触发信号后统一刷新图标与配色
+      }
+    }
+    if (!restored) {
+      onRibbonThemeChanged(ribbonTheme());
+    }
+  });
 }
 
 MainWindow::~MainWindow() {
   m_networkManager.reset();
-  if (m_tempProjDir) {
-    delete m_tempProjDir;
-    m_tempProjDir = nullptr;
+
+  // 先释放视口中的 AIS/OCCT 资源，再关闭文档：
+  // AIS 对象可能引用 XCAF 文档中的标签，文档先关闭会留下悬垂引用。
+  if (m_occtWidget) {
+    m_occtWidget->cleanup();
   }
+  if (m_occtWidget2D) {
+    m_occtWidget2D->cleanup();
+  }
+  OCCTWidget::releaseSharedDriver();
+
   if (m_projectManager) {
     delete m_projectManager;
     m_projectManager = nullptr;
   }
+
+  // 关闭子文档之后才能安全删除临时目录，否则解压出的子文档仍占用文件，
+  // 临时目录会删除失败并残留在 %TEMP% 中。
+  if (m_tempProjDir) {
+    delete m_tempProjDir;
+    m_tempProjDir = nullptr;
+  }
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
+  // 先让基类决定是否接受关闭请求：只有在窗口确实要关闭时才释放图形资源，
+  // 否则一旦基类拒绝关闭（ignore），窗口会带着已释放的图形驱动继续运行。
+  SARibbonMainWindow::closeEvent(event);
+  if (!event->isAccepted()) {
+    return;
+  }
+
   // 提前清理 OpenGL 资源，防止 eglMakeCurrent() 失败
   if (m_occtWidget) {
     m_occtWidget->cleanup();
@@ -229,8 +313,6 @@ void MainWindow::closeEvent(QCloseEvent *event) {
   
   // 释放共享的图形驱动
   OCCTWidget::releaseSharedDriver();
-  
-  SARibbonMainWindow::closeEvent(event);
 }
 
 void MainWindow::createRibbon() {
@@ -245,46 +327,46 @@ void MainWindow::createRibbon() {
   SARibbonPanel *panelProject = categoryMain->addPanel("项目");
 
   // 打开 (原 Load ASI 移至第一位)
-  QAction *loadAsiAction = new QAction(QIcon(":/resources/icons/open.svg"), "打开", this);
+  QAction *loadAsiAction = makeIconAction(":/resources/icons/open.svg", "打开");
   connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
   panelProject->addLargeAction(loadAsiAction);
 
   // 关闭 (新按钮)
-  QAction *closeAction = new QAction(QIcon(":/resources/icons/close.svg"), "关闭", this);
+  QAction *closeAction = makeIconAction(":/resources/icons/close.svg", "关闭");
   connect(closeAction, &QAction::triggered, this, &MainWindow::onCloseModel);
   panelProject->addLargeAction(closeAction);
 
   // 增加 "导入" 分组并归类
   SARibbonPanel *panelImport = categoryMain->addPanel("导入");
-  QAction *importBrepAction = new QAction(QIcon(":/resources/icons/import.svg"), "导入 BREP", this);
+  QAction *importBrepAction = makeIconAction(":/resources/icons/import.svg", "导入 BREP");
   connect(importBrepAction, &QAction::triggered, this, &MainWindow::onImportBrep);
   panelImport->addLargeAction(importBrepAction);
 
-  QAction *importIfcAction = new QAction(QIcon(":/resources/icons/import.svg"), "导入 IFC", this);
+  QAction *importIfcAction = makeIconAction(":/resources/icons/import.svg", "导入 IFC");
   connect(importIfcAction, &QAction::triggered, this, &MainWindow::onImportIfc);
   panelImport->addLargeAction(importIfcAction);
 
   // 增加 "导出" 分组并归类
   SARibbonPanel *panelExport = categoryMain->addPanel("导出");
-  QAction *exportIfcAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 IFC", this);
+  QAction *exportIfcAction = makeIconAction(":/resources/icons/export.svg", "导出 IFC");
   connect(exportIfcAction, &QAction::triggered, this, &MainWindow::onExportIfcClicked);
   panelExport->addLargeAction(exportIfcAction);
 
-  QAction *exportStepAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 STEP", this);
+  QAction *exportStepAction = makeIconAction(":/resources/icons/export.svg", "导出 STEP");
   connect(exportStepAction, &QAction::triggered, this, &MainWindow::onExportStepClicked);
   panelExport->addLargeAction(exportStepAction);
 
-  QAction *exportGltfAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 GLTF", this);
+  QAction *exportGltfAction = makeIconAction(":/resources/icons/export.svg", "导出 GLTF");
   connect(exportGltfAction, &QAction::triggered, this, &MainWindow::onExportGltfClicked);
   panelExport->addLargeAction(exportGltfAction);
 
-  QAction *exportRdeAction = new QAction(QIcon(":/resources/icons/export.svg"), "导出 RDE", this);
+  QAction *exportRdeAction = makeIconAction(":/resources/icons/export.svg", "导出 RDE");
   connect(exportRdeAction, &QAction::triggered, this, &MainWindow::onExportRdeClicked);
   panelExport->addLargeAction(exportRdeAction);
 
   // View 修改为 "视图"
   SARibbonPanel *panelView = categoryMain->addPanel("视图");
-  QAction *fitAllAction = new QAction(QIcon(":/resources/icons/fit_all.svg"), "适应屏幕", this);
+  QAction *fitAllAction = makeIconAction(":/resources/icons/fit_all.svg", "适应屏幕");
   connect(fitAllAction, &QAction::triggered, [this]() { m_occtWidget->fitAll(); });
   panelView->addLargeAction(fitAllAction);
 
@@ -314,6 +396,30 @@ void MainWindow::createRibbon() {
   toggleScript->setText("脚本控制台");
   panelView->addSmallAction(toggleScript);
 
+  // 主题面板：切换 Ribbon 主题；按钮图标与自有面板配色会随之同步刷新
+  SARibbonPanel *panelTheme = categoryMain->addPanel("主题");
+  QLabel *themeLabel = new QLabel("界面主题:", this);
+  panelTheme->addWidget(themeLabel, SARibbonPanelItem::Small);
+
+  m_themeComboBox = new QComboBox(this);
+  for (int i = 0; i < kThemeEntryCount; ++i) {
+    m_themeComboBox->addItem(QString::fromUtf8(kThemeEntries[i].label));
+  }
+  const int currentThemeIndex = themeIndexOf(ribbonTheme());
+  m_themeComboBox->setCurrentIndex(currentThemeIndex >= 0 ? currentThemeIndex
+                                                          : 0);
+  m_themeComboBox->setStyleSheet(comboBoxStyle(uiPalette(m_uiScheme)));
+  connect(m_themeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+          this, [this](int index) {
+            if (m_applyingTheme || index < 0 || index >= kThemeEntryCount) {
+              return;
+            }
+            QSettings().setValue(kThemeSettingsKey, index); // 记住用户选择
+            // 设置主题会触发 ribbonThemeChanged，图标与配色统一在该信号里刷新
+            setRibbonTheme(kThemeEntries[index].theme);
+          });
+  panelTheme->addWidget(m_themeComboBox, SARibbonPanelItem::Small);
+
   // 4. "Bridge Tools" 修改为 "桥梁"
   SARibbonCategory *categoryBridge = ribbon->addCategoryPage("桥梁");
   SARibbonPanel *panelBridge = categoryBridge->addPanel("桥梁");
@@ -325,25 +431,25 @@ void MainWindow::createRibbon() {
   panelBridge->addWidget(heightLabel, SARibbonPanelItem::Small);
   panelBridge->addWidget(m_pierHeightSpinBox, SARibbonPanelItem::Small);
 
-  QAction *bridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制桥墩", this);
+  QAction *bridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "绘制桥墩");
   connect(bridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawBridgePier();
   });
   panelBridge->addLargeAction(bridgePierAction);
 
-  QAction *fullBridgePierAction = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "绘制完整桥墩", this);
+  QAction *fullBridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "绘制完整桥墩");
   connect(fullBridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawFullBridgePier();
   });
   panelBridge->addLargeAction(fullBridgePierAction);
 
-  QAction *annotatePierAction = new QAction(QIcon(":/resources/icons/dimension.svg"), "标注承台", this);
+  QAction *annotatePierAction = makeIconAction(":/resources/icons/dimension.svg", "标注承台");
   connect(annotatePierAction, &QAction::triggered, this, &MainWindow::onAnnotateBridgePierFooting);
   panelBridge->addLargeAction(annotatePierAction);
 
-  QAction *fullBridgeAction = new QAction(QIcon(":/resources/icons/full_bridge.svg"), "完整桥梁 (100桥墩)", this);
+  QAction *fullBridgeAction = makeIconAction(":/resources/icons/full_bridge.svg", "完整桥梁 (100桥墩)");
   connect(fullBridgeAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
@@ -368,7 +474,7 @@ void MainWindow::createRibbon() {
   });
   panelBridge->addLargeAction(fullBridgeAction);
 
-  QAction *fastAssemAction = new QAction(QIcon(":/resources/icons/fast_assembly.svg"), "快速装配 (300桥墩)", this);
+  QAction *fastAssemAction = makeIconAction(":/resources/icons/fast_assembly.svg", "快速装配 (300桥墩)");
   connect(fastAssemAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isAssembling = true;
@@ -394,7 +500,7 @@ void MainWindow::createRibbon() {
 
   SARibbonPanel *panelSubCrops = categoryBridge->addPanel("子构件");
 
-  QAction *tuopanAction = new QAction(QIcon(":/resources/icons/tuopan.svg"), "顶帽与托盘", this);
+  QAction *tuopanAction = makeIconAction(":/resources/icons/tuopan.svg", "顶帽与托盘");
   connect(tuopanAction, &QAction::triggered, [this]() {
     m_currentModelType = "PierTray";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
@@ -402,7 +508,7 @@ void MainWindow::createRibbon() {
   });
   panelSubCrops->addSmallAction(tuopanAction);
 
-  QAction *dunshenAction = new QAction(QIcon(":/resources/icons/dunshen.svg"), "墩身", this);
+  QAction *dunshenAction = makeIconAction(":/resources/icons/dunshen.svg", "墩身");
   connect(dunshenAction, &QAction::triggered, [this]() {
     m_currentModelType = "PierBody";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
@@ -410,7 +516,7 @@ void MainWindow::createRibbon() {
   });
   panelSubCrops->addSmallAction(dunshenAction);
 
-  QAction *chengtaiAction = new QAction(QIcon(":/resources/icons/chengtai.svg"), "承台", this);
+  QAction *chengtaiAction = makeIconAction(":/resources/icons/chengtai.svg", "承台");
   connect(chengtaiAction, &QAction::triggered, [this]() {
     m_currentModelType = "PileCap";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
@@ -418,7 +524,7 @@ void MainWindow::createRibbon() {
   });
   panelSubCrops->addSmallAction(chengtaiAction);
 
-  QAction *pileAction = new QAction(QIcon(":/resources/icons/pile.svg"), "桩基础", this);
+  QAction *pileAction = makeIconAction(":/resources/icons/pile.svg", "桩基础");
   connect(pileAction, &QAction::triggered, [this]() {
     m_currentModelType = "Pile";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
@@ -426,7 +532,7 @@ void MainWindow::createRibbon() {
   });
   panelSubCrops->addSmallAction(pileAction);
 
-  QAction *girderAction = new QAction(QIcon(":/resources/icons/girder.svg"), "箱梁", this);
+  QAction *girderAction = makeIconAction(":/resources/icons/girder.svg", "箱梁");
   connect(girderAction, &QAction::triggered, [this]() {
     m_currentModelType = "Girder";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
@@ -434,18 +540,92 @@ void MainWindow::createRibbon() {
   });
   panelSubCrops->addSmallAction(girderAction);
 
-  QAction *foundationAction = new QAction(QIcon(":/resources/icons/foundation.svg"), "避雷针基础", this);
+  QAction *foundationAction = makeIconAction(":/resources/icons/foundation.svg", "避雷针基础");
   connect(foundationAction, &QAction::triggered, this, &MainWindow::onDrawFoundation);
   panelSubCrops->addSmallAction(foundationAction);
 
-  QAction *bedStoneAction = new QAction(QIcon(":/resources/icons/bed_stone.svg"), "垫石", this);
+  QAction *bedStoneAction = makeIconAction(":/resources/icons/bed_stone.svg", "垫石");
   connect(bedStoneAction, &QAction::triggered, this, &MainWindow::onDrawBedStone);
   panelSubCrops->addSmallAction(bedStoneAction);
 
-  QAction *bearingAction = new QAction(QIcon(":/resources/icons/bearing.svg"), "支座", this);
+  QAction *bearingAction = makeIconAction(":/resources/icons/bearing.svg", "支座");
   connect(bearingAction, &QAction::triggered, this, &MainWindow::onDrawBearing);
   panelSubCrops->addSmallAction(bearingAction);
 
+}
+
+QAction *MainWindow::makeIconAction(const QString &svgResourcePath,
+                                    const QString &text) {
+  const UiPalette &palette = uiPalette(m_uiScheme);
+  QAction *action = new QAction(text, this);
+  action->setIcon(
+      themedIcon(svgResourcePath, palette.iconNormal, palette.iconActive));
+  // 记录图标来源，主题变化时据此重新着色
+  m_themedActions.append(qMakePair(action, svgResourcePath));
+  return action;
+}
+
+void MainWindow::onRibbonThemeChanged(SARibbonTheme theme) {
+  if (m_applyingTheme) {
+    return; // 正在应用主题，忽略嵌套切换
+  }
+  m_applyingTheme = true;
+  m_uiScheme = uiSchemeForRibbonTheme(theme);
+  applyUiThemeToWidgets();
+
+  // 系统暗色模式自动切换主题时，下拉框也要跟着走
+  if (m_themeComboBox != nullptr) {
+    const int index = themeIndexOf(theme);
+    if (index >= 0 && m_themeComboBox->currentIndex() != index) {
+      const QSignalBlocker blocker(m_themeComboBox);
+      m_themeComboBox->setCurrentIndex(index);
+    }
+  }
+  m_applyingTheme = false;
+}
+
+void MainWindow::applyUiThemeToWidgets() {
+  const UiPalette &palette = uiPalette(m_uiScheme);
+
+  // 1. 按钮图标：SVG 中的 currentColor 占位符按新主题的图标色重新替换
+  for (const QPair<QAction *, QString> &entry : m_themedActions) {
+    if (entry.first != nullptr) {
+      entry.first->setIcon(
+          themedIcon(entry.second, palette.iconNormal, palette.iconActive));
+    }
+  }
+
+  // 2. 应用自有控件（Ribbon 之外的停靠面板、编辑器等）
+  if (m_pbrCheckbox != nullptr) {
+    m_pbrCheckbox->setStyleSheet(checkBoxStyle(palette));
+  }
+  if (m_solidTextCheckbox != nullptr) {
+    m_solidTextCheckbox->setStyleSheet(checkBoxStyle(palette));
+  }
+  if (m_themeComboBox != nullptr) {
+    m_themeComboBox->setStyleSheet(comboBoxStyle(palette));
+  }
+  if (m_dockCq != nullptr) {
+    m_dockCq->setStyleSheet(dockWidgetStyle(palette));
+  }
+  if (m_propertyDock != nullptr) {
+    m_propertyDock->setStyleSheet(dockWidgetStyle(palette));
+  }
+  if (m_cqScriptEditor != nullptr) {
+    m_cqScriptEditor->setStyleSheet(snippetEditorStyle(palette));
+  }
+  if (m_highlighter != nullptr) {
+    m_highlighter->setDarkScheme(m_uiScheme == UiColorScheme::Dark);
+  }
+  if (m_modelExplorerDock != nullptr) {
+    m_modelExplorerDock->setUiPalette(palette);
+  }
+  if (m_componentLibraryDock != nullptr) {
+    m_componentLibraryDock->setUiPalette(palette);
+  }
+
+  // 3. 属性面板是按选中对象动态生成的，主题变化后需要用同一份数据重绘
+  updatePropertyPanelUI(m_lastPropertyMeta);
 }
 
 void MainWindow::createTestCategory() {
@@ -454,15 +634,15 @@ void MainWindow::createTestCategory() {
   SARibbonCategory *categoryTest = ribbon->addCategoryPage("测试");
   SARibbonPanel *panelTest = categoryTest->addPanel("测试功能");
 
-  QAction *drawAction = new QAction(QIcon(":/resources/icons/draw_line.svg"), "绘制线段", this);
+  QAction *drawAction = makeIconAction(":/resources/icons/draw_line.svg", "绘制线段");
   connect(drawAction, &QAction::triggered, this, &MainWindow::onDrawLineClicked);
   panelTest->addLargeAction(drawAction);
 
-  QAction *randLineAction = new QAction(QIcon(":/resources/icons/random.svg"), "生成万条线", this);
+  QAction *randLineAction = makeIconAction(":/resources/icons/random.svg", "生成万条线");
   connect(randLineAction, &QAction::triggered, [this]() { m_occtWidget->generateRandomLines(10000); });
   panelTest->addLargeAction(randLineAction);
 
-  QAction *shxTextAction = new QAction(QIcon(":/resources/icons/text_shx.svg"), "添加 SHX 文本", this);
+  QAction *shxTextAction = makeIconAction(":/resources/icons/text_shx.svg", "添加 SHX 文本");
   connect(shxTextAction, &QAction::triggered, this, &MainWindow::onAddShxText);
   panelTest->addLargeAction(shxTextAction);
 
@@ -474,7 +654,7 @@ void MainWindow::createTestCategory() {
   });
   panelTest->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
 
-  QAction *loadMasterAction = new QAction(QIcon(":/resources/icons/open.svg"), "加载 Master CBF", this);
+  QAction *loadMasterAction = makeIconAction(":/resources/icons/open.svg", "加载 Master CBF");
   connect(loadMasterAction, &QAction::triggered, this, &MainWindow::onLoadMasterCbf);
   panelTest->addLargeAction(loadMasterAction);
 }
@@ -544,7 +724,7 @@ void MainWindow::createScriptsCategory() {
   SARibbonCategory *categoryScripts = ribbon->addCategoryPage("脚本 (Scripts)");
   SARibbonPanel *panelScripts = categoryScripts->addPanel("示例代码");
 
-  QAction *runBtn = new QAction(QIcon(":/resources/icons/random.svg"), "切角立方体", this);
+  QAction *runBtn = makeIconAction(":/resources/icons/random.svg", "切角立方体");
   connect(runBtn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(
@@ -556,7 +736,7 @@ void MainWindow::createScriptsCategory() {
   });
   panelScripts->addLargeAction(runBtn);
 
-  QAction *holedPlateBtn = new QAction(QIcon(":/resources/icons/random.svg"), "带孔板", this);
+  QAction *holedPlateBtn = makeIconAction(":/resources/icons/random.svg", "带孔板");
   connect(holedPlateBtn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_CHROME;
     m_cqScriptEditor->setText("import cadquery as cq\n"
@@ -577,7 +757,7 @@ void MainWindow::createScriptsCategory() {
   });
   panelScripts->addLargeAction(holedPlateBtn);
 
-  QAction *bridgePierCqBtn = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例", this);
+  QAction *bridgePierCqBtn = makeIconAction(":/resources/icons/bridge_pier.svg", "桥墩示例");
   connect(bridgePierCqBtn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(readScript("bridge_pier_cq1"));
@@ -585,7 +765,7 @@ void MainWindow::createScriptsCategory() {
   });
   panelScripts->addLargeAction(bridgePierCqBtn);
 
-  QAction *bridgePier2Btn = new QAction(QIcon(":/resources/icons/bridge_pier.svg"), "桥墩示例2", this);
+  QAction *bridgePier2Btn = makeIconAction(":/resources/icons/bridge_pier.svg", "桥墩示例2");
   connect(bridgePier2Btn, &QAction::triggered, [this]() {
     m_currentMaterial = Graphic3d_NOM_PLASTIC;
     m_cqScriptEditor->setText(readScript("bridge_pier_cq2"));
@@ -594,7 +774,7 @@ void MainWindow::createScriptsCategory() {
   panelScripts->addLargeAction(bridgePier2Btn);
 
   SARibbonPanel *panelRun = categoryScripts->addPanel("运行");
-  QAction *runScriptBtn = new QAction(QIcon(":/resources/icons/random.svg"), "运行当前脚本", this);
+  QAction *runScriptBtn = makeIconAction(":/resources/icons/random.svg", "运行当前脚本");
   connect(runScriptBtn, &QAction::triggered, this, &MainWindow::onRunCqScript);
   panelRun->addLargeAction(runScriptBtn);
 }
@@ -606,11 +786,9 @@ void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
     }
     qDebug() << "[MainWindow] onExplorerNodeSelected entered for nodeId:" << node->GetId().ToCString();
 
+    // 统一走 TextEncoding::FromExtendedString（顺带修复历史数据里的 UTF-8/Latin-1 乱码）
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
-        Standard_PCharacter pBuffer = buf.data();
-        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
-        return QString::fromUtf8(pBuffer, len);
+        return TextEncoding::FromExtendedString(extStr);
     };
 
     // 1. Extract properties from the node for the Property Panel
@@ -643,7 +821,11 @@ void MainWindow::onExplorerNodeSelected(Handle(BrNode_adObject) node) {
     updatePropertyPanelUI(metaMap);
 
     // 2. Highlighting and Focusing in OCCT View
+    // 与 SceneDataExtractor 保持一致：优先 GlobalID，为空时退化为条目 ID
     QString globalId = convertToUtf8(node->GetGlobalID());
+    if (globalId.isEmpty()) {
+        globalId = QString(node->GetId().ToCString());
+    }
     m_occtWidget->selectAndCenterObject("_adNodeId", globalId);
     m_occtWidget2D->selectAndCenterObject("_adNodeId", globalId);
 
@@ -675,6 +857,7 @@ void MainWindow::onAddShxText() {
           QDir::currentPath() + "/../" + fontFileName};
       for (const QString &candidate : candidates) {
         if (QFile::exists(candidate)) {
+          // Qt6 的 toStdString() 是 UTF-8，ShxParser 内部按 UTF-8 解释该路径
           return QFileInfo(candidate).absoluteFilePath().toStdString();
         }
       }
@@ -686,7 +869,8 @@ void MainWindow::onAddShxText() {
   std::string text = "京沪D1K323+569.30";
   gp_Pnt pos(0, 0, 0);
   auto result = m_shxGenerator->generateText(text, pos, 200.0, 0.0, 1.0);
-  m_occtWidget->addShape(result.first, Quantity_Color(Quantity_NOC_YELLOW));
+  // 走 addTextShape，使文本被登记到 m_textShapes，可被“测试实体文本”复选框单独切换
+  m_occtWidget->addTextShape(result.first, Quantity_Color(Quantity_NOC_YELLOW));
 }
 
 void MainWindow::onMousePositionChanged(double x, double y, double z) {
@@ -729,7 +913,18 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
     if (flattenedMeta.contains("_adNodeId")) {
         QString nodeId = flattenedMeta["_adNodeId"].toString();
         qDebug() << "[MainWindow] onObjectSelected: _adNodeId exists:" << nodeId;
-        if (m_projectManager) {
+
+        // 反向联动：在视口里点选模型后，同步选中模型树中的对应节点。
+        // 注意这里放在业务查找之前，即使后续按节点查属性失败，树也能定位到该对象。
+        if (m_modelExplorerDock != nullptr) {
+            const bool selected = m_modelExplorerDock->selectNodeById(nodeId);
+            qDebug() << "[MainWindow] onObjectSelected: Model tree selectNodeById result:" << selected;
+        }
+
+        if (nodeId.isEmpty()) {
+            // 旧的工程数据或未写入联动标识的对象：此时按空串查找会误命中第一个节点
+            qDebug() << "[MainWindow] onObjectSelected: 元数据中的 _adNodeId 为空，跳过节点查找";
+        } else if (m_projectManager) {
             std::vector<std::pair<Handle(ActAPI_INode), Handle(DataModel)>> matchingNodes = 
                 m_projectManager->FindNodesAcrossModels(nodeId.toStdString());
             qDebug() << "[MainWindow] onObjectSelected: FindNodesAcrossModels results size:" << matchingNodes.size();
@@ -755,6 +950,10 @@ void MainWindow::onObjectSelected(const QVariantMap &metadata) {
 }
 
 void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
+    // 记住当前数据：切换主题时需要用它重绘面板
+    m_lastPropertyMeta = metadata;
+    const UiPalette &palette = uiPalette(m_uiScheme);
+
     // 优先对元数据进行扁平化操作，得到 flattenedMeta
     QVariantMap flattenedMeta;
     std::function<void(const QString&, const QVariant&)> flatten = [&](const QString& prefix, const QVariant& v) {
@@ -788,7 +987,8 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
     if (metadata.isEmpty()) {
         QLabel* emptyLabel = new QLabel("No object selected");
         emptyLabel->setAlignment(Qt::AlignCenter);
-        emptyLabel->setStyleSheet("color: #666; padding: 20px; font-style: italic;");
+        emptyLabel->setStyleSheet(QString("color: %1; padding: 20px; font-style: italic;")
+                                      .arg(palette.textSecondary.name()));
         m_propertyLayout->addWidget(emptyLabel);
         return;
     }
@@ -836,12 +1036,14 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
 
     for (const QString& groupName : sortedGroupKeys) {
         QWidget* headerContainer = new QWidget();
-        headerContainer->setStyleSheet("background-color: #333; border-left: 4px solid #00aaff; border-radius: 2px; margin-top: 5px;");
+        headerContainer->setStyleSheet(QString("background-color: %1; border-left: 4px solid %2; border-radius: 2px; margin-top: 5px;")
+                                           .arg(palette.itemHoverBg.name(), palette.accent.name()));
         QHBoxLayout* headerLayout = new QHBoxLayout(headerContainer);
         headerLayout->setContentsMargins(8, 4, 8, 4);
         
         QLabel* headerLabel = new QLabel(groupName.toUpper());
-        headerLabel->setStyleSheet("color: #00aaff; font-weight: bold; font-size: 11px;");
+        headerLabel->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 11px;")
+                                       .arg(palette.accent.name()));
         headerLayout->addWidget(headerLabel);
         
         m_propertyLayout->addWidget(headerContainer);
@@ -875,7 +1077,8 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
         for (const QString& propKey : propKeys) {
             QString propValue = groups[groupName][propKey];
             QLabel* propLabel = new QLabel(propKey);
-            propLabel->setStyleSheet("color: #999; font-size: 12px;");
+            propLabel->setStyleSheet(QString("color: %1; font-size: 12px;")
+                                         .arg(palette.textSecondary.name()));
             
             QWidget* valWidget = nullptr;
             
@@ -886,7 +1089,8 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
                 spinBox->setDecimals(2);
                 spinBox->setSingleStep(100.0);
                 spinBox->setValue(propValue.toDouble());
-                spinBox->setStyleSheet("color: #eee; background-color: #2a2a2a; border: 1px solid #444; border-radius: 2px; padding: 2px;");
+                spinBox->setStyleSheet(QString("color: %1; background-color: %2; border: 1px solid %3; border-radius: 2px; padding: 2px;")
+                                           .arg(palette.textPrimary.name(), palette.editorBg.name(), palette.border.name()));
                 valWidget = spinBox;
                 
                 QString nodeId = metadata["_adNodeId"].toString();
@@ -898,7 +1102,8 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
                 });
             } else {
                 QLabel* valLabel = new QLabel(propValue);
-                valLabel->setStyleSheet("color: #eee; font-size: 12px; font-family: 'Consolas', monospace;");
+                valLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-family: 'Consolas', monospace;")
+                                            .arg(palette.textPrimary.name()));
                 valLabel->setWordWrap(true);
                 valLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
                 valWidget = valLabel;
@@ -912,7 +1117,7 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
         
         QFrame* line = new QFrame();
         line->setFrameShape(QFrame::HLine);
-        line->setStyleSheet("background-color: #222;");
+        line->setStyleSheet(QString("background-color: %1;").arg(palette.border.name()));
         m_propertyLayout->addWidget(line);
     }
     
@@ -922,12 +1127,13 @@ void MainWindow::updatePropertyPanelUI(const QVariantMap &metadata) {
 void MainWindow::updateStretchHandles(const QVariantMap &flattenedMeta, Handle(BrNode_adObject) node) {
     if (node.IsNull()) return;
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
-        Standard_PCharacter pBuffer = buf.data();
-        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
-        return QString::fromUtf8(pBuffer, len);
+        return TextEncoding::FromExtendedString(extStr);
     };
+    // 与 SceneDataExtractor 保持一致：优先 GlobalID，为空时退化为条目 ID
     QString nodeId = convertToUtf8(node->GetGlobalID());
+    if (nodeId.isEmpty()) {
+        nodeId = QString(node->GetId().ToCString());
+    }
 
     QVariantMap full3DMeta = m_occtWidget->findMetadataByNodeId(nodeId);
 
@@ -1149,10 +1355,7 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     
     // Helper lambda for converting ExtendedString to QString
     auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
-        Standard_PCharacter pBuffer = buf.data();
-        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
-        return QString::fromUtf8(pBuffer, len);
+        return TextEncoding::FromExtendedString(extStr);
     };
 
     qDebug() << "[GUI] loadMasterCbf: Root node name:" << convertToUtf8(rootNode->GetName());
@@ -1192,25 +1395,38 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
         }
     }
 
-    // Fallback names if empty
-    if (path3D.empty()) {
-        path3D = "models/subgrade_3d.cbf";
-    }
-    if (path2D.empty()) {
-        path2D = "drawings/plan_view.cbf";
-    }
-    qDebug() << "[GUI] loadMasterCbf: path3D:" << QString::fromStdString(path3D);
-    qDebug() << "[GUI] loadMasterCbf: path2D:" << QString::fromStdString(path2D);
-
-    // 检测子文档的物理文件是否存在
+    // 解析子文档路径：优先使用主控文档里记录的 DocPath，其次才退回约定文件名，
+    // 且必须真实存在于磁盘上。此前是无条件退回 "models/subgrade_3d.cbf" 这类演示路径，
+    // 包内没有该文件时 GetOrLoadSubDocument 会静默创建空文档，导致视口空白却毫无提示。
     QFileInfo masterInfo(fileName);
     QDir masterDir = masterInfo.dir();
-    QString absPath3D = masterDir.absoluteFilePath(QString::fromStdString(path3D));
-    QString absPath2D = masterDir.absoluteFilePath(QString::fromStdString(path2D));
-    bool has3DFile = QFile::exists(absPath3D);
-    bool has2DFile = QFile::exists(absPath2D);
-    qDebug() << "[GUI] loadMasterCbf: absPath3D =" << absPath3D << "exists =" << has3DFile;
-    qDebug() << "[GUI] loadMasterCbf: absPath2D =" << absPath2D << "exists =" << has2DFile;
+    m_loadedMasterPath = fileName; // refreshViews 也需要用它定位子文档
+
+    auto resolveSubDocPath = [&masterDir](const std::string &referenced, const QString &convention) -> QString {
+        if (!referenced.empty()) {
+            const QString refPath = QString::fromStdString(referenced);
+            const QString absPath = masterDir.absoluteFilePath(refPath);
+            if (QFile::exists(absPath)) {
+                return refPath;
+            }
+            qWarning() << "[GUI] loadMasterCbf: 主控文档引用的子文档不存在，已忽略:" << absPath;
+        }
+        if (!convention.isEmpty()) {
+            const QString absPath = masterDir.absoluteFilePath(convention);
+            if (QFile::exists(absPath)) {
+                qDebug() << "[GUI] loadMasterCbf: 未声明子文档引用，采用约定路径:" << absPath;
+                return convention;
+            }
+        }
+        return QString();
+    };
+
+    m_subDocPath3D = resolveSubDocPath(path3D, "models/subgrade_3d.cbf");
+    m_subDocPath2D = resolveSubDocPath(path2D, "drawings/plan_view.cbf");
+    const bool has3DFile = !m_subDocPath3D.isEmpty();
+    const bool has2DFile = !m_subDocPath2D.isEmpty();
+    qDebug() << "[GUI] loadMasterCbf: 子文档 3D =" << (has3DFile ? m_subDocPath3D : QString("(缺失)"))
+             << " 2D =" << (has2DFile ? m_subDocPath2D : QString("(缺失)"));
 
     // Set up UI layout based on available documents
     if (has2DFile) {
@@ -1231,7 +1447,6 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
 
-    m_loadedMasterPath = fileName;
     return true;
 }
 
@@ -1729,7 +1944,7 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
             for (int j = 1; j <= props.Length(); ++j) {
                 Handle(BrNode_adProperty) prop = props.Value(j);
                 if (!prop.IsNull()) {
-                    QString pName = QString::fromUtf16((const char16_t*)prop->GetPropertyName().ToExtString());
+                    QString pName = TextEncoding::FromExtendedString(prop->GetPropertyName());
                     if (pName == propertyName) {
                         targetProp = prop;
                         model = candidateModel;
@@ -1753,7 +1968,7 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
         Handle(BrNode_adSlopeIndication) slope2D = Handle(BrNode_adSlopeIndication)::DownCast(node);
         if (!slope2D.IsNull()) {
             if (propertyName == "Length") {
-                QString targetGuid = QString::fromUtf16((const char16_t*)slope2D->GetTargetObjectID().ToExtString());
+                QString targetGuid = TextEncoding::FromExtendedString(slope2D->GetTargetObjectID());
                 if (!targetGuid.isEmpty()) {
                     onPropertyValueChanged(targetGuid, propertyName, newValue);
                 }
@@ -1782,7 +1997,7 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     }
     
     // Update value
-    QString oldVal = QString::fromUtf16((const char16_t*)targetProp->GetPropertyValue().ToExtString());
+    QString oldVal = TextEncoding::FromExtendedString(targetProp->GetPropertyValue());
     bool oldOk = false, newOk = false;
     double oldNum = oldVal.toDouble(&oldOk);
     double newNum = newValue.toDouble(&newOk);
@@ -1812,16 +2027,16 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     
     // Re-build geometry and refresh views
     Handle(BrNode_adObject) adObj = Handle(BrNode_adObject)::DownCast(node);
-    if (!adObj.IsNull() && QString::fromUtf16((const char16_t*)adObj->GetObjectType().ToExtString()) == "SubgradeSlope") {
+    if (!adObj.IsNull() && TextEncoding::FromExtendedString(adObj->GetObjectType()) == "SubgradeSlope") {
         double L = 20000.0, H = 8000.0, Ratio = 1.5;
         NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = adObj->GetPropertySetsList();
         for (int i = 1; i <= psets.Length(); ++i) {
             Handle(BrNode_adPropertySet) pset = psets.Value(i);
-            if (!pset.IsNull() && QString::fromUtf16((const char16_t*)pset->GetName().ToExtString()) == "Pset_SlopeGeometry") {
+            if (!pset.IsNull() && TextEncoding::FromExtendedString(pset->GetName()) == "Pset_SlopeGeometry") {
                 NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
                 for (int k = 1; k <= props.Length(); ++k) {
-                    QString pn = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyName().ToExtString());
-                    QString pv = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyValue().ToExtString());
+                    QString pn = TextEncoding::FromExtendedString(props.Value(k)->GetPropertyName());
+                    QString pv = TextEncoding::FromExtendedString(props.Value(k)->GetPropertyValue());
                     if (pn == "Length") L = pv.toDouble();
                     else if (pn == "Height") H = pv.toDouble();
                     else if (pn == "SlopeRatio" || pn == "Ratio") Ratio = pv.toDouble();
@@ -1869,42 +2084,16 @@ void MainWindow::refreshViews() {
     // Rebuild and display 3D geometries
     m_occtWidget->clearAll();
     
-    // In master mode, we need to gather from loaded sub-models
-    std::string path3D, path2D;
+    // 子文档路径已在 loadMasterCbf 里解析并做过存在性检查，这里直接复用，避免两处逻辑不一致
     std::vector<SceneDataExtractor::VisualShape> visualShapes;
-    Handle(BrNode_adModelRoot) rootNode = Handle(BrNode_adModelRoot)::DownCast(m_currentModel->GetRootNode());
-    if (!rootNode.IsNull()) {
-        NCollection_Sequence<Handle(BrNode_adSubDocRef)> subDocs = rootNode->GetSubDocRefsList();
-        if (subDocs.IsEmpty() && !m_currentModel.IsNull()) {
-            Handle(ActAPI_IPartition) part = m_currentModel->Partition(2);
-            if (!part.IsNull()) {
-                for (ActData_BasePartition::Iterator pit(part); pit.More(); pit.Next()) {
-                    Handle(BrNode_adSubDocRef) child = Handle(BrNode_adSubDocRef)::DownCast(pit.Value());
-                    if (!child.IsNull()) {
-                        Handle(ActAPI_INode) p = child->GetParentNode();
-                        if (!p.IsNull() && p->GetId() == rootNode->GetId()) {
-                            subDocs.Append(child);
-                        }
-                    }
-                }
-            }
-        }
-        for (int i = 1; i <= subDocs.Length(); ++i) {
-            Handle(BrNode_adSubDocRef) refNode = subDocs.Value(i);
-            if (!refNode.IsNull()) {
-                QString docType = QString::fromUtf16((const char16_t*)refNode->GetDocType().ToExtString());
-                QString docPath = QString::fromUtf16((const char16_t*)refNode->GetDocPath().ToExtString());
-                if (docType == "3DModel") path3D = docPath.toStdString();
-                else if (docType == "2DDrawing") path2D = docPath.toStdString();
-            }
-        }
+    Handle(DataModel) model3D;
+    if (!m_subDocPath3D.isEmpty()) {
+        const std::string path3D = m_subDocPath3D.toStdString();
+        m_projectManager->GetOrLoadSubDocument(path3D);
+        model3D = m_projectManager->GetSubModel(path3D);
+    } else {
+        qDebug() << "[GUI] refreshViews: 主控文档没有可用的 3D 子文档。";
     }
-    
-    if (path3D.empty()) path3D = "models/subgrade_3d.cbf";
-    if (path2D.empty()) path2D = "drawings/plan_view.cbf";
-    
-    m_projectManager->GetOrLoadSubDocument(path3D);
-    Handle(DataModel) model3D = m_projectManager->GetSubModel(path3D);
     if (!model3D.IsNull()) {
         bool commandOpen = false;
         model3D->OpenCommand();
@@ -1924,6 +2113,27 @@ void MainWindow::refreshViews() {
             qWarning() << "[GUI] Exception during 3D geometry rebuild; command aborted.";
         }
     }
+
+    // 子文档缺失或提取不到几何时，退回主控文档自身的几何：
+    // 由 ASI→CBF 转换而来的模型（如 bridge.asi.cbf）几何就直接挂在主控文档的对象上。
+    if (visualShapes.empty() && !m_currentModel.IsNull()) {
+        qDebug() << "[GUI] refreshViews: 子文档没有几何，改为从主控文档提取...";
+        bool masterCommandOpen = false;
+        m_currentModel->OpenCommand();
+        masterCommandOpen = true;
+        try {
+            SceneDataExtractor::Extract(m_currentModel, visualShapes);
+            m_currentModel->CommitCommand();
+            masterCommandOpen = false;
+        } catch (...) {
+            if (masterCommandOpen) {
+                m_currentModel->AbortCommand();
+            }
+            qWarning() << "[GUI] refreshViews: 从主控文档提取几何时发生异常。";
+        }
+        qDebug() << "[GUI] refreshViews: 主控文档几何数量:" << visualShapes.size();
+    }
+
     // Display in 3D widget
     auto convertJsonToQVariantMap = [](const nlohmann::json& j) -> QVariantMap {
         std::function<QVariantMap(const nlohmann::json&)> convert = [&](const nlohmann::json& js) -> QVariantMap {
@@ -1977,10 +2187,20 @@ void MainWindow::refreshViews() {
         m_occtWidget->displayShape(transformedShape, Graphic3d_NOM_PLASTIC, color, false, meta);
     }
     qDebug() << "[GUI] Calling fitAll on 3D widget";
+    if (visualShapes.empty()) {
+        qWarning() << "[GUI] refreshViews: 未找到任何可渲染的 3D 几何。";
+        statusBar()->showMessage(tr("未找到可显示的 3D 模型：主控文档与子文档中都没有几何数据"), 8000);
+    }
     m_occtWidget->fitAll();
     
     qDebug() << "[GUI] Starting Sync and refresh 2D view";
     // Sync and refresh 2D view
+    if (m_subDocPath2D.isEmpty()) {
+        qDebug() << "[GUI] refreshViews: 主控文档没有可用的 2D 子文档，跳过二维刷新。";
+        m_modelExplorerDock->setModel(m_currentModel);
+        return;
+    }
+    const std::string path2D = m_subDocPath2D.toStdString();
     m_projectManager->GetOrLoadSubDocument(path2D);
     Handle(DataModel) drawingModel = m_projectManager->GetSubModel(path2D);
     if (!drawingModel.IsNull()) {
@@ -2008,12 +2228,12 @@ void MainWindow::refreshViews() {
                         TopoDS_Shape shape = repNode->GetGeneratedShape();
                         if (!shape.IsNull()) {
                             QVariantMap meta;
-                            meta["name"] = QString::fromUtf16((const char16_t*)repNode->GetName().ToExtString());
+                            meta["name"] = TextEncoding::FromExtendedString(repNode->GetName());
                             
                             // Check if it is a slope indication and get the target 3D object GUID
                             Handle(BrNode_adSlopeIndication) slopeNode = Handle(BrNode_adSlopeIndication)::DownCast(repNode);
                             if (!slopeNode.IsNull()) {
-                                QString targetGuid = QString::fromUtf16((const char16_t*)slopeNode->GetTargetObjectID().ToExtString());
+                                QString targetGuid = TextEncoding::FromExtendedString(slopeNode->GetTargetObjectID());
                                 if (!targetGuid.isEmpty()) {
                                     meta["_adNodeId"] = targetGuid;
                                 }
@@ -2032,7 +2252,7 @@ void MainWindow::refreshViews() {
                 if (!topologyPart.IsNull()) {
                     for (ActData_BasePartition::Iterator it(topologyPart); it.More(); it.Next()) {
                         Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it.Value());
-                        if (!obj.IsNull() && QString::fromUtf16((const char16_t*)obj->GetObjectType().ToExtString()) == "SubgradeSlope") {
+                        if (!obj.IsNull() && TextEncoding::FromExtendedString(obj->GetObjectType()) == "SubgradeSlope") {
                             found3DObj = obj;
                             break;
                         }
@@ -2044,11 +2264,11 @@ void MainWindow::refreshViews() {
                 NCollection_Sequence<Handle(BrNode_adPropertySet)> psets = found3DObj->GetPropertySetsList();
                 for (int p = 1; p <= psets.Length(); ++p) {
                     Handle(BrNode_adPropertySet) pset = psets.Value(p);
-                    if (!pset.IsNull() && QString::fromUtf16((const char16_t*)pset->GetName().ToExtString()) == "Pset_SlopeGeometry") {
+                    if (!pset.IsNull() && TextEncoding::FromExtendedString(pset->GetName()) == "Pset_SlopeGeometry") {
                         NCollection_Sequence<Handle(BrNode_adProperty)> props = pset->GetPropertiesList();
                         for (int k = 1; k <= props.Length(); ++k) {
-                            if (QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyName().ToExtString()) == "Length") {
-                                L = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyValue().ToExtString()).toDouble();
+                            if (TextEncoding::FromExtendedString(props.Value(k)->GetPropertyName()) == "Length") {
+                                L = TextEncoding::FromExtendedString(props.Value(k)->GetPropertyValue()).toDouble();
                                 break;
                             }
                         }

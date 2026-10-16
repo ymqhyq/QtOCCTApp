@@ -3,6 +3,7 @@
 
 #include "../include/OCCTWidget.h"
 #include "../include/AspectWindow.h"
+#include "../include/TextEncoding.h"
 #include <OpenGl_GraphicDriver.hxx>
 #include "../include/Line.h"
 #include <Graphic3d_Vec2.hxx>
@@ -39,6 +40,7 @@
 #include <QPainter>
 #include <QShowEvent>
 #include <QTemporaryFile>
+#include <QTimer>
 #include <Quantity_Color.hxx>
 #include <STEPControl_Reader.hxx>
 #include <STEPControl_Writer.hxx>
@@ -63,19 +65,26 @@ OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
       m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
-      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_shapeCountDirty(true),
-      m_usePbr(false), m_showViewCube(true), m_enableRotation(true),
+      m_fpsUpdateTimer(nullptr), m_fps(0.0), m_shapeCount(0),
+      m_shapeCountDirty(true),
+      m_textsSolid(true), m_usePbr(false), m_showViewCube(true),
+      m_enableRotation(true),
       m_isDraggingLength(false), m_dragOriginalLength(0.0) {
   setFocusPolicy(Qt::StrongFocus);
 
   // 初始化信息叠加标签
   m_infoLabel = new QLabel(this);
   m_infoLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+  // 该标签是叠在 WA_PaintOnScreen（OCCT 直接渲染）表面上的原生子窗口，Qt 的
+  // backing store 中并不存在父窗口的 OpenGL 内容。若标签自身带透明度（半透明
+  // 背景或圆角），文字刷新时会与残留像素混合，出现"重影"。故改为不透明背景
+  // 并整块自绘（WA_OpaquePaintEvent），保证每次重绘都覆盖自身全部像素。
+  m_infoLabel->setAttribute(Qt::WA_OpaquePaintEvent);
   m_infoLabel
       ->winId(); // 强制创建原生窗口，以确保在 WA_PaintOnScreen 表面上可见
   m_infoLabel->setStyleSheet(
-      "QLabel { background-color: rgba(0, 0, 0, 100); color: cyan; "
-      "font-weight: bold; border-radius: 5px; padding: 5px; }");
+      "QLabel { background-color: #0b0f14; color: cyan; "
+      "font-weight: bold; padding: 5px; }");
   m_infoLabel->move(10, 10);
   m_infoLabel->show();
 
@@ -86,6 +95,15 @@ OCCTWidget::OCCTWidget(QWidget *parent)
   setBackgroundRole(QPalette::NoRole);
 
   initOCCT();
+
+  // 帧率按固定节奏结算：统计的是 OCCT 的真实重绘次数（见 FrameCountingView），
+  // 与 Qt 的重绘时机解耦，空闲时读数会自然降到 0。
+  m_fpsTimer.start();
+  m_fpsUpdateTimer = new QTimer(this);
+  m_fpsUpdateTimer->setInterval(500);
+  connect(m_fpsUpdateTimer, &QTimer::timeout, this,
+          &OCCTWidget::sampleFrameRate);
+  m_fpsUpdateTimer->start();
   
   // 延迟再次强制调整大小，确保初始 showMaximized 状态被正确捕获
   QTimer::singleShot(100, this, [this]() {
@@ -121,8 +139,8 @@ void OCCTWidget::initOCCT() {
     m_viewer->SetDefaultLights();
     m_viewer->SetLightOn();
 
-    // Create View
-    m_view = m_viewer->CreateView();
+    // Create View（使用可统计重绘次数的子类，见 FrameCountingView）
+    m_view = new FrameCountingView(m_viewer);
 
     // Create AIS Interactive Context
     m_context = new AIS_InteractiveContext(m_viewer);
@@ -222,37 +240,28 @@ OCCTWidget::~OCCTWidget() {
 }
 
 void OCCTWidget::updateOverlayInfo(bool forceShapeCount) {
-  m_frameCount++;
-  bool timerExpired = false;
-  if (!m_fpsTimer.isValid()) {
-    m_fpsTimer.start();
-  } else {
-    qint64 elapsed = m_fpsTimer.elapsed();
-    if (elapsed >= 500) {
-      m_fps = m_frameCount * 1000.0 / elapsed;
-      m_frameCount = 0;
-      m_fpsTimer.restart();
-      timerExpired = true;
-    }
+  if (m_infoLabel == nullptr) {
+    return;
   }
 
-  if (forceShapeCount || m_shapeCountDirty || timerExpired) {
-    if (!m_context.IsNull()) {
-      NCollection_List<Handle(AIS_InteractiveObject)> displayed;
-      m_context->DisplayedObjects(displayed);
-      m_shapeCount = displayed.Extent();
-      m_shapeCountDirty = false;
-    }
+  // 注意：帧率统计只在 paintEvent() 中累加，这里只负责刷新“显示对象数量”和信息标签，
+  // 否则鼠标移动/滚轮等路径调用本函数时会把非重绘动作也计入 FPS，读数会失真。
+  const bool statsExpired =
+      !m_statsTimer.isValid() || m_statsTimer.elapsed() >= 500;
+  if ((forceShapeCount || m_shapeCountDirty || statsExpired) &&
+      !m_context.IsNull()) {
+    NCollection_List<Handle(AIS_InteractiveObject)> displayed;
+    m_context->DisplayedObjects(displayed);
+    m_shapeCount = displayed.Extent();
+    m_shapeCountDirty = false;
+    m_statsTimer.restart();
   }
 
-  if (m_infoLabel) {
-    m_infoLabel->raise(); // 确保标签始终在最顶层
-    QString info =
-        QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
-    if (m_infoLabel->text() != info) {
-      m_infoLabel->setText(info);
-      m_infoLabel->adjustSize();
-    }
+  const QString info =
+      QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
+  if (m_infoLabel->text() != info) {
+    m_infoLabel->setText(info);
+    m_infoLabel->adjustSize();
   }
 }
 
@@ -272,6 +281,31 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
     m_view->Redraw();
   }
 
+  if (m_infoLabel) {
+    // 每次重绘后抬升一次即可；原先在每次鼠标事件里都 raise() 属于额外开销
+    m_infoLabel->raise();
+  }
+  updateOverlayInfo(false);
+}
+
+int OCCTWidget::takeFrameCount() const {
+  // m_view 实际类型是 FrameCountingView；转型失败时退化为不统计
+  Handle(FrameCountingView) countingView =
+      Handle(FrameCountingView)::DownCast(m_view);
+  return countingView.IsNull() ? 0 : countingView->takeFrameCount();
+}
+
+void OCCTWidget::sampleFrameRate() {
+  if (!m_fpsTimer.isValid()) {
+    m_fpsTimer.start();
+    return;
+  }
+
+  const qint64 elapsed = m_fpsTimer.restart();
+  const int frames = takeFrameCount();
+  m_fps = (elapsed > 0) ? frames * 1000.0 / static_cast<double>(elapsed) : 0.0;
+
+  // 即使本次没有任何重绘也要刷新一次，让读数如实降到 0
   updateOverlayInfo(false);
 }
 
@@ -424,9 +458,9 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
     }
   } else if (event->button() == Qt::LeftButton) {
     qreal pixelRatio = devicePixelRatio();
-    m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
-                      static_cast<int>(event->pos().y() * pixelRatio), m_view,
-                      true);
+    const AIS_StatusOfDetection detStatus = m_context->MoveTo(
+        static_cast<int>(event->pos().x() * pixelRatio),
+        static_cast<int>(event->pos().y() * pixelRatio), m_view, true);
 
     m_context->Select(true);
 
@@ -476,6 +510,8 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
         }
       }
     } else {
+      qDebug() << "[OCCTWidget] mousePressEvent: 点选未命中任何对象, MoveTo 状态 ="
+               << static_cast<int>(detStatus);
       emit objectSelected(QVariantMap()); // 发送空表示取消选中
     }
   }
@@ -744,9 +780,6 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
     m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                       static_cast<int>(event->pos().y() * pixelRatio), m_view,
                       true);
-    if (m_infoLabel) {
-      m_infoLabel->raise();
-    }
   }
 }
 
@@ -775,12 +808,14 @@ void OCCTWidget::addLine(const gp_Pnt &start, const gp_Pnt &end) {
 void OCCTWidget::addShape(const TopoDS_Shape &shape,
                           const Quantity_Color &color,
                           Graphic3d_NameOfMaterial material,
-                          const QVariantMap &metadata) {
+                          const QVariantMap &metadata, bool isTextShape) {
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
 
-    // 1. 设置显示模式为 Shaded (1)
-    m_context->SetDisplayMode(aisShape, 1, false);
+    // 1. 设置显示模式为 Shaded (1)；文本对象需要沿用当前的实体/空心状态，
+    //    否则在“测试实体文本”取消勾选之后新加入的文本仍是实体，与复选框不一致。
+    const Standard_Integer displayMode = (isTextShape && !m_textsSolid) ? 0 : 1;
+    m_context->SetDisplayMode(aisShape, displayMode, false);
 
     // 2. 先设置材质
     m_context->SetMaterial(aisShape, material, false);
@@ -792,6 +827,9 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
     m_context->Display(aisShape, false);
 
     m_lines.push_back(aisShape);
+    if (isTextShape) {
+      m_textShapes.push_back(aisShape);
+    }
     m_shapeCountDirty = true;
       
     if (!metadata.isEmpty()) {
@@ -800,6 +838,12 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
     }
     updateView();
   }
+}
+
+void OCCTWidget::addTextShape(const TopoDS_Shape &shape,
+                              const Quantity_Color &color,
+                              Graphic3d_NameOfMaterial material) {
+  addShape(shape, color, material, QVariantMap(), true);
 }
 
 void OCCTWidget::selectLine(const gp_Pnt &point) {
@@ -1077,8 +1121,16 @@ void OCCTWidget::setTextsSolid(bool isSolid) {
   if (m_context.IsNull())
     return;
 
+  m_textsSolid = isSolid;
+
   // Use display mode to control solid (Shaded=1) vs hollow (Wireframe=0)
   const Standard_Integer mode = isSolid ? 1 : 0;
+
+  if (m_textShapes.empty()) {
+    qWarning() << "[OCCTWidget] setTextsSolid: 视图内还没有登记任何文本对象"
+                  "(addTextShape / add3DText)，本次切换无对象可作用。";
+    return;
+  }
 
   // 只切换文本对象的显示模式，避免把线段/桥墩等其他对象一并改成线框。
   for (const auto &aisShape : m_textShapes) {
@@ -2397,7 +2449,7 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
       Handle(TDataStd_Name) nameAttr;
       std::string labelName = "Unknown";
       if (label.FindAttribute(TDataStd_Name::GetID(), nameAttr)) {
-          labelName = QString::fromUtf16((const char16_t*)nameAttr->Get().ToExtString()).toStdString();
+          labelName = TextEncoding::FromExtendedString(nameAttr->Get()).toStdString();
       }
       qDebug() << "[OCCTWidget] loadXcafDocument: Free shape index" << i << "Name =" << QString::fromStdString(labelName);
       

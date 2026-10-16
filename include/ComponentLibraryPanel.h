@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QListWidgetItem>
 
+#include "UiTheme.h"
+
 /**
  * @brief 构件库菜单面板类
  * 用于列出所有参数化和非参数化构件，双击项即可向微服务发起几何请求并在三维视口中渲染展示。
@@ -19,6 +21,11 @@ class ComponentLibraryPanel : public QDockWidget {
 public:
     explicit ComponentLibraryPanel(QWidget* parent = nullptr);
     ~ComponentLibraryPanel();
+
+    /**
+     * @brief 应用界面配色（切换主题时调用）
+     */
+    void setUiPalette(const UiPalette& palette);
 
     /**
      * @brief 重新扫描构件库并刷新非参数化构件列表

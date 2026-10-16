@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cassert>
 #include <filesystem>
+#include <vector>
 
 // OCCT & XCAF
 #include <TDocStd_Document.hxx>
@@ -294,12 +295,14 @@ TEST(ProjectManagerTest, MultiDocLinkageAndSync)
 }
 
 static std::string ToStdString(const TCollection_ExtendedString &es) {
-    std::string result;
-    const Standard_ExtCharacter* p = es.ToExtString();
-    for (int i = 0; i < es.Length(); ++i) {
-        result += (char)(p[i] & 0xFF);
+    // ToUTF8CString 要求传入已分配缓冲区的 char* 左值 (Standard_PCharacter&)
+    std::vector<char> buf(static_cast<size_t>(es.LengthOfCString()) + 1, '\0');
+    Standard_PCharacter utf8Buf = buf.data();
+    const int len = es.ToUTF8CString(utf8Buf);
+    if (len <= 0) {
+        return std::string();
     }
-    return result;
+    return std::string(buf.data(), static_cast<size_t>(len));
 }
 
 static std::string GetEntryStr(const TDF_Label& label) {

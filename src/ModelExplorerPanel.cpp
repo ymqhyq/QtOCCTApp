@@ -1,4 +1,5 @@
 #include "../include/ModelExplorerPanel.h"
+#include "../include/TextEncoding.h"
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <TCollection_AsciiString.hxx>
@@ -20,6 +21,43 @@ ModelExplorerPanel::ModelExplorerPanel(QWidget* parent) : QDockWidget("Model Exp
     connect(m_treeView, &QTreeView::clicked, this, &ModelExplorerPanel::onItemClicked);
 
     setWidget(m_treeView);
+}
+
+void ModelExplorerPanel::setUiPalette(const UiPalette& palette) {
+    setStyleSheet(dockWidgetStyle(palette));
+    if (m_treeView) {
+        m_treeView->setStyleSheet(modelTreeStyle(palette));
+    }
+}
+
+bool ModelExplorerPanel::selectNodeById(const QString& nodeId) {
+    if (nodeId.isEmpty() || m_treeView == nullptr || m_itemModel == nullptr) {
+        return false;
+    }
+
+    for (auto it = m_nodeMap.constBegin(); it != m_nodeMap.constEnd(); ++it) {
+        Handle(BrNode_adObject) node = it.value();
+        if (node.IsNull()) continue;
+
+        // 视口对象的元数据里存的是 GlobalID；这里同时兼容自增 ID
+        const QString globalId = TextEncoding::FromExtendedString(node->GetGlobalID());
+        const QString innerId = QString(node->GetId().ToCString());
+        if (globalId != nodeId && innerId != nodeId) continue;
+
+        QStandardItem* item = it.key();
+        if (item == nullptr) return false;
+
+        const QModelIndex index = item->index();
+        // 展开所有父级，否则目标项可能不可见
+        for (QModelIndex parent = index.parent(); parent.isValid();
+             parent = parent.parent()) {
+            m_treeView->expand(parent);
+        }
+        m_treeView->setCurrentIndex(index);
+        m_treeView->scrollTo(index, QAbstractItemView::PositionAtCenter);
+        return true;
+    }
+    return false;
 }
 
 void ModelExplorerPanel::setModel(Handle(DataModel) model) {
@@ -53,15 +91,10 @@ void ModelExplorerPanel::onItemClicked(const QModelIndex& index) {
 void ModelExplorerPanel::populateModel(Handle(BrNode_adObject) node, QStandardItem* parentItem) {
     if (node.IsNull()) return;
 
-    auto convertToUtf8 = [](const TCollection_ExtendedString& extStr) -> QString {
-        std::vector<char> buf(static_cast<size_t>(extStr.Length()) * 4 + 1);
-        Standard_PCharacter pBuffer = buf.data();
-        const Standard_Integer len = extStr.ToUTF8CString(pBuffer);
-        return QString::fromUtf8(pBuffer, len);
-    };
-
-    QString qName = convertToUtf8(node->GetName());
-    QString qType = convertToUtf8(node->GetObjectType());
+    // 统一走 TextEncoding::FromExtendedString，可顺带修复历史数据里
+    // “UTF-8 字节被按 Latin-1 写入”造成的乱码（桥梁 → æ¡¥æ¢）
+    QString qName = TextEncoding::FromExtendedString(node->GetName());
+    QString qType = TextEncoding::FromExtendedString(node->GetObjectType());
 
     // Format: name(type)
     QString displayText = QString("%1(%2)").arg(qName).arg(qType);

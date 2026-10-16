@@ -132,12 +132,14 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
     }
     if (objJson.contains("Name")) {
         std::string n = objJson["Name"].get<std::string>();
-        adObj->SetName(n.c_str());
+        // 必须声明 isMultiByte=TRUE：这些名字是 UTF-8（含中文），
+        // 否则每个字节会被当成一个 Latin-1 字符写进 ExtendedString，读出即乱码（桥梁 → æ¡¥æ¢）
+        adObj->SetName(TCollection_ExtendedString(n.c_str(), Standard_True));
     }
     
     if (objJson.contains("GlobalID")) {
         std::string gid = objJson["GlobalID"].get<std::string>();
-        adObj->SetGlobalID(TCollection_ExtendedString(gid.c_str()));
+        adObj->SetGlobalID(TCollection_ExtendedString(gid.c_str(), Standard_True));
     }
     if (objJson.contains("StructuralType")) adObj->SetStructuralType(objJson["StructuralType"].get<std::string>().c_str());
 
@@ -189,7 +191,7 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
                     NCollection_Sequence<Handle(BrNode_adProperty)> props = targetPset->GetPropertiesList();
                     for (int j = 1; j <= props.Length(); ++j) {
                         if (props.Value(j)->GetPropertyName() == propKey) {
-                            props.Value(j)->SetPropertyValue(propVal.c_str());
+                            props.Value(j)->SetPropertyValue(TCollection_ExtendedString(propVal.c_str(), Standard_True));
                             found = true;
                             break;
                         }
@@ -198,8 +200,8 @@ Handle(BrNode_adObject) ProcessJsonObject(const Handle(ActData_BaseModel)& model
                     if (!found) {
                         Handle(DataModel) dataModel = Handle(DataModel)::DownCast(model);
                         Handle(BrNode_adProperty) newProp = dataModel->AddadProperty();
-                        newProp->SetPropertyName(propKey.ToCString());
-                        newProp->SetPropertyValue(propVal.c_str());
+                        newProp->SetPropertyName(TCollection_ExtendedString(propKey.ToCString(), Standard_True));
+                        newProp->SetPropertyValue(TCollection_ExtendedString(propVal.c_str(), Standard_True));
                         targetPset->AddProperties(newProp);
                     }
                 }

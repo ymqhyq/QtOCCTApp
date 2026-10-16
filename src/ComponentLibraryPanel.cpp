@@ -20,39 +20,24 @@ ComponentLibraryPanel::~ComponentLibraryPanel()
 void ComponentLibraryPanel::initUi()
 {
     QWidget* mainWidget = new QWidget(this);
-    mainWidget->setStyleSheet("background-color: #2b2b2b; color: #eee;");
     QVBoxLayout* layout = new QVBoxLayout(mainWidget);
     layout->setContentsMargins(5, 5, 5, 5);
 
     m_tabWidget = new QTabWidget(mainWidget);
-    m_tabWidget->setStyleSheet(
-        "QTabWidget::panel { border: 1px solid #444; background: #222; }"
-        "QTabBar::tab { background: #333; color: #aaa; padding: 8px 12px; border: 1px solid #444; border-bottom: none; }"
-        "QTabBar::tab:selected { background: #222; color: #00aaff; border-bottom: 2px solid #00aaff; }"
-    );
 
     // 1. 参数化构件 Tab
     m_parametricListWidget = new QListWidget(this);
-    m_parametricListWidget->setStyleSheet(
-        "QListWidget { background-color: #222; border: none; padding: 5px; outline: none; }"
-        "QListWidget::item { height: 32px; padding-left: 10px; color: #ddd; }"
-        "QListWidget::item:hover { background-color: #333; color: #00aaff; }"
-        "QListWidget::item:selected { background-color: #00aaff; color: #fff; outline: none; }"
-    );
     m_tabWidget->addTab(m_parametricListWidget, tr("参数化构件"));
 
     // 2. 非参数化构件 Tab
     m_nonParametricListWidget = new QListWidget(this);
-    m_nonParametricListWidget->setStyleSheet(
-        "QListWidget { background-color: #222; border: none; padding: 5px; outline: none; }"
-        "QListWidget::item { height: 32px; padding-left: 10px; color: #ddd; }"
-        "QListWidget::item:hover { background-color: #333; color: #00aaff; }"
-        "QListWidget::item:selected { background-color: #00aaff; color: #fff; outline: none; }"
-    );
     m_tabWidget->addTab(m_nonParametricListWidget, tr("非参数化(IFC)"));
 
     layout->addWidget(m_tabWidget);
     setWidget(mainWidget);
+
+    // 初始按深色渲染；主窗口构建完成后会按实际主题再应用一次
+    setUiPalette(uiPalette(UiColorScheme::Dark));
 
     // 填充数据
     populateParametricList();
@@ -61,6 +46,51 @@ void ComponentLibraryPanel::initUi()
     // 信号槽连接
     connect(m_parametricListWidget, &QListWidget::itemDoubleClicked, this, &ComponentLibraryPanel::onItemDoubleClicked);
     connect(m_nonParametricListWidget, &QListWidget::itemDoubleClicked, this, &ComponentLibraryPanel::onItemDoubleClicked);
+}
+
+void ComponentLibraryPanel::setUiPalette(const UiPalette& palette)
+{
+    setStyleSheet(dockWidgetStyle(palette));
+
+    if (QWidget* mainWidget = widget()) {
+        mainWidget->setStyleSheet(
+            QStringLiteral("background-color: %1; color: %2;")
+                .arg(palette.windowBg.name(), palette.textPrimary.name()));
+    }
+
+    if (m_tabWidget) {
+        QString tabStyle = QStringLiteral(
+            "QTabWidget::panel { border: 1px solid %1; background: %2; }"
+            "QTabBar::tab { background: %3; color: %4; padding: 8px 12px;"
+            " border: 1px solid %1; border-bottom: none; }"
+            "QTabBar::tab:selected { background: %2; color: %5;"
+            " border-bottom: 2px solid %5; }");
+        tabStyle = tabStyle.arg(palette.border.name());
+        tabStyle = tabStyle.arg(palette.panelBg.name());
+        tabStyle = tabStyle.arg(palette.itemHoverBg.name());
+        tabStyle = tabStyle.arg(palette.textSecondary.name());
+        tabStyle = tabStyle.arg(palette.accent.name());
+        m_tabWidget->setStyleSheet(tabStyle);
+    }
+
+    QString listStyle = QStringLiteral(
+        "QListWidget { background-color: %1; border: none; padding: 5px;"
+        " outline: none; }"
+        "QListWidget::item { height: 32px; padding-left: 10px; color: %2; }"
+        "QListWidget::item:hover { background-color: %3; color: %4; }"
+        "QListWidget::item:selected { background-color: %4; color: #ffffff;"
+        " outline: none; }");
+    listStyle = listStyle.arg(palette.panelBg.name());
+    listStyle = listStyle.arg(palette.textPrimary.name());
+    listStyle = listStyle.arg(palette.itemHoverBg.name());
+    listStyle = listStyle.arg(palette.accent.name());
+
+    if (m_parametricListWidget) {
+        m_parametricListWidget->setStyleSheet(listStyle);
+    }
+    if (m_nonParametricListWidget) {
+        m_nonParametricListWidget->setStyleSheet(listStyle);
+    }
 }
 
 void ComponentLibraryPanel::populateParametricList()
