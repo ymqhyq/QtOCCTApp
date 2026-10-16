@@ -2,6 +2,7 @@
 #define SARIBBONPANELLAYOUT_H
 #include "SARibbonGlobal.h"
 #include <QLayout>
+#include <QHash>
 #include "SARibbonPanelItem.h"
 class QToolButton;
 class SARibbonPanel;
@@ -27,142 +28,151 @@ class SA_RIBBON_EXPORT SARibbonPanelLayout : public QLayout
     friend class SARibbonPanel;
 
 public:
-    /// Constructor for SARibbonPanelLayout
+    // Constructor for SARibbonPanelLayout
     explicit SARibbonPanelLayout(QWidget* p = nullptr);
-    /// Destructor for SARibbonPanelLayout
+    // Destructor for SARibbonPanelLayout
     ~SARibbonPanelLayout();
-    /// Gets the SARibbonPanel that owns this layout
+    // Gets the SARibbonPanel that owns this layout
     SARibbonPanel* ribbonPanel() const;
 
-    /// Inserts an action at a specific index
+    // Inserts an action at a specific index
     void insertAction(int index, QAction* act, SARibbonPanelItem::RowProportion rp = SARibbonPanelItem::None);
 
-    /// Sets the option action for the panel
+    // Sets the option action for the panel
     void setOptionAction(QAction* action);
 
-    /// Checks if an option action is set
+    // Checks if an option action is set
     bool isHaveOptionAction() const;
 
-    /// Retrieves the SARibbonPanelItem associated with an action
+    // Retrieves the SARibbonPanelItem associated with an action
     SARibbonPanelItem* panelItem(QAction* action) const;
 
-    /// Gets the last item added to the layout
+    // Gets the last item added to the layout
     SARibbonPanelItem* lastItem() const;
 
-    /// Gets the widget associated with the last item
+    // Gets the widget associated with the last item
     QWidget* lastWidget() const;
 
-    /// Moves an item from one index to another
+    // Moves an item from one index to another
     void move(int from, int to);
-    /// Checks if layout needs to be reorganized
+    // Checks if layout needs to be reorganized
     bool isDirty() const;
-    /// Updates size
+    // Updates size
     void updateGeomArray();
+    /// Invalidate cached button sizeHints
+    void invalidateButtonSizeHintCache();
+    /// Invalidate cached sizeHint for a specific widget
+    void invalidateButtonSizeHintCache(QWidget* w);
 
-    /// Finds the index of an action in the layout
+    // Finds the index of an action in the layout
     int indexByAction(QAction* action) const;
 
-    /// Gets the height of the panel's title
+    // Gets the height of the panel's title
     int panelTitleHeight() const;
 
-    /// Sets the height of the panel's title
+    // Sets the height of the panel's title
     void setPanelTitleHeight(int newTitleHeight);
 
-    /// Checks if the panel's title is enabled for display
+    // Checks if the panel's title is enabled for display
     bool isEnableShowPanelTitle() const;
 
-    /// Sets whether the panel's title is enabled for display
+    // Sets whether the panel's title is enabled for display
     void setEnableShowPanelTitle(bool on);
 
-    /// Gets the height of large buttons
+    // Gets the height of large buttons
     int largeButtonHeight() const;
 
-    /// Gets the spacing between the title and the buttons
+    // Gets the spacing between the title and the buttons
     int panelTitleSpace() const;
 
-    /// Sets the spacing between the title and the buttons
+    // Sets the spacing between the title and the buttons
     void setPanelTitleSpace(int newTitleSpace);
 
-    /// Gets the panel's title label
+    // Gets the panel's title label
     SARibbonPanelLabel* panelTitleLabel() const;
 
-    /// Sets the default icon size for tool buttons
+    // Sets the default icon size for tool buttons
     void setToolButtonIconSize(const QSize& smallSize, const QSize& largeSize);
-    /// Gets the default icon size for tool buttons
+    // Gets the default icon size for tool buttons
     QPair< QSize, QSize > toolButtonIconSize() const;
 
-    /// Large button icon size
+    // Large button icon size
     void setLargeIconSize(const QSize& largeSize);
-    /// Get large icon size
+    // Get large icon size
     QSize largeIconSize() const;
 
-    /// Small button icon size
+    // Small button icon size
     void setSmallIconSize(const QSize& largeSize);
-    /// Get small icon size
+    // Get small icon size
     QSize smallIconSize() const;
 
-    /// Check if word wrap is enabled
+    // Check if word wrap is enabled
     bool isEnableWordWrap() const;
-    /// Maximum aspect ratio of buttons, this coefficient determines the maximum width of buttons
+    // Maximum aspect ratio of buttons, this coefficient determines the maximum width of buttons
     qreal buttonMaximumAspectRatio() const;
+    // Minimum width ratio of large buttons (relative to button height), this coefficient determines the minimum width of large buttons
+    qreal largeButtonMinimumWidthRatio() const;
 
 public:
-    /// Adds an item to the layout (SARibbonPanelLayout not supported)
+    // Adds an item to the layout (SARibbonPanelLayout not supported)
     void addItem(QLayoutItem* item) Q_DECL_OVERRIDE;
 
-    /// QLayout required override functions
+    // QLayout required override functions
     QLayoutItem* itemAt(int index) const Q_DECL_OVERRIDE;
 
-    /// Removes and returns the item at the specified index
+    // Removes and returns the item at the specified index
     QLayoutItem* takeAt(int index) Q_DECL_OVERRIDE;
 
-    /// Gets the number of items in the layout
+    // Gets the number of items in the layout
     int count() const Q_DECL_OVERRIDE;
 
-    /// Checks if the layout is empty
+    // Checks if the layout is empty
     bool isEmpty() const Q_DECL_OVERRIDE;
 
-    /// Invalidates the layout, marking it as dirty
+    // Invalidates the layout, marking it as dirty
     void invalidate() Q_DECL_OVERRIDE;
 
-    /// Returns the directions in which the layout can expand
+    // Returns the directions in which the layout can expand
     Qt::Orientations expandingDirections() const Q_DECL_OVERRIDE;
-    /// Set geometry
+    // Set geometry
     void setGeometry(const QRect& rect) Q_DECL_OVERRIDE;
-    /// Get minimum size
+    // Get minimum size
     QSize minimumSize() const Q_DECL_OVERRIDE;
-    /// Get size hint
+    // Get size hint
     QSize sizeHint() const Q_DECL_OVERRIDE;
 
 protected:
-    /// Gets the size of the option action button
+    // Gets the size of the option action button
     QSize optionActionButtonSize() const;
-    /// Layout action
+    // Layout action
     void doLayout();
-    /// Convert action to item, for pure Action, this function will create SARibbonToolButton
-    /// rp is used to tell Layout what kind of window to generate, see SARibbonPanelItem::RowProportion for details
+    // Convert action to item, for pure Action, this function will create SARibbonToolButton
+    // rp is used to tell Layout what kind of window to generate, see SARibbonPanelItem::RowProportion for details
     SARibbonPanelItem* createItem(QAction* action, SARibbonPanelItem::RowProportion rp = SARibbonPanelItem::None);
-    /// Update geometry array
+    // Update geometry array
     void updateGeomArray(const QRect& setrect);
-    /// Recalculate expansion bar code, this function must be called after updateGeomArray function
+    // Recalculate expansion bar code, this function must be called after updateGeomArray function
     void recalcExpandGeomArray(const QRect& setrect);
-    /// Set text wrap enabled
+    // Set text wrap enabled
     void setEnableWordWrap(bool on);
-    /// Set maximum aspect ratio of buttons, this coefficient determines the maximum width of buttons
+    // Set maximum aspect ratio of buttons, this coefficient determines the maximum width of buttons
     void setButtonMaximumAspectRatio(qreal fac = 1.4);
+    // Set minimum width ratio of large buttons (relative to button height), this coefficient determines the minimum width of large buttons
+    void setLargeButtonMinimumWidthRatio(qreal fac = 0.75);
 
 private:
-    /// Calculate window width and maximum width based on column count
+    // Calculate window width and maximum width based on column count
     void columnWidthInfo(int colindex, int& width, int& maximum) const;
 
-    /// Sets the panel's title label
+    // Sets the panel's title label
     void setPanelTitleLabel(SARibbonPanelLabel* newTitleLabel);
 
 private:
     QList< SARibbonPanelItem* > mItems;
     int mColumnCount { 0 };                       ///< 记录有多少列
-    bool mExpandFlag { false };                   ///< 标记是否是会扩展的
     QSize mSizeHint;                              ///< sizeHint返回的尺寸
+    QHash<QWidget*, QSize> mButtonSizeHintCache;  ///< 缓存按钮的sizeHint，避免重复计算
+    int mButtonSizeHintCacheLargeHeight { -1 };   ///< 缓存sizeHint时依据的大按钮高度，高度变化则缓存失效
     QSize mSmallToolButtonIconSize { 22, 22 };    ///< 记录小按钮图标尺寸
     QSize mLargeToolButtonIconSize { 32, 32 };    ///< 记录大按钮图标尺寸
     bool mDirty { true };                         ///< 用于标记是否需要刷新元素，参考QToolBarLayout源码
@@ -176,6 +186,8 @@ private:
     QRect mOptionActionBtnGeometry;               ///< optionAction的位置
     bool mEnableWordWrap { true };                ///< 是否允许文字换行
     qreal mButtonMaximumAspectRatio { 1.4 };      ///< 按钮的宽高比
+    qreal mLargeButtonMinWidthRatio { 0.75 };     ///< 大按钮最小宽度比例（相对于高度）
+    bool mInDoLayout { false };                   ///< doLayout执行期间为true；子控件show()会让Qt同步activate本布局造成重入，用此标志跳过
 };
 
 #endif  // SARIBBONPANELLAYOUT_H

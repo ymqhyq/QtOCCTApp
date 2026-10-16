@@ -19,12 +19,6 @@ QSize SA_RIBBON_EXPORT scaleSizeByHeight(const QSize& originalSize, int newHeigh
 // 按照指定的新宽度，保持宽高比缩放 QSize
 QSize SA_RIBBON_EXPORT scaleSizeByWidth(const QSize& originalSize, int newWidth);
 
-// 获取内置的ribbon主题对应的qss内容
-QString SA_RIBBON_EXPORT getBuiltInRibbonThemeQss(SARibbonTheme theme);
-
-// 给窗口设置内置的ribbon主题
-void SA_RIBBON_EXPORT setBuiltInRibbonTheme(QWidget* w, SARibbonTheme theme);
-
 // 提供类似QIcon::pixmap(const QSize &size, qreal devicePixelRatio, Mode mode, State state) const（Qt6新增）的兼容函数
 QPixmap iconToPixmap(const QIcon& icon,
                      const QSize& size,
@@ -66,5 +60,37 @@ bool SA_RIBBON_EXPORT saIsRTL();
  * \endif
  */
 int SA_RIBBON_EXPORT saMirrorX(int x, int containerWidth, int elementWidth);
+
+// Check if the operating system uses dark mode (cross-platform)
+bool SA_RIBBON_EXPORT isOperatingSystemInDarkMode();
+
+// Enable or disable automatic switching from the default theme to RibbonThemeDark when the operating system is in dark mode (enabled by default)
+void SA_RIBBON_EXPORT setEnableSystemDarkModeAutoSwitch(bool on);
+
+// Query whether automatic theme switching by operating system dark mode is enabled
+bool SA_RIBBON_EXPORT isEnableSystemDarkModeAutoSwitch();
+
+// Forward declaration
+class SARibbonThemePalette;
+
+// Replace {{token}} and {{token|opacity(value)}} patterns in QSS templates with actual color values
+QString SA_RIBBON_EXPORT replaceQssTokens(const QString& templateQss, const SARibbonThemePalette& palette);
+
+/**
+ * \if ENGLISH
+ * @brief Get the complete QSS stylesheet string for a built-in ribbon theme
+ * @details Loads the base QSS, theme template, and default palette, then returns the fully
+ * resolved stylesheet with all tokens replaced. Useful for debugging, inspecting generated
+ * QSS, or as a starting point for custom theme overrides.
+ * \endif
+ *
+ * \if CHINESE
+ * @brief 获取指定内置ribbon主题的完整QSS样式表字符串
+ * @details 加载基础QSS、主题模板和默认调色板，返回所有标记已替换的完整样式表。
+ * 适用于调试、检查生成的QSS，或作为自定义主题覆盖的起点。
+ * \endif
+ */
+QString SA_RIBBON_EXPORT getBuiltInRibbonThemeQss(SARibbonTheme theme);
+
 }
 #endif  // SARIBBONUTIL_H

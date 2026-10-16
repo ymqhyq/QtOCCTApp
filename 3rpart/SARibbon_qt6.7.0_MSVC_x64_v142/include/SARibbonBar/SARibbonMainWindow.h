@@ -2,6 +2,9 @@
 #define SARIBBONMAINWINDOW_H
 #include "SARibbonGlobal.h"
 #include <QMainWindow>
+#include <QList>
+#include <QPoint>
+#include <QRect>
 
 #if !SARIBBON_USE_3RDPARTY_FRAMELESSHELPER
 class SAFramelessHelper;
@@ -10,6 +13,24 @@ class QAction;
 class SARibbonBar;
 class SARibbonSystemButtonBar;
 class QScreen;
+class QColor;
+
+namespace SA {
+// Title-bar hit test for the Windows non-QWK frameless path (issue #31): returns true when the
+// given point (in the window's local logical coordinates) falls into the draggable title bar area.
+// Pure function, exported for unit testing. Parameters:
+//   - localPos: pointer position in the main window's local logical coordinates
+//   - windowRect: the main window's geometry (logical)
+//   - titleHeight: title bar height in logical pixels
+//   - excludedRects: global-exclusion candidate widget rects, mapped into the window's local
+//     logical coordinates (system buttons, quick access bar, tab bar, application button, ...)
+//   - maximizedOrFullscreen: no HTCAPTION when the window is maximized or fullscreen
+bool SA_RIBBON_EXPORT isTitleBarDragArea(const QPoint& localPos,
+                                         const QRect& windowRect,
+                                         int titleHeight,
+                                         const QList<QRect>& excludedRects,
+                                         bool maximizedOrFullscreen);
+}
 /**
  * \if ENGLISH
  * @brief Must use this class instead of QMainWindow to use SARibbonBar
@@ -87,55 +108,133 @@ class SA_RIBBON_EXPORT SARibbonMainWindow : public QMainWindow
     Q_OBJECT
     SA_RIBBON_DECLARE_PRIVATE(SARibbonMainWindow)
     friend class SARibbonBar;
-    Q_PROPERTY(SARibbonTheme ribbonTheme READ ribbonTheme WRITE setRibbonTheme)
+    Q_PROPERTY(SARibbonTheme ribbonTheme READ ribbonTheme WRITE setRibbonTheme NOTIFY ribbonThemeChanged)
+    Q_PROPERTY(bool frameBorderEnabled READ isFrameBorderEnabled WRITE setFrameBorderEnabled NOTIFY frameBorderEnabledChanged)
+    Q_PROPERTY(QColor frameBorderColor READ frameBorderColor WRITE setFrameBorderColor NOTIFY frameBorderColorChanged)
+    Q_PROPERTY(bool frameShadowEnabled READ isFrameShadowEnabled WRITE setFrameShadowEnabled NOTIFY frameShadowEnabledChanged)
 
 public:
-    /// Constructor for SARibbonMainWindow
+    // Constructor for SARibbonMainWindow
     explicit SARibbonMainWindow(QWidget* parent                = nullptr,
                                 SARibbonMainWindowStyles style = SARibbonMainWindowStyleFlag::UseRibbonMenuBar
                                                                  | SARibbonMainWindowStyleFlag::UseRibbonFrame,
                                 const Qt::WindowFlags flags = Qt::WindowFlags());
-    /// Destructor for SARibbonMainWindow
+    // Destructor for SARibbonMainWindow
     ~SARibbonMainWindow() override;
-    /// Return SARibbonBar
+    // Return SARibbonBar
     SARibbonBar* ribbonBar() const;
-    /// Set ribbonbar
+    // Set ribbonbar
     void setRibbonBar(SARibbonBar* ribbon);
 #if !SARIBBON_USE_3RDPARTY_FRAMELESSHELPER
-    /// Return SAFramelessHelper
+    // Return SAFramelessHelper
     SAFramelessHelper* framelessHelper() const;
-    /// Set to use rubber band indication instead of immediate scaling during resizing, which is more friendly for software with large rendering (such as CAD, 3D)
+    // Set to use rubber band indication instead of immediate scaling during resizing, which is more friendly for software with large rendering (such as CAD, 3D)
     void setRubberBandOnResize(bool on);
-    /// Check if rubber band is used on resize
+    // Check if rubber band is used on resize
     bool isRubberBandOnResize() const;
 #else
-    /// If there are custom windows in the ribbon added to non-clickable areas such as the title bar, and you want them
-    /// to be clickable, you need to call this interface to inform them that they are clickable
+    // If there are custom windows in the ribbon added to non-clickable areas such as the title bar, and you want them
+    // to be clickable, you need to call this interface to inform them that they are clickable
     void setFramelessHitTestVisible(QWidget* w, bool visible = true);
 #endif
-    /// This function is only used to control the display of minimize, maximize and close buttons
+    // This function is only used to control the display of minimize, maximize and close buttons
     void updateWindowFlag(Qt::WindowFlags flags);
-    /// Note: Setting the theme in the constructor will not take full effect, use QTimer to put it at the end of the queue to execute
-    /// QTimer::singleShot(0, this, [ this ]() { this->setRibbonTheme(SARibbonMainWindow::RibbonThemeDark); });
+    // Note: Setting the theme in the constructor will not take full effect, use QTimer to put it at the end of the queue to execute
+    // QTimer::singleShot(0, this, [ this ]() { this->setRibbonTheme(SARibbonMainWindow::RibbonThemeDark); });
     void setRibbonTheme(SARibbonTheme theme);
-    /// Get ribbon theme
+    // Get ribbon theme
     SARibbonTheme ribbonTheme() const;
-    /// Determine whether the current mode is ribbon mode
+    // Determine whether the current mode is ribbon mode
     bool isUseRibbon() const;
-    /// Get the bar where the maximize, minimize, and close buttons are located. You can set content next to the maximize and minimize buttons through this function
+    // Get the bar where the maximize, minimize, and close buttons are located. You can set content next to the maximize and minimize buttons through this function
     SARibbonSystemButtonBar* windowButtonBar() const;
-    /// Get the current mainwindow style
+    // Get the current mainwindow style
     SARibbonMainWindowStyles ribbonMainwindowStyle() const;
+    // Check whether the 1px window frame border is drawn (default off, keeping current appearance)
+    bool isFrameBorderEnabled() const;
+    // Enable/disable drawing of the 1px window frame border
+    void setFrameBorderEnabled(bool on);
+    // Get the custom frame border color; an invalid color means "follow current theme"
+    QColor frameBorderColor() const;
+    // Set a custom frame border color; pass an invalid QColor to follow the current theme
+    void setFrameBorderColor(const QColor& color);
+    // Check whether the system window shadow is enabled on the frameless window (default off; Windows only, non-QWK path)
+    bool isFrameShadowEnabled() const;
+    // Enable the DWM system shadow for the frameless window (Windows only, non-QWK path; no-op elsewhere)
+    void setFrameShadowEnabled(bool on);
 
-    /// Pass ribbonbar events to frameless
+    // Pass ribbonbar events to frameless
     virtual bool eventFilter(QObject* obj, QEvent* e) Q_DECL_OVERRIDE;
 
 protected:
-    /// Factory function to create ribbonbar
+    // Factory function to create ribbonbar
     SARibbonBar* createRibbonBar();
+    // Draw the optional 1px frame border when frameBorderEnabled is on
+    virtual void paintEvent(QPaintEvent* e) Q_DECL_OVERRIDE;
+#if defined(Q_OS_WIN) && !SARIBBON_USE_3RDPARTY_FRAMELESSHELPER
+    // Windows non-QWK path: return HTCAPTION for the title bar draggable area so that the
+    // system takes over title bar dragging and provides Aero Snap (half-screen/maximize)
+    // Qt6 changed the result pointer type from long* to qintptr* (different types on MSVC x64)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    virtual bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) Q_DECL_OVERRIDE;
+#else
+    virtual bool nativeEvent(const QByteArray& eventType, void* message, long* result) Q_DECL_OVERRIDE;
+#endif
+    // Apply the pending DWM shadow state after the native window is created
+    virtual void showEvent(QShowEvent* e) Q_DECL_OVERRIDE;
+#endif
 private Q_SLOTS:
-    /// Handle primary screen changed event
+    // Handle primary screen changed event
     void onPrimaryScreenChanged(QScreen* screen);
+Q_SIGNALS:
+    /**
+     * \if ENGLISH
+     * @brief Emitted when ribbon theme changes
+     * @param theme New ribbon theme
+     * \endif
+     *
+     * \if CHINESE
+     * @brief ribbon主题改变时触发的信号
+     * @param theme 新的ribbon主题
+     * \endif
+     */
+    void ribbonThemeChanged(SARibbonTheme theme);
+    /**
+     * \if ENGLISH
+     * @brief Emitted when the frame border toggle changes
+     * @param on New toggle state
+     * \endif
+     *
+     * \if CHINESE
+     * @brief 边框绘制开关变化时触发的信号
+     * @param on 新的开关状态
+     * \endif
+     */
+    void frameBorderEnabledChanged(bool on);
+    /**
+     * \if ENGLISH
+     * @brief Emitted when the frame border color changes
+     * @param color New border color
+     * \endif
+     *
+     * \if CHINESE
+     * @brief 边框颜色变化时触发的信号
+     * @param color 新的边框颜色
+     * \endif
+     */
+    void frameBorderColorChanged(const QColor& color);
+    /**
+     * \if ENGLISH
+     * @brief Emitted when the frame shadow toggle changes
+     * @param on New toggle state
+     * \endif
+     *
+     * \if CHINESE
+     * @brief 窗口阴影开关变化时触发的信号
+     * @param on 新的开关状态
+     * \endif
+     */
+    void frameShadowEnabledChanged(bool on);
 };
 
 /**
@@ -151,11 +250,11 @@ class SA_RIBBON_EXPORT SARibbonMainWindowEventFilter : public QObject
 {
     Q_OBJECT
 public:
-    /// Constructor for SARibbonMainWindowEventFilter
+    // Constructor for SARibbonMainWindowEventFilter
     explicit SARibbonMainWindowEventFilter(QObject* par);
-    /// Destructor for SARibbonMainWindowEventFilter
+    // Destructor for SARibbonMainWindowEventFilter
     ~SARibbonMainWindowEventFilter();
-    /// Event filter
+    // Event filter
     virtual bool eventFilter(QObject* obj, QEvent* e) override;
 };
 

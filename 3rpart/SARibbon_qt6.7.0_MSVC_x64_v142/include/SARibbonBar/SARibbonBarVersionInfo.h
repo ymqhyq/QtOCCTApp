@@ -14,20 +14,20 @@
  * @def ribbon的数字版本 MAJ.{MIN}.PAT
  */
 #ifndef SA_RIBBON_BAR_VERSION_MIN
-#define SA_RIBBON_BAR_VERSION_MIN 8
+#define SA_RIBBON_BAR_VERSION_MIN 9
 #endif
 /**
  * @def ribbon的数字版本 MAJ.MIN.{PAT}
  */
 #ifndef SA_RIBBON_BAR_VERSION_PAT
-#define SA_RIBBON_BAR_VERSION_PAT 0
+#define SA_RIBBON_BAR_VERSION_PAT 5
 #endif
 
 /**
  * @def 版本号（字符串）
  */
 #ifndef SARIBBON_VERSION
-#define SARIBBON_VERSION "2.8.0"
+#define SARIBBON_VERSION "2.9.5"
 #endif
 
 #endif // SARIBBONVERSIONINFO_H

@@ -17,7 +17,7 @@ class SA_RIBBON_EXPORT SARibbonWidget : public QWidget
 	Q_OBJECT
 	SA_RIBBON_DECLARE_PRIVATE(SARibbonWidget)
 	friend class SARibbonBar;
-	Q_PROPERTY(SARibbonTheme ribbonTheme READ ribbonTheme WRITE setRibbonTheme)
+	Q_PROPERTY(SARibbonTheme ribbonTheme READ ribbonTheme WRITE setRibbonTheme NOTIFY ribbonThemeChanged)
 
 public:
 	explicit SARibbonWidget(QWidget* parent = nullptr);
@@ -40,6 +40,19 @@ public:
     QWidget* takeWidget();
 private Q_SLOTS:
 	void onPrimaryScreenChanged(QScreen* screen);
+Q_SIGNALS:
+	/**
+	 * \if ENGLISH
+	 * @brief Emitted when ribbon theme changes
+	 * @param theme New ribbon theme
+	 * \endif
+	 *
+	 * \if CHINESE
+	 * @brief ribbon主题改变时触发的信号
+	 * @param theme 新的ribbon主题
+	 * \endif
+	 */
+	void ribbonThemeChanged(SARibbonTheme theme);
 };
 
 #endif  // SARIBBONWIDGET_H

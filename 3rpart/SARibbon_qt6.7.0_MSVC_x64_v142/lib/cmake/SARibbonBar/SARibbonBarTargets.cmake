@@ -61,7 +61,7 @@ add_library(SARibbonBar::SARibbonBar SHARED IMPORTED)
 set_target_properties(SARibbonBar::SARibbonBar PROPERTIES
   INTERFACE_COMPILE_DEFINITIONS "SARIBBON_USE_3RDPARTY_FRAMELESSHELPER=0"
   INTERFACE_INCLUDE_DIRECTORIES "${_IMPORT_PREFIX}/include/SARibbonBar;${_IMPORT_PREFIX}/include/SARibbonBar"
-  INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Gui;Qt6::Widgets"
+  INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Gui;Qt6::Widgets;Qt6::Svg"
 )
 
 # Load information for each installed configuration.

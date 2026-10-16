@@ -44,86 +44,100 @@ public:
 		ChangeActionOrderActionType,    ///< 改变action顺序的操作(9)
 		RenameCategoryActionType,       ///< 对category更名操作(10)
 		RenamePanelActionType,          ///< 对Panel更名操作(11)
-		VisibleCategoryActionType       ///< 对category执行隐藏/显示操作(12)
+		VisibleCategoryActionType,      ///< 对category执行隐藏/显示操作(12)
+		AddQuickActionActionType,       ///< 添加action到快速访问栏操作(13)
+		RemoveQuickActionActionType,    ///< 从快速访问栏移除action操作(14)
+		ChangeQuickActionOrderActionType  ///< 改变快速访问栏action顺序的操作(15)
 	};
-	/// Default constructor
+	// Default constructor
 	SARibbonCustomizeData();
-	/// Constructor with action type and manager
+	// Constructor with action type and manager
 	SARibbonCustomizeData(ActionType type, SARibbonActionsManager* mgr = nullptr);
-	/// Get the action type of the CustomizeData
+	// Get the action type of the CustomizeData
 	ActionType actionType() const;
 
-	/// Set the action type of the CustomizeData
+	// Set the action type of the CustomizeData
 	void setActionType(ActionType a);
 
-	/// Check if this is a valid CustomizeData
+	// Check if this is a valid CustomizeData
 	bool isValid() const;
 
-	/// Apply SARibbonCustomizeData to SARibbonBar
+	// Apply SARibbonCustomizeData to SARibbonBar
 	bool apply(SARibbonBar* bar) const;
 
-	/// Get the action manager pointer
+	// Get the action manager pointer
 	SARibbonActionsManager* actionManager();
 
-	/// Set the ActionsManager
+	// Set the ActionsManager
 	void setActionsManager(SARibbonActionsManager* mgr);
 
-	/// Create AddCategoryActionType SARibbonCustomizeData
+	// Create AddCategoryActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeAddCategoryCustomizeData(const QString& title, int index, const QString& objName);
 
-	/// Create AddPanelActionType SARibbonCustomizeData
+	// Create AddPanelActionType SARibbonCustomizeData
 	static SARibbonCustomizeData
 	makeAddPanelCustomizeData(const QString& title, int index, const QString& categoryobjName, const QString& objName);
 
-	/// Create AddActionActionType SARibbonCustomizeData
+	// Create AddActionActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeAddActionCustomizeData(const QString& key,
 															SARibbonActionsManager* mgr,
 															SARibbonPanelItem::RowProportion rp,
 															const QString& categoryObjName,
 															const QString& panelObjName);
 
-	/// Create RenameCategoryActionType SARibbonCustomizeData
+	// Create RenameCategoryActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeRenameCategoryCustomizeData(const QString& newname, const QString& categoryobjName);
 
-	/// Create RenamePanelActionType SARibbonCustomizeData
+	// Create RenamePanelActionType SARibbonCustomizeData
 	static SARibbonCustomizeData
 	makeRenamePanelCustomizeData(const QString& newname, const QString& categoryobjName, const QString& panelObjName);
 
-	/// Create RemoveCategoryActionType SARibbonCustomizeData
+	// Create RemoveCategoryActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeRemoveCategoryCustomizeData(const QString& categoryobjName);
 
-	/// Create ChangeCategoryOrderActionType SARibbonCustomizeData
+	// Create ChangeCategoryOrderActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeChangeCategoryOrderCustomizeData(const QString& categoryobjName, int moveindex);
 
-	/// Create ChangePanelOrderActionType SARibbonCustomizeData
+	// Create ChangePanelOrderActionType SARibbonCustomizeData
 	static SARibbonCustomizeData
 	makeChangePanelOrderCustomizeData(const QString& categoryobjName, const QString& panelObjName, int moveindex);
 
-	/// Create ChangeActionOrderActionType SARibbonCustomizeData
+	// Create ChangeActionOrderActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeChangeActionOrderCustomizeData(const QString& categoryobjName,
 																	const QString& panelObjName,
 																	const QString& key,
 																	SARibbonActionsManager* mgr,
 																	int moveindex);
 
-	/// Create RemovePanelActionType SARibbonCustomizeData
+	// Create RemovePanelActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeRemovePanelCustomizeData(const QString& categoryobjName, const QString& panelObjName);
 
-	/// Create RemoveActionActionType SARibbonCustomizeData
+	// Create RemoveActionActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeRemoveActionCustomizeData(const QString& categoryobjName,
 															   const QString& panelObjName,
 															   const QString& key,
 															   SARibbonActionsManager* mgr);
 
-	/// Create VisibleCategoryActionType SARibbonCustomizeData
+	// Create VisibleCategoryActionType SARibbonCustomizeData
 	static SARibbonCustomizeData makeVisibleCategoryCustomizeData(const QString& categoryobjName, bool isShow);
 
-	/// Check if customization is allowed for the object
+	// Create AddQuickActionActionType SARibbonCustomizeData (add action to quick access bar)
+	static SARibbonCustomizeData makeAddQuickActionCustomizeData(const QString& key, SARibbonActionsManager* mgr);
+
+	// Create RemoveQuickActionActionType SARibbonCustomizeData (remove action from quick access bar)
+	static SARibbonCustomizeData makeRemoveQuickActionCustomizeData(const QString& key, SARibbonActionsManager* mgr);
+
+	// Create ChangeQuickActionOrderActionType SARibbonCustomizeData (change action order in quick access bar)
+	static SARibbonCustomizeData makeChangeQuickActionOrderCustomizeData(const QString& key,
+																		SARibbonActionsManager* mgr,
+																		int moveindex);
+
+	// Check if customization is allowed for the object
 	static bool isCanCustomize(QObject* obj);
-	/// Set whether customization is allowed for the object
+	// Set whether customization is allowed for the object
 	static void setCanCustomize(QObject* obj, bool canbe = true);
 
-	/// Simplify QList<SARibbonCustomizeData>
+	// Simplify QList<SARibbonCustomizeData>
 	static QList< SARibbonCustomizeData > simplify(const QList< SARibbonCustomizeData >& csd);
 
 public:

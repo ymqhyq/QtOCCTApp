@@ -28,11 +28,18 @@ endmacro()
 
 ####################################################################################
 
+# find_dependency(Qt) 会重新 include QtConfig.cmake，把 PACKAGE_PREFIX_DIR 覆盖为 Qt 的安装前缀，
+# 因此必须先保存 SARibbonBar 自己的安装前缀
+set(_SARIBBON_PACKAGE_PREFIX_DIR "${PACKAGE_PREFIX_DIR}")
+
+include(CMakeFindDependencyMacro)
+find_dependency(Qt6 COMPONENTS Core Gui Widgets Svg)
+
 set (PackageName SARibbonBar)
-set (SARibbonBar_VERSION 2.8.0)
+set (SARibbonBar_VERSION 2.9.5)
 
 include ( ${CMAKE_CURRENT_LIST_DIR}/${PackageName}Targets.cmake )
-set_and_check ( ${PackageName}_INCLUDE_DIR ${PACKAGE_PREFIX_DIR}/include/SARibbonBar )
+set_and_check ( ${PackageName}_INCLUDE_DIR ${_SARIBBON_PACKAGE_PREFIX_DIR}/include/SARibbonBar )
 set ( ${PackageName}_LIBRARIES)
 list ( APPEND ${PackageName}_LIBRARIES ${PackageName})
 
