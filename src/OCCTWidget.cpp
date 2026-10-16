@@ -63,25 +63,21 @@ OCCTWidget::OCCTWidget(QWidget *parent)
     : QWidget(parent), m_viewer(nullptr), m_view(nullptr), m_context(nullptr),
       m_graphicDriver(nullptr),
       m_selectedLine(nullptr), m_drawLineMode(false), m_firstPointSet(false),
-      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_usePbr(false),
-      m_showViewCube(true), m_enableRotation(true),
+      m_frameCount(0), m_fps(0.0), m_shapeCount(0), m_shapeCountDirty(true),
+      m_usePbr(false), m_showViewCube(true), m_enableRotation(true),
       m_isDraggingLength(false), m_dragOriginalLength(0.0) {
   setFocusPolicy(Qt::StrongFocus);
 
-  // 鍒濆鍖栦俊鎭彔鍔犳爣绛 
+  // 初始化信息叠加标签
   m_infoLabel = new QLabel(this);
   m_infoLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
   m_infoLabel
-      ->winId(); // 寮哄埗鍒涘缓鍘熺敓绐楀彛锛屼互纭繚鍦 WA_PaintOnScreen 琛ㄩ潰涓婂彲瑙 
+      ->winId(); // 强制创建原生窗口，以确保在 WA_PaintOnScreen 表面上可见
   m_infoLabel->setStyleSheet(
       "QLabel { background-color: rgba(0, 0, 0, 100); color: cyan; "
       "font-weight: bold; border-radius: 5px; padding: 5px; }");
   m_infoLabel->move(10, 10);
   m_infoLabel->show();
-
-  // 鍚姩瀹氭椂鍒锋柊锛岀‘淇 FPS 鍜屼俊鎭瘡甯у埛鏂 
-  connect(&m_refreshTimer, &QTimer::timeout, this, [this]() { update(); });
-  m_refreshTimer.start(16); // 绾 60 FPS
 
   // Set required attributes for OCCT integration
   setAttribute(Qt::WA_PaintOnScreen);
@@ -91,11 +87,12 @@ OCCTWidget::OCCTWidget(QWidget *parent)
 
   initOCCT();
   
-  // 寤惰繜涓€绉掑啀娆″己鍒惰皟鏁村ぇ灏忥紝纭繚鍒濆 showMaximized 鐘舵€佽姝ｇ‘鎹曡幏
+  // 延迟再次强制调整大小，确保初始 showMaximized 状态被正确捕获
   QTimer::singleShot(100, this, [this]() {
     if (!m_view.IsNull()) {
       m_view->MustBeResized();
       m_view->Redraw();
+      updateOverlayInfo(true);
     }
   });
 }
@@ -141,28 +138,26 @@ void OCCTWidget::initOCCT() {
       m_aspectWindow->Map();
     }
 
-    // Set up the view
     // Set up the view for 3D (Perspective)
     m_view->Camera()->SetProjectionType(
         Graphic3d_Camera::Projection_Perspective);
     m_view->SetProj(V3d_XposYnegZpos); // Iso view
 
-    // 灏嗚鍥句腑蹇冨鍑嗕笘鐣屽潗鏍囧師鐐 (0,0,0)
+    // 将视图中心对准世界坐标原点 (0,0,0)
     m_view->Camera()->SetCenter(gp_Pnt(0, 0, 0));
-    m_view->SetScale(100.0); // 璁剧疆鍚堥€傜殑鍒濆缂╂斁姣斾緥
+    m_view->SetScale(100.0); // 设置合适的初始缩放比例
 
-    // 1. 鍦ㄥ乏涓嬭鏄剧ず甯﹀皬鏂瑰潡鐨勫潗鏍囪酱 (ZBUFFER 妯″紡)
+    // 1. 在左下角显示带小方块的坐标轴 (ZBUFFER 模式)
     m_view->TriedronDisplay(Aspect_TOTP_LEFT_LOWER, Quantity_NOC_GRAY80, 0.1, V3d_ZBUFFER);
 
-    // 鍚敤鎶楅敮榻 (OCCT 7.9+ 鎺ㄨ崘鏂瑰紡)
+    // 启用抗锯齿 (OCCT 7.9+ 推荐方式)
     m_view->ChangeRenderingParams().IsAntialiasingEnabled = Standard_True;
     
     updateView();
   } catch (const std::exception &e) {
-    // 鍦ㄨ皟璇曠増鏈腑锛屾垜浠彲浠ヨ緭鍑洪敊璇俊鎭 
-    // 浣嗗湪瀹為檯搴旂敤涓紝浣犲彲鑳芥兂浣跨敤鍏朵粬鏃ュ織鏈哄埗
+    Q_UNUSED(e);
   } catch (...) {
-    // 鎹曡幏鎵€鏈夊紓甯 
+    // 捕获所有异常
   }
 }
 
@@ -177,18 +172,30 @@ void OCCTWidget::initViewCube() {
     m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
     m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
     
-    // 璁剧疆鎸佷箙鎬э細鍙充笂瑙 
+    // 设置持久性：右上角
     m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
         Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(100, 100)));
 
     m_context->Display(m_viewCube, 1, 0, false);
     m_context->Activate(m_viewCube, 0);
+    m_shapeCountDirty = true;
   } catch (...) {
-    // 蹇界暐寮傚父
+    // 忽略异常
   }
 }
 
 void OCCTWidget::cleanup() {
+  m_lines.clear();
+  m_textShapes.clear();
+  m_dimensions.clear();
+  m_objectMetadata.clear();
+  m_viewCube.Nullify();
+  m_startHandle.Nullify();
+  m_lengthHandle.Nullify();
+  m_dynamicPreview.Nullify();
+  m_dynamicLine.Nullify();
+  m_selectedLine.Nullify();
+
   if (!m_context.IsNull()) {
     m_context->RemoveAll(Standard_False);
     m_context.Nullify();
@@ -199,6 +206,9 @@ void OCCTWidget::cleanup() {
   }
   if (!m_viewer.IsNull()) {
     m_viewer.Nullify();
+  }
+  if (!m_aspectWindow.IsNull()) {
+    m_aspectWindow.Nullify();
   }
   if (!m_graphicDriver.IsNull()) {
     m_graphicDriver.Nullify();
@@ -211,12 +221,45 @@ OCCTWidget::~OCCTWidget() {
   // 以免 eglMakeCurrent() 因为窗口上下文已销毁而失败
 }
 
+void OCCTWidget::updateOverlayInfo(bool forceShapeCount) {
+  m_frameCount++;
+  bool timerExpired = false;
+  if (!m_fpsTimer.isValid()) {
+    m_fpsTimer.start();
+  } else {
+    qint64 elapsed = m_fpsTimer.elapsed();
+    if (elapsed >= 500) {
+      m_fps = m_frameCount * 1000.0 / elapsed;
+      m_frameCount = 0;
+      m_fpsTimer.restart();
+      timerExpired = true;
+    }
+  }
+
+  if (forceShapeCount || m_shapeCountDirty || timerExpired) {
+    if (!m_context.IsNull()) {
+      NCollection_List<Handle(AIS_InteractiveObject)> displayed;
+      m_context->DisplayedObjects(displayed);
+      m_shapeCount = displayed.Extent();
+      m_shapeCountDirty = false;
+    }
+  }
+
+  if (m_infoLabel) {
+    m_infoLabel->raise(); // 确保标签始终在最顶层
+    QString info =
+        QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
+    if (m_infoLabel->text() != info) {
+      m_infoLabel->setText(info);
+      m_infoLabel->adjustSize();
+    }
+  }
+}
+
 void OCCTWidget::paintEvent(QPaintEvent *event) {
   Q_UNUSED(event);
   if (!m_view.IsNull()) {
-    // 姣忓抚妫€娴 widget 澶у皬鏄惁鍙樺寲锛岃嚜鍔ㄥ悓姝 OCCT 瑙嗗浘澶у皬
-    // 瑙ｅ喅 showMaximized() 鍦 setCentralWidget() 涔嬪墠璋冪敤鏃 
-    // 绐楀彛甯冨眬鍙樺寲鏈 OCCT 姝ｇ‘鎹曡幏鐨勯棶棰 
+    // 检测 widget 大小是否变化，自动同步 OCCT 视图大小
     QSize currentSize = size();
     if (currentSize != m_lastSize && currentSize.width() > 0 && currentSize.height() > 0) {
       m_lastSize = currentSize;
@@ -229,34 +272,7 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
     m_view->Redraw();
   }
 
-  // 璁＄畻 FPS
-  m_frameCount++;
-  if (!m_fpsTimer.isValid()) {
-    m_fpsTimer.start();
-  } else {
-    qint64 elapsed = m_fpsTimer.elapsed();
-    if (elapsed >= 1000) {
-      m_fps = m_frameCount * 1000.0 / elapsed;
-      m_frameCount = 0;
-      m_fpsTimer.restart();
-    }
-  }
-
-  // 缁熻妯″瀷鏁伴噺
-  if (!m_context.IsNull()) {
-    NCollection_List<Handle(AIS_InteractiveObject)> displayed;
-    m_context->DisplayedObjects(displayed);
-    m_shapeCount = displayed.Extent();
-  }
-
-  // 鏇存柊淇℃伅鍙犲姞鏄剧ず
-  if (m_infoLabel) {
-    m_infoLabel->raise(); // 纭繚鏍囩濮嬬粓鍦ㄦ渶椤跺眰
-    QString info =
-        QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
-    m_infoLabel->setText(info);
-    m_infoLabel->adjustSize();
-  }
+  updateOverlayInfo(false);
 }
 
 void OCCTWidget::resizeEvent(QResizeEvent *event) {
@@ -293,37 +309,35 @@ bool OCCTWidget::Get3DPoint(int userX, int userY, gp_Pnt &outPoint) {
     Standard_Real t = -z_eye / z_dir;
     outPoint.SetCoord(x_eye + t * x_dir, y_eye + t * y_dir, z_eye + t * z_dir);
 
-    // --- Snapping Logic ---
-    Standard_Real minDistance = 1.0; // Snapping threshold in World Units
-    gp_Pnt snapPoint;
-    bool foundSnap = false;
+    // --- Snapping Logic (仅在绘制线段模式下开启顶点捕捉，避免浏览/移动鼠标时全量遍历顶点卡顿) ---
+    if (m_drawLineMode) {
+      Standard_Real minDistance = 1.0; // Snapping threshold in World Units
+      gp_Pnt snapPoint;
+      bool foundSnap = false;
 
-    for (const auto &aisShape : m_lines) {
-      if (aisShape.IsNull())
-        continue;
+      for (const auto &aisShape : m_lines) {
+        if (aisShape.IsNull())
+          continue;
 
-      TopExp_Explorer exp(aisShape->Shape(), TopAbs_VERTEX);
-      for (; exp.More(); exp.Next()) {
-        const TopoDS_Vertex &vertex = TopoDS::Vertex(exp.Current());
-        gp_Pnt p = BRep_Tool::Pnt(vertex);
+        TopExp_Explorer exp(aisShape->Shape(), TopAbs_VERTEX);
+        for (; exp.More(); exp.Next()) {
+          const TopoDS_Vertex &vertex = TopoDS::Vertex(exp.Current());
+          gp_Pnt p = BRep_Tool::Pnt(vertex);
 
-        // Convert world point to screen space to check pixel distance 
-        // Or just check 3D distance since we are on flat plane logic mostly.
-        // Let's check 3D distance for now.
-        if (outPoint.Distance(p) < minDistance) {
-          if (!foundSnap ||
-              outPoint.Distance(p) < outPoint.Distance(snapPoint)) {
-            snapPoint = p;
-            minDistance = outPoint.Distance(p); // Keep finding closest
-            foundSnap = true;
+          if (outPoint.Distance(p) < minDistance) {
+            if (!foundSnap ||
+                outPoint.Distance(p) < outPoint.Distance(snapPoint)) {
+              snapPoint = p;
+              minDistance = outPoint.Distance(p); // Keep finding closest
+              foundSnap = true;
+            }
           }
         }
       }
-    }
 
-    if (foundSnap) {
-      outPoint = snapPoint;
-      // Optional: You could draw a marker here
+      if (foundSnap) {
+        outPoint = snapPoint;
+      }
     }
     // ----------------------
 
@@ -344,10 +358,6 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
       m_startY = event->pos().y();
     }
   }
-
-  gp_Pnt clickPoint;
-  bool hasIntersection =
-      Get3DPoint(event->pos().x(), event->pos().y(), clickPoint);
 
   // Track mouse position for panning
   m_xPos = event->pos().x();
@@ -380,6 +390,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
         m_context->Remove(m_dynamicPreview, false);
         m_dynamicPreview.Nullify();
       }
+      m_shapeCountDirty = true;
       m_context->UpdateCurrentViewer();
       this->update();
       return;
@@ -391,6 +402,9 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
   }
 
   if (m_drawLineMode) {
+    gp_Pnt clickPoint;
+    Get3DPoint(event->pos().x(), event->pos().y(), clickPoint);
+
     // First click - set the first point
     if (!m_firstPointSet) {
       m_firstPoint = clickPoint;
@@ -405,6 +419,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
       if (!m_dynamicLine.IsNull()) {
         m_context->Remove(m_dynamicLine, true);
         m_dynamicLine.Nullify();
+        m_shapeCountDirty = true;
       }
     }
   } else if (event->button() == Qt::LeftButton) {
@@ -415,7 +430,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
 
     m_context->Select(true);
 
-    // 鍙戝嚭瀵硅薄閫変腑淇″彿
+    // 发出对象选中信号
     m_context->InitSelected();
     if (m_context->MoreSelected()) {
       Handle(AIS_InteractiveObject) selObj = m_context->SelectedInteractive();
@@ -432,6 +447,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
         // 隐藏手柄球进行预览
         m_context->Erase(m_startHandle, false);
         m_context->Erase(m_lengthHandle, false);
+        m_shapeCountDirty = true;
         m_context->UpdateCurrentViewer();
         this->update();
         return; // Enter dragging mode
@@ -460,7 +476,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event) {
         }
       }
     } else {
-      emit objectSelected(QVariantMap()); // 鍙戦€佺┖琛ㄧず鍙栨秷閫変腑
+      emit objectSelected(QVariantMap()); // 发送空表示取消选中
     }
   }
   update();
@@ -507,10 +523,14 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event) {
               Handle(AIS_Shape) shapeObj = Handle(AIS_Shape)::DownCast(obj);
               if (!shapeObj.IsNull()) {
                 m_lines.remove(shapeObj);
+                m_textShapes.remove(shapeObj);
               }
+              m_objectMetadata.remove(obj);
               m_context->Remove(obj, Standard_False);
             }
+            m_shapeCountDirty = true;
             m_context->UpdateCurrentViewer();
+            updateOverlayInfo(true);
           }
         }
       }
@@ -541,11 +561,8 @@ void OCCTWidget::wheelEvent(QWheelEvent *event) {
     m_view->ZoomAtPoint(x, y, x - 10, y - 10); // Zoom out - Reduced sensitivity
   }
 
-  // Or simpler approach if ZoomAtPoint behaves oddly:
-  // Standard_Real aZoomFactor = (delta > 0)   1.1 : 0.9;
-  // m_view->SetScale(m_view->Scale() * aZoomFactor);
-
   m_view->Redraw();
+  updateOverlayInfo(false);
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
@@ -566,6 +583,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
       int virtualY = m_startY + static_cast<int>(dy * sensitivity);
 
       m_view->Rotation(virtualX, virtualY);
+      updateOverlayInfo(false);
       return;
     }
   }
@@ -578,16 +596,11 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
       m_view->Pan(event->pos().x() - m_xPos, m_yPos - event->pos().y());
       m_xPos = event->pos().x();
       m_yPos = event->pos().y();
+      updateOverlayInfo(false);
       return;
     }
   }
 
-  // Original Panning Logic (Left Button without modifiers) - KEEP or REMOVE 
-  // Let's keep it for now as "Pan" if no mode is active, but maybe restrict it 
-  // User asked for "Increase rotation function". Standard CAD:
-  // Middle=Pan, Right/Ctrl+Left=Rotate, Wheel=Zoom.
-  // Old logic had Left=Pan if not drawing. Let's keep it but prioritize
-  // Rotation.
   gp_Pnt mouseWorldPos;
   if (Get3DPoint(event->pos().x(), event->pos().y(), mouseWorldPos)) {
     emit mousePositionChanged(mouseWorldPos.X(), mouseWorldPos.Y(),
@@ -674,6 +687,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
         m_dynamicPreview->SetLocalTransformation(m_dragTrsf);
         
         m_context->Display(m_dynamicPreview, true);
+        updateOverlayInfo(false);
       } catch (...) {
         qDebug() << "[OCCTWidget] mouseMoveEvent: ERROR: Failed to generate ghost preview shape!";
       }
@@ -695,6 +709,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
       m_yPos = event->pos().y();
       m_view->Invalidate();
       m_view->Redraw();
+      updateOverlayInfo(false);
       return; 
     }
   }
@@ -718,6 +733,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
         m_context->SetColor(m_dynamicLine, Quantity_Color(Quantity_NOC_YELLOW),
                             false);
         m_context->Display(m_dynamicLine, true);
+        updateOverlayInfo(false);
       } catch (...) {
         // Ignore errors during dynamic drawing
       }
@@ -728,6 +744,9 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
     m_context->MoveTo(static_cast<int>(event->pos().x() * pixelRatio),
                       static_cast<int>(event->pos().y() * pixelRatio), m_view,
                       true);
+    if (m_infoLabel) {
+      m_infoLabel->raise();
+    }
   }
 }
 
@@ -747,6 +766,7 @@ void OCCTWidget::addLine(const gp_Pnt &start, const gp_Pnt &end) {
 
     // Store the line for reference
     m_lines.push_back(lineShape);
+    m_shapeCountDirty = true;
 
     updateView();
   }
@@ -759,20 +779,20 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
   if (!m_context.IsNull()) {
     Handle(AIS_Shape) aisShape = new AIS_Shape(shape);
 
-    // 1. 璁剧疆鏄剧ず妯″紡涓 Shaded (1)
+    // 1. 设置显示模式为 Shaded (1)
     m_context->SetDisplayMode(aisShape, 1, false);
 
-    // 2. 鍏堣缃潗璐 
+    // 2. 先设置材质
     m_context->SetMaterial(aisShape, material, false);
 
-    // 3. 鍚庤缃鑹 (纭繚瑕嗙洊鏉愯川鑷甫棰滆壊)
+    // 3. 后设置颜色 (确保覆盖材质自带颜色)
     m_context->SetColor(aisShape, color, false);
 
-    // 4. 鏄剧ず
+    // 4. 显示
     m_context->Display(aisShape, false);
 
     m_lines.push_back(aisShape);
-      
+    m_shapeCountDirty = true;
       
     if (!metadata.isEmpty()) {
       m_objectMetadata[aisShape] = metadata;
@@ -785,6 +805,7 @@ void OCCTWidget::addShape(const TopoDS_Shape &shape,
 void OCCTWidget::selectLine(const gp_Pnt &point) {
   // Find the closest line to the point and change its color to red
   // This is a simplified implementation
+  Q_UNUSED(point);
 }
 
 void OCCTWidget::updateView() {
@@ -792,6 +813,7 @@ void OCCTWidget::updateView() {
     m_view->ZFitAll(); // Adjust clipping planes only
     // m_view->FitAll(); // Don't refit camera to all objects
     m_view->Redraw();
+    updateOverlayInfo(true);
   }
 }
 
@@ -819,7 +841,6 @@ void OCCTWidget::generateRandomLines(int count) {
     Handle(AIS_Shape) lineShape = new AIS_Shape(edge);
 
     // Random Color
-    // Safer color:
     Quantity_Color col((rand() % 100) / 100.0, (rand() % 100) / 100.0,
                        (rand() % 100) / 100.0, Quantity_TOC_RGB);
 
@@ -831,9 +852,11 @@ void OCCTWidget::generateRandomLines(int count) {
     m_lines.push_back(lineShape);
   }
 
+  m_shapeCountDirty = true;
   m_view->ZFitAll();
   m_view->FitAll(); // Fit all for this initial generation
   m_view->Redraw();
+  updateOverlayInfo(true);
 }
 
 #include <BRepBndLib.hxx>
@@ -935,7 +958,7 @@ TopoDS_Shape OCCTWidget::makeTextShape2(const QString &text, double height,
       chineseLoaded = true;
     else if (fontChinese.Init("SimFang", Font_FA_Regular, height))
       chineseLoaded = true;
-    else if (fontChinese.Init("   ", Font_FA_Regular, height))
+    else if (fontChinese.Init("SimSun", Font_FA_Regular, height))
       chineseLoaded = true;
 
     if (!chineseLoaded)
@@ -1042,8 +1065,8 @@ void OCCTWidget::add3DText(const QString &text, double height,
     // Display
     m_context->Display(aisShape, true);
     m_lines.push_back(aisShape);
-      
-      
+    m_textShapes.push_back(aisShape);
+    m_shapeCountDirty = true;
 
     // Update view
     updateView();
@@ -1055,18 +1078,17 @@ void OCCTWidget::setTextsSolid(bool isSolid) {
     return;
 
   // Use display mode to control solid (Shaded=1) vs hollow (Wireframe=0)
-  Standard_Integer mode = 1;
+  const Standard_Integer mode = isSolid ? 1 : 0;
 
-  // Iterate over all managed objects (m_lines stores them)
-  // In a real app we might want to filter only text objects.
-  for (const auto &aisShape : m_lines) {
+  // 只切换文本对象的显示模式，避免把线段/桥墩等其他对象一并改成线框。
+  for (const auto &aisShape : m_textShapes) {
     if (!aisShape.IsNull()) {
-      // Check if already displayed to avoid errors  SetDisplayMode is safe.
       m_context->SetDisplayMode(aisShape, mode, false);
     }
   }
 
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(false);
 }
 
 void OCCTWidget::fitAll() {
@@ -1077,6 +1099,7 @@ void OCCTWidget::fitAll() {
       m_context->UpdateCurrentViewer();
     }
     m_view->Redraw();
+    updateOverlayInfo(true);
   }
 }
 
@@ -1085,21 +1108,16 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   TopoDS_Shape shape;
   BRep_Builder builder;
 
-  // Convert QString to const char*
-  QByteArray ba = filename.toLocal8Bit();
-  const char *c_str = ba.data();
+  // Convert QString to UTF-8 const char* for OCCT
+  QByteArray ba = filename.toUtf8();
+  const char *c_str = ba.constData();
 
   // Read the file
   if (!BRepTools::Read(shape, c_str, builder)) {
-    // Failed to read, handle error (maybe just log or ignore for now)
     return;
   }
 
-  // Important: we need to handle potential failure.
-  // And actually, BRepTools::Read returns Standard_Boolean (true on success).
-  // Let's verify documentation if possible, but usually yes.
-
-  // 鏅鸿兘鑹插僵鏄犲皠锛氳鏉愯川鐪嬭捣鏉ユ洿鐪熷疄
+  // 智能色彩映射：让材质看起来更真实
   Quantity_Color finalColor;
   switch (material) {
   case Graphic3d_NOM_GOLD:
@@ -1114,10 +1132,10 @@ void OCCTWidget::loadBrepFile(const QString &filename,
   case Graphic3d_NOM_CHROME:
   case Graphic3d_NOM_STEEL:
   case Graphic3d_NOM_ALUMINIUM:
-    finalColor = Quantity_NOC_GRAY30; // 閲嶅伐涓氭繁鐏拌壊
+    finalColor = Quantity_NOC_GRAY30; // 重工业深灰色
     break;
   case Graphic3d_NOM_PLASTIC:
-    finalColor = Quantity_NOC_YELLOW; // 濉戞枡榛樿鏄庨粍
+    finalColor = Quantity_NOC_YELLOW; // 塑料默认明黄
     break;
   case Graphic3d_NOM_GLASS:
     finalColor = Quantity_NOC_LIGHTBLUE;
@@ -1137,11 +1155,11 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
   TopoDS_Shape shape;
   BRep_Builder builder;
 
-  QByteArray ba = filename.toLocal8Bit();
-  if (!BRepTools::Read(shape, ba.data(), builder))
+  QByteArray ba = filename.toUtf8();
+  if (!BRepTools::Read(shape, ba.constData(), builder))
     return;
 
-  // 濡傛灉鏈 Y 杞村亸绉伙紝瀵瑰舰鐘跺仛骞崇Щ鍙樻崲
+  // 如果有 Y 轴偏移，对形状做平移变换
   if (std::abs(yOffset) > 1e-6) {
     gp_Trsf trsf;
     trsf.SetTranslation(gp_Vec(0, yOffset, 0));
@@ -1182,9 +1200,8 @@ void OCCTWidget::loadBrepFileDeferred(const QString &filename,
     m_context->SetColor(aisShape, finalColor, false);
     m_context->Display(aisShape, false);
     m_lines.push_back(aisShape);
-      
-      
-    // 涓嶈皟鐢 updateView() 鍜 fitAll()锛岀敱璋冪敤鏂规渶缁堢粺涓€鍒锋柊
+    m_shapeCountDirty = true;
+    // 不调用 updateView() 和 fitAll()，由调用方最终统一刷新
   }
 }
 
@@ -1194,14 +1211,14 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
   if (m_context.IsNull())
     return;
 
-  // 璇诲彇鍘熷 BREP
+  // 读取原始 BREP
   TopoDS_Shape baseShape;
   BRep_Builder builder;
-  QByteArray ba = filename.toLocal8Bit();
-  if (!BRepTools::Read(baseShape, ba.data(), builder))
+  QByteArray ba = filename.toUtf8();
+  if (!BRepTools::Read(baseShape, ba.constData(), builder))
     return;
 
-  // 棰滆壊鏄犲皠 (涓 loadBrepFile 淇濇寔涓€鑷 
+  // 颜色映射 (与 loadBrepFile 保持一致)
   Quantity_Color color;
   switch (material) {
   case Graphic3d_NOM_GOLD:
@@ -1229,7 +1246,7 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
     break;
   }
 
-  // 鍒涘缓 count 涓嫭绔 AIS_Shape锛屾部 Y 鏂瑰悜闂磋窛 spacing
+  // 创建 count 个独立 AIS_Shape，沿 Y 方向间距 spacing
   for (int i = 0; i < count; ++i) {
     gp_Trsf trsf;
     trsf.SetTranslation(gp_Vec(0, i * spacing, 0));
@@ -1243,6 +1260,7 @@ void OCCTWidget::loadBrepAsFullBridge(const QString &filename, int count,
     m_lines.push_back(ais);
   }
 
+  m_shapeCountDirty = true;
   m_context->UpdateCurrentViewer();
   fitAll();
 }
@@ -1256,7 +1274,7 @@ void OCCTWidget::clearAll() {
   m_context->RemoveAll(true);
   
   qDebug() << "[OCCTWidget] clearAll: handling viewCube";
-  // 鍏抽敭淇锛歊emoveAll 浼氱Щ闄 ViewCube锛岃繖閲岄渶瑕侀噸鏂版樉绀哄畠
+  // 关键修复：RemoveAll 会移除 ViewCube，这里需要重新显示它
   if (!m_viewCube.IsNull()) {
     m_context->Display(m_viewCube, AIS_Shaded, 0, false);
     m_context->Activate(m_viewCube, 0);
@@ -1267,6 +1285,7 @@ void OCCTWidget::clearAll() {
 
   qDebug() << "[OCCTWidget] clearAll: clearing vectors";
   m_lines.clear();
+  m_textShapes.clear();
   m_objectMetadata.clear();
 
   for (const auto &dim : m_dimensions) {
@@ -1282,8 +1301,10 @@ void OCCTWidget::clearAll() {
     m_dynamicLine.Nullify();
   }
 
+  m_shapeCountDirty = true;
   qDebug() << "[OCCTWidget] clearAll: final UpdateCurrentViewer";
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(true);
   qDebug() << "[OCCTWidget] clearAll: done";
 }
 
@@ -1316,12 +1337,13 @@ void OCCTWidget::exportToSTEP(const QString &filename) {
   if (shapeCount > 0) {
     IFSelect_ReturnStatus status = writer.Write(filename.toUtf8().constData());
     if (status == IFSelect_RetDone) {
-      QMessageBox::information(this, "Info", "Action completed");
+      QMessageBox::information(this, "Export STEP", "STEP 导出成功: " + filename);
     } else {
-      QMessageBox::information(this, "Info", "Action completed");
+      QMessageBox::critical(this, "Export STEP",
+                            "STEP 写入失败 (status=" + QString::number((int)status) + "): " + filename);
     }
   } else {
-    QMessageBox::information(this, "Info", "Action completed");
+    QMessageBox::warning(this, "Export STEP", "没有可导出的几何对象。");
   }
 }
 
@@ -1384,17 +1406,17 @@ void OCCTWidget::exportToGLTF(const QString &filename) {
     Message_ProgressRange progress;
     bool status = writer.Perform(doc, fileInfo, progress);
     if (status) {
-      QMessageBox::information(this, "Info", "Action completed");
+      QMessageBox::information(this, "Export GLTF", "GLTF 导出成功: " + filename);
     } else {
-      QMessageBox::information(this, "Info", "Action completed");
+      QMessageBox::critical(this, "Export GLTF", "GLTF 写入失败: " + filename);
     }
   } else {
-    QMessageBox::information(this, "Info", "Action completed");
+    QMessageBox::warning(this, "Export GLTF", "没有可导出的几何对象。");
   }
 #else
-  QMessageBox::critical(this, "   ",
-                        "    OCCT    /        GLTF        (      "
-                        "TKDEGLTF      RWGltf_CafWriter.hxx)  );
+  QMessageBox::critical(this, "导出失败",
+                        "当前 OCCT 编译版本未启用 GLTF 支持（缺少 "
+                        "TKDEGLTF 或 RWGltf_CafWriter.hxx）。");
 #endif
 }
 
@@ -1402,8 +1424,7 @@ void OCCTWidget::annotateBridgePierFooting() {
   if (m_context.IsNull())
     return;
 
-  //          :             Z=-140   
-  // -130   (X)=89.59   (Y)=59.05   (Z)=10
+  // 承台尺寸标注：Z=-140 到 -130，长(X)=89.59 宽(Y)=59.05 高(Z)=10
   double length = 89.59;
   double width = 59.05;
   double height = 10.0;
@@ -1415,7 +1436,7 @@ void OCCTWidget::annotateBridgePierFooting() {
   double minZ = -140.0;
   double maxZ = -130.0;
 
-  // X       (   -              (-Y       )
+  // X 方向标注（长度 - 向 -Y 方向偏移）
   gp_Pnt pL1(minX, minY, minZ);
   gp_Pnt pL2(maxX, minY, minZ);
   gp_Pln plnL(gp_Pnt(0, minY, minZ), gp_Dir(0, 0, 1));
@@ -1423,7 +1444,7 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pL1, pL2, plnL);
   dimL->SetFlyout(-35.0);
 
-  // Y       (   -              (+X       )
+  // Y 方向标注（宽度 - 向 +X 方向偏移）
   gp_Pnt pW1(maxX, minY, minZ);
   gp_Pnt pW2(maxX, maxY, minZ);
   gp_Pln plnW(gp_Pnt(maxX, 0, minZ), gp_Dir(0, 0, 1));
@@ -1431,7 +1452,7 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pW1, pW2, plnW);
   dimW->SetFlyout(35.0);
 
-  // Z       (   -            (+X       )
+  // Z 方向标注（高度 - 向 +X 方向偏移）
   gp_Pnt pH1(maxX, minY, minZ);
   gp_Pnt pH2(maxX, minY, maxZ);
   gp_Pln plnH(gp_Pnt(maxX, minY, 0), gp_Dir(0, -1, 0));
@@ -1439,17 +1460,14 @@ void OCCTWidget::annotateBridgePierFooting() {
       new PrsDim_LengthDimension(pH1, pH2, plnH);
   dimH->SetFlyout(35.0);
 
-  //               
+  // 统一设置标注样式并显示
   Handle(PrsDim_LengthDimension) dims[] = {dimL, dimW, dimH};
   for (int i = 0; i < 3; ++i) {
     Handle(Prs3d_DimensionAspect) aspect = dims[i]->DimensionAspect();
     if (!aspect.IsNull()) {
-      //       
       aspect->TextAspect()->SetHeight(12.0);
       aspect->TextAspect()->SetColor(Quantity_NOC_BLACK);
-      //         
       aspect->LineAspect()->SetColor(Quantity_NOC_BLACK);
-      //               
       aspect->SetArrowOrientation(Prs3d_DAO_External);
       aspect->SetTextHorizontalPosition(Prs3d_DTHP_Left);
       aspect->SetTextVerticalPosition(Prs3d_DTVP_Above);
@@ -1458,7 +1476,9 @@ void OCCTWidget::annotateBridgePierFooting() {
     m_dimensions.push_back(dims[i]);
   }
 
+  m_shapeCountDirty = true;
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(true);
 }
 
 void OCCTWidget::addLengthDimension(const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pln& plane, double flyout) {
@@ -1479,10 +1499,12 @@ void OCCTWidget::addLengthDimension(const gp_Pnt& p1, const gp_Pnt& p2, const gp
   
   m_context->Display(dim, false);
   m_dimensions.push_back(dim);
+  m_shapeCountDirty = true;
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(true);
 }
 
-// ==========        ==========
+// ========== 绘制流线型桥墩 ==========
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakeWire.hxx>
 #include <BRepFeat_MakePrism.hxx>
@@ -1919,7 +1941,7 @@ void OCCTWidget::drawFullBridgePier() {
 TopoDS_Shape OCCTWidget::readBrepFileToShape(const QString &filename) {
   TopoDS_Shape shape;
   BRep_Builder builder;
-  if (!BRepTools::Read(shape, filename.toStdString().c_str(), builder)) {
+  if (!BRepTools::Read(shape, filename.toUtf8().constData(), builder)) {
     qWarning() << "Failed to load deferred BREP file:" << filename;
   }
   return shape;
@@ -1929,7 +1951,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
   if (data.isEmpty())
     return TopoDS_Shape();
 
-  //        
+  // 检测文件头标识
   std::string dataStr(data.constData(), data.length());
   bool isStep = (dataStr.find("ISO-10303-21") != std::string::npos);
 
@@ -1942,7 +1964,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
 
       STEPControl_Reader reader;
       IFSelect_ReturnStatus status =
-          reader.ReadFile(fileName.toStdString().c_str());
+          reader.ReadFile(fileName.toUtf8().constData());
       if (status == IFSelect_RetDone) {
         reader.TransferRoots();
         if (reader.NbShapes() > 0) {
@@ -1957,7 +1979,7 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
     }
     return TopoDS_Shape();
   } else {
-    //        BREP    
+    // 默认作为 BREP 格式解析
     TopoDS_Shape shape;
     BRep_Builder builder;
     std::stringstream ss(dataStr);
@@ -1966,7 +1988,6 @@ TopoDS_Shape OCCTWidget::readBrepFromMemory(const QByteArray &data) {
       qWarning()
           << "BRepTools::Read failed to parse shape from memory! Data size:"
           << data.length();
-      //    :      50      
       qWarning() << "Data prefix:" << data.left(50);
     }
     return shape;
@@ -1997,7 +2018,7 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
     finalColor = Quantity_NOC_GRAY30;
     break;
   case Graphic3d_NOM_STONE:
-    finalColor = Quantity_NOC_GRAY80; //                      
+    finalColor = Quantity_NOC_GRAY80;
     break;
   case Graphic3d_NOM_PLASTIC:
     finalColor = Quantity_NOC_GRAY75;
@@ -2026,12 +2047,16 @@ void OCCTWidget::displayShape(const TopoDS_Shape &shape,
   m_context->SetColor(aisShape, color, false);
   m_context->Display(aisShape, false);
   m_lines.push_back(aisShape);
+  m_shapeCountDirty = true;
       
   m_objectMetadata[aisShape] = metadata;
   applyMaterial(aisShape, metadata);
 
-  if (fit)
+  if (fit) {
     fitAll();
+  } else {
+    updateOverlayInfo(true);
+  }
 }
 
 void OCCTWidget::buildFullBridgeFromParts(
@@ -2248,6 +2273,7 @@ void OCCTWidget::setUsePbr(bool enabled) {
         }
     }
     m_context->UpdateCurrentViewer();
+    updateOverlayInfo();
 }
 
 void OCCTWidget::applyMaterial(const Handle(AIS_InteractiveObject)& aisObj, const QVariantMap& metadata) {
@@ -2329,6 +2355,7 @@ void OCCTWidget::selectAndCenterObject(const QString& key, const QVariant& value
         // }
     }
     m_view->Redraw();
+    updateOverlayInfo();
 }
 
 void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
@@ -2347,6 +2374,7 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
   // 1. 清除视口当前显示的普通对象和元数据映射
   m_context->EraseAll(Standard_True);
   m_objectMetadata.clear();
+  m_shapeCountDirty = true;
 
   // 2. 获取 ShapeTool
   Handle(XCAFDoc_ShapeTool) shapeTool = XCAFDoc_DocumentTool::ShapeTool(doc->Main());
@@ -2385,6 +2413,7 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
           }
           
           m_context->Display(aisShape, Standard_False);
+          m_shapeCountDirty = true;
           
           // 读取绑定的 3D nodeId 属性，建立 2D 选择与编辑联动
           Handle(TDataStd_AsciiString) adNodeIdAttr;
@@ -2415,11 +2444,13 @@ void OCCTWidget::setAs2DView() {
   if (!m_viewCube.IsNull() && !m_context.IsNull()) {
     m_context->Erase(m_viewCube, Standard_False);
     m_viewCube.Nullify();
+    m_shapeCountDirty = true;
   }
   if (!m_view.IsNull()) {
     m_view->Camera()->SetProjectionType(Graphic3d_Camera::Projection_Orthographic);
     m_view->SetProj(V3d_Zpos);
     m_view->Redraw();
+    updateOverlayInfo(true);
   }
 }
 
@@ -2487,7 +2518,9 @@ void OCCTWidget::showLengthHandle(const gp_Pnt& startPos, const gp_Pnt& endPos, 
     m_context->SetMaterial(m_lengthHandle, Graphic3d_NOM_PLASTIC, false);
     m_context->Display(m_lengthHandle, false);
     
+    m_shapeCountDirty = true;
     m_context->UpdateCurrentViewer();
+    updateOverlayInfo(true);
     this->update();
     
     qDebug() << "[OCCTWidget] showLengthHandle: Created professional stretch arrows. scale =" << arrowScale << ", nodeId =" << nodeId;
@@ -2512,7 +2545,9 @@ void OCCTWidget::hideLengthHandle() {
     m_context->Remove(m_dynamicPreview, false);
     m_dynamicPreview.Nullify();
   }
+  m_shapeCountDirty = true;
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(true);
 }
 
 void OCCTWidget::cancelLengthDragging() {
@@ -2532,7 +2567,9 @@ void OCCTWidget::cancelLengthDragging() {
     m_context->Display(m_lengthHandle, false);
   }
   
+  m_shapeCountDirty = true;
   m_context->UpdateCurrentViewer();
+  updateOverlayInfo(true);
   this->update();
   qDebug() << "[OCCTWidget] cancelLengthDragging: Dragging canceled. Reverted handles.";
 }

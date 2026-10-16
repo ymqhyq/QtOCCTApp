@@ -22,12 +22,12 @@ namespace {
     static SlopeWires CreateSlopeWiresLocal(double L, double H, double ratio) {
         SlopeWires res;
         double offset = H * ratio;
-        gp_Pnt p1(0, offset, H);
-        gp_Pnt p2(L, offset, H);
+        gp_Pnt p1(0, 0, H);
+        gp_Pnt p2(L, 0, H);
         res.shoulder = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p1, p2));
         
-        gp_Pnt p3(0, 0, 0);
-        gp_Pnt p4(L, 0, 0);
+        gp_Pnt p3(0, offset, 0);
+        gp_Pnt p4(L, offset, 0);
         res.toe = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(p3, p4));
         return res;
     }
@@ -207,8 +207,14 @@ MainWindow::MainWindow(QWidget *parent)
 }
 
 MainWindow::~MainWindow() {
+  m_networkManager.reset();
+  if (m_tempProjDir) {
+    delete m_tempProjDir;
+    m_tempProjDir = nullptr;
+  }
   if (m_projectManager) {
     delete m_projectManager;
+    m_projectManager = nullptr;
   }
 }
 
@@ -224,7 +230,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
   // 释放共享的图形驱动
   OCCTWidget::releaseSharedDriver();
   
-  event->accept();
+  SARibbonMainWindow::closeEvent(event);
 }
 
 void MainWindow::createRibbon() {
@@ -660,8 +666,22 @@ void MainWindow::onDrawLineClicked() {
 void MainWindow::onAddShxText() {
   if (!m_shxGenerator) {
     m_shxGenerator = std::make_unique<ShxTextGenerator>();
-    m_shxGenerator->loadFont("d:/QtOCCTApp/TTT.shx");
-    m_shxGenerator->loadBigFont("d:/QtOCCTApp/hztxt.SHX");
+    auto findFontPath = [](const QString &fontFileName) -> std::string {
+      QStringList candidates = {
+          QApplication::applicationDirPath() + "/" + fontFileName,
+          QApplication::applicationDirPath() + "/../" + fontFileName,
+          QApplication::applicationDirPath() + "/../../" + fontFileName,
+          QDir::currentPath() + "/" + fontFileName,
+          QDir::currentPath() + "/../" + fontFileName};
+      for (const QString &candidate : candidates) {
+        if (QFile::exists(candidate)) {
+          return QFileInfo(candidate).absoluteFilePath().toStdString();
+        }
+      }
+      return fontFileName.toStdString();
+    };
+    m_shxGenerator->loadFont(findFontPath("TTT.shx"));
+    m_shxGenerator->loadBigFont(findFontPath("hztxt.SHX"));
   }
   std::string text = "京沪D1K323+569.30";
   gp_Pnt pos(0, 0, 0);
@@ -1192,27 +1212,6 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     qDebug() << "[GUI] loadMasterCbf: absPath3D =" << absPath3D << "exists =" << has3DFile;
     qDebug() << "[GUI] loadMasterCbf: absPath2D =" << absPath2D << "exists =" << has2DFile;
 
-    // 将路径调试信息写入 D:/QtOCCTApp/debug_paths.log
-    {
-        QFile dbgFile("D:/QtOCCTApp/debug_paths.log");
-        if (dbgFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            QTextStream outStream(&dbgFile);
-            outStream << "======== LoadMasterCbf Debug ========\n";
-            outStream << "fileName: " << fileName << "\n";
-            outStream << "path3D: " << QString::fromStdString(path3D) << " (len=" << path3D.length() << ")\n";
-            outStream << "path2D: " << QString::fromStdString(path2D) << " (len=" << path2D.length() << ")\n";
-            outStream << "absPath3D: " << absPath3D << "\n";
-            outStream << "absPath2D: " << absPath2D << "\n";
-            outStream << "has3DFile: " << (has3DFile ? "TRUE" : "FALSE") << "\n";
-            outStream << "has2DFile: " << (has2DFile ? "TRUE" : "FALSE") << "\n";
-            outStream << "=====================================\n";
-            dbgFile.close();
-        }
-    }
-
-
-    std::vector<SceneDataExtractor::VisualShape> visualShapes;
-
     // Set up UI layout based on available documents
     if (has2DFile) {
         m_occtWidget2D->show();
@@ -1232,27 +1231,6 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     m_modelExplorerDock->setModel(m_currentModel);
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
 
-    // 将加载结果写入 D:/QtOCCTApp/debug_paths.log
-    {
-        QFile dbgFile("D:/QtOCCTApp/debug_paths.log");
-        if (dbgFile.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            QTextStream outStream(&dbgFile);
-            outStream << "======== LoadMasterCbf Result ========\n";
-            outStream << "visualShapes.size(): " << visualShapes.size() << "\n";
-            outStream << "has3DFile: " << (has3DFile ? "TRUE" : "FALSE") << "\n";
-            outStream << "has2DFile: " << (has2DFile ? "TRUE" : "FALSE") << "\n";
-            outStream << "m_projectManager is NULL: " << (m_projectManager == nullptr ? "TRUE" : "FALSE") << "\n";
-            if (m_projectManager) {
-                Handle(TDocStd_Document) m3d = m_projectManager->GetOrLoadSubDocument(path3D);
-                outStream << "modelDoc (3D) is NULL: " << (m3d.IsNull() ? "TRUE" : "FALSE") << "\n";
-                Handle(TDocStd_Document) m2d = m_projectManager->GetOrLoadSubDocument(path2D);
-                outStream << "drawingDoc (2D) is NULL: " << (m2d.IsNull() ? "TRUE" : "FALSE") << "\n";
-            }
-            outStream << "======================================\n";
-            dbgFile.close();
-        }
-    }
-
     m_loadedMasterPath = fileName;
     return true;
 }
@@ -1263,7 +1241,7 @@ void MainWindow::onImportBrep() {
 
     TopoDS_Shape shape;
     BRep_Builder builder;
-    if (!BRepTools::Read(shape, fileName.toStdString().c_str(), builder)) {
+    if (!BRepTools::Read(shape, fileName.toUtf8().constData(), builder)) {
         QMessageBox::critical(this, "Error", "Failed to read BREP file: " + fileName);
         return;
     }
@@ -1805,7 +1783,10 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     
     // Update value
     QString oldVal = QString::fromUtf16((const char16_t*)targetProp->GetPropertyValue().ToExtString());
-    if (oldVal == newValue || (oldVal.toDouble() == newValue.toDouble())) {
+    bool oldOk = false, newOk = false;
+    double oldNum = oldVal.toDouble(&oldOk);
+    double newNum = newValue.toDouble(&newOk);
+    if (oldVal == newValue || (oldOk && newOk && oldNum == newNum)) {
         qDebug() << "[GUI] Property" << propertyName << "unchanged, skipping rebuild.";
         return;
     }
@@ -1814,7 +1795,7 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
     try {
         model->OpenCommand();
         commandOpen = true;
-        targetProp->SetPropertyValue(TCollection_ExtendedString(newValue.toStdString().c_str()));
+        targetProp->SetPropertyValue(TCollection_ExtendedString(newValue.toUtf8().constData(), Standard_True));
         model->CommitCommand();
         commandOpen = false;
     } catch (const std::exception& e) {
@@ -1843,7 +1824,7 @@ void MainWindow::onPropertyValueChanged(const QString& nodeId, const QString& pr
                     QString pv = QString::fromUtf16((const char16_t*)props.Value(k)->GetPropertyValue().ToExtString());
                     if (pn == "Length") L = pv.toDouble();
                     else if (pn == "Height") H = pv.toDouble();
-                    else if (pn == "Ratio") Ratio = pv.toDouble();
+                    else if (pn == "SlopeRatio" || pn == "Ratio") Ratio = pv.toDouble();
                 }
                 break;
             }

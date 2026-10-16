@@ -133,6 +133,7 @@ private:
   void initOCCT();
   void initViewCube();
   void updateView();
+  void updateOverlayInfo(bool forceShapeCount = false);
 
   Handle(V3d_Viewer) m_viewer;
   Handle(V3d_View) m_view;
@@ -141,6 +142,7 @@ private:
   Handle(AspectWindow) m_aspectWindow;
 
   std::list<Handle(AIS_Shape)> m_lines;
+  std::list<Handle(AIS_Shape)> m_textShapes; // 仅跟踪 add3DText 创建的文本，供 setTextsSolid 单独控制
   QMap<Handle(AIS_InteractiveObject), QVariantMap> m_objectMetadata;
   std::list<Handle(AIS_InteractiveObject)> m_dimensions;
   Handle(AIS_Shape) m_selectedLine;
@@ -157,8 +159,8 @@ private:
   int m_frameCount;
   double m_fps;
   int m_shapeCount;
+  bool m_shapeCountDirty;
   QLabel *m_infoLabel;
-  QTimer m_refreshTimer;
 
   Handle(AIS_ViewCube) m_viewCube;
   QSize m_lastSize; // 用于检测 widget 大小变化

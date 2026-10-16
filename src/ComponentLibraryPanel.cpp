@@ -1,4 +1,5 @@
 #include "ComponentLibraryPanel.h"
+#include <QCoreApplication>
 #include <QLabel>
 #include <QMessageBox>
 
@@ -86,9 +87,25 @@ void ComponentLibraryPanel::refreshNonParametricList()
 {
     m_nonParametricListWidget->clear();
 
-    // 检索构件库目录
-    QDir dir("D:/QtOCCTApp/构件库");
-    if (!dir.exists()) {
+    // 检索构件库目录（优先查找可执行文件周边及当前工作目录）
+    QStringList candidateDirs = {
+        QCoreApplication::applicationDirPath() + "/构件库",
+        QCoreApplication::applicationDirPath() + "/../构件库",
+        QCoreApplication::applicationDirPath() + "/../../构件库",
+        QDir::currentPath() + "/构件库",
+        QDir::currentPath() + "/../构件库"
+    };
+    QDir dir;
+    bool foundDir = false;
+    for (const QString& candidate : candidateDirs) {
+        QDir candidateDir(candidate);
+        if (candidateDir.exists()) {
+            dir = candidateDir;
+            foundDir = true;
+            break;
+        }
+    }
+    if (!foundDir) {
         QListWidgetItem* item = new QListWidgetItem(tr("构件库目录不存在"), m_nonParametricListWidget);
         item->setFlags(Qt::NoItemFlags);
         return;
