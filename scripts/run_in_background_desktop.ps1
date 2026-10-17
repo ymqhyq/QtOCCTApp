@@ -15,6 +15,9 @@
   截图会得到空白图像。需要视觉检查时请改用进程内截图（如 QWidget::grab），
   或显式在交互桌面上运行。
 
+  另：当验证步骤需要用户亲自查看/点击/输入时，请直接在用户交互桌面上启动
+  程序并提前告知，不要使用本脚本。
+
 .EXAMPLE
   .\run_in_background_desktop.ps1 -CommandText "ctest -C Release" `
       -WorkingDirectory D:\QtOCCTApp\build_v142
