@@ -66,3 +66,31 @@
 7. RDE 往返测试（打包→解包→逐文件哈希）+ 损坏包/缺子文档/旧格式负向用例。
 8. 明确三类入口语义：`.rde`（工程包）/ `master.cbf`（索引工程）/ 普通 `.cbf`（自包含模型）。
 9. 打开时校验子文档存在性与版本，给出可操作的错误提示。
+
+## 5. 实施状态
+
+### 已完成
+- **P0-1 GUID 落库**：新增 `NodeIdentity`（生成 + 幂等补号）；主控、子文档、普通 CBF
+  三条加载路径都会为缺失 `GlobalID` 的节点补号并随保存持久化。
+- **P0-2 遍历口径**：模型树的层级与 Topology 分区遍历统一按 `adRoot` 处理，
+  子文档引用与图纸对象（`adDrawing2D` 等）均可进树、可被选中；两条路径按条目 ID 去重。
+- **P0-3 加载失败**：`OpenMasterProject` 先打开到临时句柄、成功后才替换当前文档；
+  会话内已打开的文件直接复用（修复 `PCDM_RS_AlreadyRetrieved`）；
+  子文档缺失明确报错，不再静默创建空文档；`loadMasterCbf` 成功后才清空视图。
+- **P1-4 容器固定为 ZIP**：新增 `ProjectPackage` 模块，基于 3rpart 自带 zlib 内嵌
+  实现 ZIP 读写（无 `tar.exe` 依赖）；旧式 TAR 包读取保留兼容路径。
+- **P1-5 manifest.json**：记录 `formatVersion` / `appVersion` / `projectName` /
+  `createdAt` / `layout`(`indexed`|`self-contained`) / `master` / 文件清单（大小 + SHA-256）
+  / 子文档清单（路径 + DocType）。解包时校验版本、逐文件哈希与 ZIP CRC，
+  并拒绝路径穿越（绝对路径、`..`）。
+- **P1-6 原子写入**：使用 `QSaveFile` 写临时文件，成功后原子替换目标。
+- **P2-7 测试**：新增 `test/test_project_package.cpp`（QtTest）：
+  往返哈希比对、旧 ZIP 兼容、截断包拒绝、缺主控报错、路径安全校验；
+  已接入 CTest（`ctest -C Release`）。
+- **P2-8 入口语义**：日志区分「工程包(.rde) / 主控(master.cbf) / 自包含模型(.cbf)」。
+
+### 仍可继续
+- 旧包（无 manifest）升级为 v1：打开后重新导出一次即可。
+- 现有数据里自定义格式的 GUID（如 `GUID_Slope_3D_1`）如需统一为 32 位 UUID，
+  需要一次显式数据迁移（当前策略仅补空、不改旧）。
+- 打包进度回调（当前为进程内同步打包，大工程时 UI 仍会短暂阻塞）。

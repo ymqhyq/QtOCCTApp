@@ -92,6 +92,7 @@ namespace {
 #include "BrNode_adGeometricDef.h"
 #include "ProjectManager.h"
 #include "NodeIdentity.h"
+#include "ProjectPackage.h"
 #include "generated/BrNode_adSubDocRef.h"
 #include "generated/BrNode_adModelRoot.h"
 #include "generated/BrNode_adDrawing2D.h"
@@ -1243,6 +1244,7 @@ void MainWindow::onLoadAsiModel() {
         return;
     }
 
+    qDebug() << "[Load] 入口: 自包含模型(.cbf)" << fileName;
     m_occtWidget->clearAll();
     if (!m_currentModel.IsNull()) {
         m_currentModel.Nullify();
@@ -2340,7 +2342,7 @@ void MainWindow::onComponentSelected(const QString& category, const QString& nam
 
 bool MainWindow::openProjectFile(const QString &fileName) {
     if (fileName.endsWith(".rde", Qt::CaseInsensitive)) {
-        qDebug() << "Opening RDE package:" << fileName;
+        qDebug() << "[Load] 入口: 工程包(.rde)" << fileName;
         
         if (m_tempProjDir) {
             delete m_tempProjDir;
@@ -2365,7 +2367,14 @@ bool MainWindow::openProjectFile(const QString &fileName) {
             return false;
         }
         
-        QString masterPath = tempPath + "/master.cbf";
+        // 优先使用清单里记录的主控路径
+        QString masterPath = QDir(tempPath).absoluteFilePath(
+            m_packageMasterRel.isEmpty() ? QStringLiteral("master.cbf")
+                                         : m_packageMasterRel);
+        qDebug() << "[RDE] 主控:" << masterPath
+                 << "布局:" << (m_packageLayout.isEmpty() ? QStringLiteral("legacy")
+                                                          : m_packageLayout)
+                 << "包格式版本:" << m_packageFormatVersion;
         if (!QFile::exists(masterPath)) {
             QDirIterator it(tempPath, QStringList() << "master.cbf", QDir::Files, QDirIterator::Subdirectories);
             if (it.hasNext()) {
@@ -2389,14 +2398,46 @@ bool MainWindow::openProjectFile(const QString &fileName) {
 }
 
 bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) {
+    // 1. 新版包：ZIP 容器 + manifest.json（格式版本、布局、文件清单与 SHA-256）
+    if (ProjectPackage::isZipArchive(rdePath)) {
+        ProjectPackage::Manifest manifest;
+        QString error;
+        if (!ProjectPackage::extractArchive(rdePath, destDir, &manifest, &error)) {
+            qWarning() << "[RDE] 解包失败:" << error;
+            QMessageBox::critical(this, "Error",
+                                  "Failed to extract project package:\n" + error);
+            return false;
+        }
+
+        m_packageMasterRel = manifest.master.isEmpty()
+                                 ? QStringLiteral("master.cbf")
+                                 : manifest.master;
+        m_packageLayout = manifest.layout;
+        m_packageFormatVersion = manifest.formatVersion;
+
+        if (manifest.formatVersion == 0) {
+            qWarning() << "[RDE] 旧格式 ZIP 包（无 manifest.json），未做完整性校验";
+        } else {
+            qDebug() << "[RDE] 包格式版本:" << manifest.formatVersion
+                     << "布局:" << manifest.layout
+                     << "文件数:" << manifest.files.size()
+                     << "子文档数:" << manifest.subDocuments.size()
+                     << "工程名:" << manifest.projectName;
+        }
+        return true;
+    }
+
+    // 2. 兼容旧式 TAR 容器（历史 .rde 包）
+    qWarning() << "[RDE] 非 ZIP 容器，按旧式 TAR 包解包:" << rdePath;
     QProcess process;
     QStringList arguments;
-    arguments << "-xf" << QDir::toNativeSeparators(rdePath) 
+    arguments << "-xf" << QDir::toNativeSeparators(rdePath)
               << "-C" << QDir::toNativeSeparators(destDir);
-    
+
     qDebug() << "Extracting archive using tar:" << "tar" << arguments;
     process.start("tar", arguments);
-    if (!process.waitForFinished(10000)) {
+    // 大工程解包可能较慢，旧格式路径放宽超时
+    if (!process.waitForFinished(120000)) {
         qWarning() << "Failed to extract RDE file: tar process timeout";
         return false;
     }
@@ -2404,39 +2445,47 @@ bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) 
         qWarning() << "tar exited with code:" << process.exitCode() << process.readAllStandardError();
         return false;
     }
+    m_packageMasterRel = QStringLiteral("master.cbf");
+    m_packageLayout.clear();
+    m_packageFormatVersion = 0;
     return true;
 }
 
 bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) {
-    QString tempZip = QDir::tempPath() + "/temp_rde_pkg.zip";
-    if (QFile::exists(tempZip)) {
-        QFile::remove(tempZip);
-    }
-    
-    QProcess process;
-    QStringList arguments;
-    arguments << "-cf" << QDir::toNativeSeparators(tempZip)
-              << "-C" << QDir::toNativeSeparators(sourceDir)
-              << ".";
-              
-    qDebug() << "Packaging using tar:" << "tar" << arguments;
-    process.start("tar", arguments);
-    if (!process.waitForFinished(15000)) {
-        qWarning() << "Failed to package: tar process timeout";
+    // 子文档以“相对工程目录”的路径登记进清单
+    QList<ProjectPackage::SubDocEntry> subDocuments;
+    auto appendSubDoc = [&](const QString &subDocPath, const QString &docType) {
+        if (subDocPath.isEmpty()) {
+            return;
+        }
+        const QString absolutePath = QDir::isAbsolutePath(subDocPath)
+                                         ? subDocPath
+                                         : QDir(sourceDir).absoluteFilePath(subDocPath);
+        const QString relPath =
+            QDir::fromNativeSeparators(QDir(sourceDir).relativeFilePath(absolutePath));
+        if (!ProjectPackage::isSafeRelativePath(relPath) ||
+            relPath.startsWith(QStringLiteral(".."))) {
+            qWarning() << "[RDE] 子文档不在工程目录内，跳过:" << subDocPath;
+            return;
+        }
+        subDocuments.append({relPath, docType});
+    };
+    appendSubDoc(m_subDocPath3D, QStringLiteral("3DModel"));
+    appendSubDoc(m_subDocPath2D, QStringLiteral("2DDrawing"));
+
+    QString error;
+    const QString projectName = QFileInfo(sourceDir).fileName();
+    if (!ProjectPackage::createArchive(rdePath, sourceDir, subDocuments,
+                                       projectName, &error)) {
+        qWarning() << "[RDE] 打包失败:" << error;
+        QMessageBox::critical(this, "Export RDE",
+                              "Failed to package project:\n" + error);
         return false;
     }
-    if (process.exitCode() != 0) {
-        qWarning() << "tar package exited with code:" << process.exitCode() << process.readAllStandardError();
-        return false;
-    }
-    
-    if (QFile::exists(rdePath)) {
-        QFile::remove(rdePath);
-    }
-    
-    bool success = QFile::copy(tempZip, rdePath);
-    QFile::remove(tempZip);
-    return success;
+
+    qDebug() << "[RDE] 打包完成:" << rdePath
+             << "子文档数:" << subDocuments.size();
+    return true;
 }
 
 void MainWindow::onExportRdeClicked() {

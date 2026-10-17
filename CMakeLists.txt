@@ -106,6 +106,8 @@ add_library(qtocctapp_ui STATIC
     src/ComponentLibraryPanel.cpp
     include/UiTheme.h
     src/UiTheme.cpp
+    include/ProjectPackage.h
+    src/ProjectPackage.cpp
 )
 
 # Include directories（PUBLIC：使用该库的测试程序同样需要这些头文件路径）
@@ -189,6 +191,13 @@ target_link_libraries(qtocctapp_ui PUBLIC
 )
 
 # Set C++ properties for OCCT
+set(ZLIB_3RDPARTY_DIR "${CMAKE_SOURCE_DIR}/3rpart/opencascade-8.0.0-vc14-64-pch-with-debug-combined/3rdparty-vc14-64/zlib-1.2.8-vc14-64")
+if(EXISTS "${ZLIB_3RDPARTY_DIR}/lib/zlib.lib")
+    # ProjectPackage 内嵌 ZIP 读写使用；PUBLIC 以便测试目标同样能解析 zlib 符号
+    target_include_directories(qtocctapp_ui PRIVATE "${ZLIB_3RDPARTY_DIR}/include")
+    target_link_libraries(qtocctapp_ui PUBLIC "${ZLIB_3RDPARTY_DIR}/lib/zlib.lib")
+endif()
+
 set_target_properties(qtocctapp_ui PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON

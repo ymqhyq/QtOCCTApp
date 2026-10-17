@@ -156,6 +156,11 @@ private:
   QComboBox *m_themeComboBox = nullptr;
   bool m_applyingTheme = false;
   QVariantMap m_lastPropertyMeta; // 主题变化后据此重绘属性面板
+
+  // 最近一次解包的 RDE 清单信息（ZIP 包）
+  QString m_packageMasterRel = QStringLiteral("master.cbf");
+  QString m_packageLayout;          // indexed / self-contained（旧包为空）
+  int m_packageFormatVersion = 0;   // 0 表示旧包（无 manifest.json）
 };
 
 #endif // MAINWINDOW_H

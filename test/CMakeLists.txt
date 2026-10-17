@@ -104,4 +104,14 @@ if(TARGET Qt6::Test)
     )
 
     add_test(NAME selection_linkage COMMAND test_selection_linkage)
+
+    # RDE 工程包（ZIP + manifest）读写测试
+    add_executable(test_project_package
+        test_project_package.cpp
+    )
+    target_link_libraries(test_project_package PRIVATE
+        qtocctapp_ui
+        Qt6::Test
+    )
+    add_test(NAME project_package COMMAND test_project_package)
 endif()
