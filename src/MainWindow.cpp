@@ -384,19 +384,6 @@ void MainWindow::createRibbon() {
   connect(closeAction, &QAction::triggered, this, &MainWindow::onCloseModel);
   panelProject->addLargeAction(closeAction);
 
-  // 工程包维护：旧包升级 / GUID 规范化（一次性迁移）
-  QAction *upgradePackageAction =
-      makeIconAction(":/resources/icons/import.svg", "升级工程包");
-  connect(upgradePackageAction, &QAction::triggered, this,
-          &MainWindow::onUpgradeLegacyPackage);
-  panelProject->addSmallAction(upgradePackageAction);
-
-  QAction *normalizeGuidAction =
-      makeIconAction(":/resources/icons/check.svg", "统一 GUID");
-  connect(normalizeGuidAction, &QAction::triggered, this,
-          &MainWindow::onNormalizeGuids);
-  panelProject->addSmallAction(normalizeGuidAction);
-
   // 增加 "导入" 分组并归类
   SARibbonPanel *panelImport = categoryMain->addPanel("导入");
   QAction *importBrepAction = makeIconAction(":/resources/icons/import.svg", "导入 BREP");
@@ -750,6 +737,20 @@ void MainWindow::createTestCategory() {
   QAction *loadMasterAction = makeIconAction(":/resources/icons/open.svg", "加载 Master CBF");
   connect(loadMasterAction, &QAction::triggered, this, &MainWindow::onLoadMasterCbf);
   panelTest->addLargeAction(loadMasterAction);
+
+  // 工程包维护：旧包升级 / GUID 规范化（一次性迁移）
+  panelTest->addSeparator();
+  QAction *upgradePackageAction =
+      makeIconAction(":/resources/icons/import.svg", "升级工程包");
+  connect(upgradePackageAction, &QAction::triggered, this,
+          &MainWindow::onUpgradeLegacyPackage);
+  panelTest->addSmallAction(upgradePackageAction);
+
+  QAction *normalizeGuidAction =
+      makeIconAction(":/resources/icons/check.svg", "统一 GUID");
+  connect(normalizeGuidAction, &QAction::triggered, this,
+          &MainWindow::onNormalizeGuids);
+  panelTest->addSmallAction(normalizeGuidAction);
 }
 
 void MainWindow::setupCadQueryUi() {
