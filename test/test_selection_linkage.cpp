@@ -16,7 +16,9 @@
 
 #include <QtTest>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTimer>
@@ -92,6 +94,7 @@ private slots:
   void globalIdMigrationAssignsStableIds();
   void guidFormatIsNormalized();
   void viewportPickReportsLinkedNode();
+  void viewportRotationReportsFrameRate();
   void subDocumentObjectsAreAttachedToTree();
   void mainWindowLinksViewportPickToModelTree();
 
@@ -454,6 +457,63 @@ void SelectionLinkageTest::viewportPickReportsLinkedNode() {
   QTest::qWait(150);
   QVERIFY2(widget.isViewCubeVisible(), "clearAll 之后导航组件消失");
   QVERIFY2(widget.isFpsOverlayVisible(), "clearAll 之后 FPS 叠加消失");
+}
+
+/// 右键旋转期间 FPS 必须反映实际渲染帧，而不是一直停在 0
+void SelectionLinkageTest::viewportRotationReportsFrameRate() {
+  OCCTWidget widget;
+  widget.resize(640, 480);
+  widget.show();
+  QVERIFY(QTest::qWaitForWindowExposed(&widget));
+  QTest::qWait(200);
+
+  const TopoDS_Shape box =
+      BRepPrimAPI_MakeBox(gp_Pnt(-50.0, -50.0, -50.0), gp_Pnt(50.0, 50.0, 50.0))
+          .Shape();
+  QVERIFY(!box.IsNull());
+  widget.addShape(box, Quantity_NOC_GRAY75, Graphic3d_NOM_PLASTIC);
+  widget.fitAll();
+
+  // 先让空闲采样归零，避免把 FitAll 的帧算进旋转区间
+  QTest::qWait(700);
+
+  const QPoint start(widget.width() / 2, widget.height() / 2);
+  QMouseEvent press(QEvent::MouseButtonPress, QPointF(start),
+                    QPointF(widget.mapToGlobal(start)), Qt::RightButton,
+                    Qt::RightButton, Qt::NoModifier);
+  QApplication::sendEvent(&widget, &press);
+
+  const QRegularExpression fpsPattern(QStringLiteral("FPS:\\s*([0-9.]+)"));
+  QElapsedTimer rotationTimer;
+  rotationTimer.start();
+  double maxFps = 0.0;
+  int step = 0;
+  while (rotationTimer.elapsed() < 1200) {
+    const QPoint pos =
+        start + QPoint((step % 21) - 10, (step % 13) - 6);
+    QMouseEvent move(QEvent::MouseMove, QPointF(pos),
+                     QPointF(widget.mapToGlobal(pos)), Qt::NoButton,
+                     Qt::RightButton, Qt::NoModifier);
+    QApplication::sendEvent(&widget, &move);
+    QTest::qWait(8);
+
+    const QRegularExpressionMatch match =
+        fpsPattern.match(widget.fpsOverlayText());
+    if (match.hasMatch()) {
+      maxFps = qMax(maxFps, match.captured(1).toDouble());
+    }
+    ++step;
+  }
+
+  const QPoint releasePos = start + QPoint(40, 20);
+  QMouseEvent release(QEvent::MouseButtonRelease, QPointF(releasePos),
+                      QPointF(widget.mapToGlobal(releasePos)),
+                      Qt::RightButton, Qt::NoButton, Qt::NoModifier);
+  QApplication::sendEvent(&widget, &release);
+
+  QVERIFY2(maxFps > 5.0,
+           qPrintable(QStringLiteral("右键旋转期间 FPS 未正确累计，最大读数仅 %1")
+                          .arg(maxFps)));
 }
 
 /**

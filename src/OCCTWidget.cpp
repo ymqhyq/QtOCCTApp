@@ -430,6 +430,14 @@ int OCCTWidget::takeFrameCount() const {
   return countingView.IsNull() ? 0 : countingView->takeFrameCount();
 }
 
+void OCCTWidget::recordRenderedFrame() const {
+  Handle(FrameCountingView) countingView =
+      Handle(FrameCountingView)::DownCast(m_view);
+  if (!countingView.IsNull()) {
+    countingView->recordFrame();
+  }
+}
+
 void OCCTWidget::sampleFrameRate() {
   if (!m_fpsTimer.isValid()) {
     m_fpsTimer.start();
@@ -733,7 +741,7 @@ void OCCTWidget::wheelEvent(QWheelEvent *event) {
     m_view->ZoomAtPoint(x, y, x - 10, y - 10); // Zoom out - Reduced sensitivity
   }
 
-  m_view->Redraw();
+  recordRenderedFrame();
   updateOverlayInfo(false);
 }
 
@@ -755,6 +763,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
       int virtualY = m_startY + static_cast<int>(dy * sensitivity);
 
       m_view->Rotation(virtualX, virtualY);
+      recordRenderedFrame();
       updateOverlayInfo(false);
       return;
     }
@@ -766,6 +775,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event) {
        (event->modifiers() & Qt::ShiftModifier))) {
     if (!m_view.IsNull()) {
       m_view->Pan(event->pos().x() - m_xPos, m_yPos - event->pos().y());
+      recordRenderedFrame();
       m_xPos = event->pos().x();
       m_yPos = event->pos().y();
       updateOverlayInfo(false);

@@ -34,9 +34,9 @@ class Line;
  * @brief 统计真实重绘次数的视图
  *
  * OCCT 的交互操作（Rotation / Pan / ZoomAtPoint 等）以及 view cube 的即时刷新
- * 都由 OCCT 内部直接调用 Redraw()/RedrawImmediate() 完成，不会经过 Qt 的
- * paintEvent。因此按 paintEvent 统计帧率会严重偏低（交互很流畅、读数却接近 0）。
- * 这两个函数都是虚函数，重写它们即可在真正的渲染点计数。
+ * 不会经过 Qt 的 paintEvent。部分操作会走到这两个虚函数，但 Rotation/Pan/
+ * ZoomAtPoint 内部调用的是非虚的 Update()，最终直接调用 OpenGl_View::Redraw()，
+ * 仍然绕过这里。因此交互路径还需要显式调用 recordFrame()。
  */
 class FrameCountingView : public V3d_View {
 public:
@@ -52,6 +52,9 @@ public:
     ++m_frameCounter;
     V3d_View::RedrawImmediate();
   }
+
+  /// 记录一次由 OCCT 内部 ImmediateUpdate() 完成的渲染
+  void recordFrame() const { ++m_frameCounter; }
 
   /// 取走并清零累计的重绘次数
   int takeFrameCount() const {
@@ -190,6 +193,8 @@ private:
   void updateOverlayInfo(bool forceShapeCount = false);
   // 按固定节奏结算帧率（与 Qt 的重绘时机解耦，空闲时自然归零）
   void sampleFrameRate();
+  // 记录一次绕过 FrameCountingView 虚函数的内部渲染（Rotation/Pan/Zoom）
+  void recordRenderedFrame() const;
   // 取走本周期内的真实重绘次数
   int takeFrameCount() const;
 
