@@ -179,6 +179,13 @@ void OCCTWidget::initOCCT() {
   }
 }
 
+bool OCCTWidget::isViewCubeVisible() const {
+  if (m_context.IsNull() || m_viewCube.IsNull()) {
+    return false;
+  }
+  return m_context->IsDisplayed(m_viewCube);
+}
+
 void OCCTWidget::initViewCube() {
   if (!m_showViewCube || m_context.IsNull() || !m_viewCube.IsNull())
     return;
@@ -190,11 +197,14 @@ void OCCTWidget::initViewCube() {
     m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
     m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
     
-    // 设置持久性：右上角
+    // 固定在视图右上角（TriedronPers + 屏幕偏移），作为导航组件
     m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
         Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(100, 100)));
+    m_viewCube->SetFontHeight(12.0);
 
-    m_context->Display(m_viewCube, 1, 0, false);
+    // 注意：AIS_ViewCube 只接受显示模式 0（AcceptDisplayMode 返回 mode==0）。
+    // 之前传入模式 1 会导致演示对象为空、立方体不可见。
+    m_context->Display(m_viewCube, Standard_False);
     m_context->Activate(m_viewCube, 0);
     m_shapeCountDirty = true;
   } catch (...) {
@@ -257,8 +267,9 @@ void OCCTWidget::updateOverlayInfo(bool forceShapeCount) {
     m_statsTimer.restart();
   }
 
+  // 左上角信息组件：FPS 为主，对象数量为辅
   const QString info =
-      QString("Shapes: %1 | FPS: %2").arg(m_shapeCount).arg(m_fps, 0, 'f', 1);
+      QString("FPS: %1 | Shapes: %2").arg(m_fps, 0, 'f', 1).arg(m_shapeCount);
   if (m_infoLabel->text() != info) {
     m_infoLabel->setText(info);
     m_infoLabel->adjustSize();

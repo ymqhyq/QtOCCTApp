@@ -130,6 +130,9 @@ public:
   void setAs2DView();
   void addLengthDimension(const gp_Pnt& p1, const gp_Pnt& p2, const gp_Pln& plane, double flyout);
 
+  /// 右上角导航组件（视图立方体）是否已显示（供诊断/测试使用）
+  bool isViewCubeVisible() const;
+
   // 边坡长度拉伸交互接口
   void showLengthHandle(const gp_Pnt& startPos, const gp_Pnt& endPos, double currentLength, const QString& nodeId, const gp_Trsf& trsf, double height = 8000.0, double slopeRatio = 1.5);
   void hideLengthHandle();

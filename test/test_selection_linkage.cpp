@@ -442,6 +442,18 @@ void SelectionLinkageTest::viewportPickReportsLinkedNode() {
            QStringLiteral("unit-test-node"));
   QCOMPARE(emitted.value(QStringLiteral("Pset_UnitTest.Marker")).toString(),
            QStringLiteral("1"));
+
+  // 左上角信息组件（FPS）与右上角导航组件（视图立方体）
+  QLabel *overlay = nullptr;
+  for (QLabel *label : widget.findChildren<QLabel *>()) {
+    if (label->text().startsWith(QStringLiteral("FPS:"))) {
+      overlay = label;
+      break;
+    }
+  }
+  QVERIFY2(overlay != nullptr, "左上角没有 FPS 信息组件");
+  QVERIFY2(overlay->x() < widget.width() / 4, "FPS 组件不在左侧");
+  QVERIFY2(widget.isViewCubeVisible(), "右上角导航组件（视图立方体）未显示");
 }
 
 /**
