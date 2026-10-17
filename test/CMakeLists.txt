@@ -114,4 +114,18 @@ if(TARGET Qt6::Test)
         Qt6::Test
     )
     add_test(NAME project_package COMMAND test_project_package)
+
+    # GUID 规范化（真实工程 + 保存 + 重开）
+    add_executable(test_guid_migration
+        test_guid_migration.cpp
+    )
+    target_link_libraries(test_guid_migration PRIVATE
+        qtocctapp_ui
+        Qt6::Test
+    )
+    # OCAF 应用是进程级单例：两个场景各自独立进程运行，避免文档生命周期冲突
+    add_test(NAME guid_migration_selfcontained
+             COMMAND test_guid_migration mainWindowNormalizeGuids)
+    add_test(NAME guid_migration_indexed
+             COMMAND test_guid_migration mainWindowNormalizeGuidsIndexed)
 endif()

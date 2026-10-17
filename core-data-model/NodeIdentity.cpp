@@ -163,7 +163,9 @@ int NodeIdentity::NormalizeGlobalIds(const std::vector<Handle(DataModel)> &model
     return filled;
   }
 
-  // 2. 逐模型写入新 GUID（事务包裹）
+  // 2. 逐模型：在同一个事务内完成“改名 + 引用更新”。
+  //    OCAF 要求属性修改必须处于事务中，否则会抛
+  //    "Attribute ... is changed outside transaction"（此前正是这样崩溃的）。
   int changed = 0;
   for (const Handle(DataModel) &model : models) {
     if (model.IsNull()) {
@@ -178,6 +180,7 @@ int NodeIdentity::NormalizeGlobalIds(const std::vector<Handle(DataModel)> &model
     }
 
     try {
+      // 2.1 GUID 改名（同时补齐空 GUID）
       forEachNode({model}, [&](const Handle(DataModel) &, const Handle(BrNode_adRoot) &node,
                                std::size_t) {
         const TCollection_ExtendedString current = node->GetGlobalID();
@@ -189,67 +192,62 @@ int NodeIdentity::NormalizeGlobalIds(const std::vector<Handle(DataModel)> &model
         if (looksLikeStandardGuid(current)) {
           return;
         }
-        const std::string key = TCollection_AsciiString(current, Standard_True).ToCString();
+        const std::string key =
+            TCollection_AsciiString(current, Standard_True).ToCString();
         const auto found = guidMap.find(key);
         if (found != guidMap.end()) {
-          node->SetGlobalID(TCollection_ExtendedString(found->second.c_str(), Standard_True));
+          node->SetGlobalID(
+              TCollection_ExtendedString(found->second.c_str(), Standard_True));
           ++changed;
         }
       });
-    } catch (const Standard_Failure &failure) {
-      std::cerr << "[NodeIdentity] GUID 迁移异常: " << failure.GetMessageString()
-                << std::endl;
+
+      // 2.2 业务节点上的显式引用（示坡线 -> 目标 3D 对象）
+      forEachNode({model}, [&](const Handle(DataModel) &, const Handle(BrNode_adRoot) &node,
+                               std::size_t) {
+        Handle(BrNode_adSlopeIndication) indication =
+            Handle(BrNode_adSlopeIndication)::DownCast(node);
+        if (indication.IsNull()) {
+          return;
+        }
+        const std::string target =
+            TCollection_AsciiString(indication->GetTargetObjectID(), Standard_True)
+                .ToCString();
+        const auto found = guidMap.find(target);
+        if (found != guidMap.end()) {
+          indication->SetTargetObjectID(
+              TCollection_ExtendedString(found->second.c_str(), Standard_True));
+        }
+      });
+
+      // 2.3 图纸 XCAF 标签上的 AsciiString（2D 图元 -> 3D 节点）
+      Handle(ActAPI_INode) rootNode = model->GetRootNode();
+      if (!rootNode.IsNull()) {
+        Handle(TDocStd_Document) document =
+            TDocStd_Document::Get(rootNode->RootLabel());
+        if (!document.IsNull()) {
+          for (TDF_ChildIterator it(document->Main(), Standard_True); it.More();
+               it.Next()) {
+            Handle(TDataStd_AsciiString) attr;
+            if (!it.Value().FindAttribute(TDataStd_AsciiString::GetID(), attr)) {
+              continue;
+            }
+            const auto found = guidMap.find(attr->Get().ToCString());
+            if (found != guidMap.end()) {
+              attr->Set(TCollection_AsciiString(found->second.c_str()));
+            }
+          }
+        }
+      }
     } catch (...) {
-      std::cerr << "[NodeIdentity] GUID 迁移发生未知异常" << std::endl;
+      if (commandOpened) {
+        model->AbortCommand();
+      }
+      throw; // 由调用方转换成界面上的错误提示
     }
 
     if (commandOpened) {
       model->CommitCommand();
-    }
-  }
-
-  // 3. 同步更新引用旧 GUID 的字符串属性
-  for (const Handle(DataModel) &model : models) {
-    if (model.IsNull()) {
-      continue;
-    }
-
-    // 3.1 业务节点上的显式引用（示坡线 -> 目标 3D 对象）
-    forEachNode({model}, [&](const Handle(DataModel) &, const Handle(BrNode_adRoot) &node,
-                             std::size_t) {
-      Handle(BrNode_adSlopeIndication) indication =
-          Handle(BrNode_adSlopeIndication)::DownCast(node);
-      if (indication.IsNull()) {
-        return;
-      }
-      const std::string target = TCollection_AsciiString(
-                                     indication->GetTargetObjectID(), Standard_True)
-                                     .ToCString();
-      const auto found = guidMap.find(target);
-      if (found != guidMap.end()) {
-        indication->SetTargetObjectID(
-            TCollection_ExtendedString(found->second.c_str(), Standard_True));
-      }
-    });
-
-    // 3.2 图纸 XCAF 标签上的 AsciiString（2D 图元 -> 3D 节点）
-    Handle(ActAPI_INode) rootNode = model->GetRootNode();
-    if (rootNode.IsNull()) {
-      continue;
-    }
-    Handle(TDocStd_Document) document = TDocStd_Document::Get(rootNode->RootLabel());
-    if (document.IsNull()) {
-      continue;
-    }
-    for (TDF_ChildIterator it(document->Main(), Standard_True); it.More(); it.Next()) {
-      Handle(TDataStd_AsciiString) attr;
-      if (!it.Value().FindAttribute(TDataStd_AsciiString::GetID(), attr)) {
-        continue;
-      }
-      const auto found = guidMap.find(attr->Get().ToCString());
-      if (found != guidMap.end()) {
-        attr->Set(TCollection_AsciiString(found->second.c_str()));
-      }
     }
   }
 

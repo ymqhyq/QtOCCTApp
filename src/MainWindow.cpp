@@ -2592,6 +2592,31 @@ void MainWindow::onNormalizeGuids() {
     return;
   }
 
+  int changed = 0;
+  QString error;
+  if (!normalizeProjectGuids(&changed, &error)) {
+    QMessageBox::warning(this, tr("统一 GUID"),
+                         error.isEmpty() ? tr("操作失败。") : error);
+    return;
+  }
+  if (changed == 0) {
+    QMessageBox::information(this, tr("统一 GUID"),
+                             tr("所有节点已是标准格式，无需修改。"));
+    return;
+  }
+  QMessageBox::information(this, tr("统一 GUID"),
+                           tr("已统一 %1 个节点的 GUID 并保存。").arg(changed));
+}
+
+bool MainWindow::normalizeProjectGuids(int *changed, QString *error) {
+  if (changed != nullptr) {
+    *changed = 0;
+  }
+  if (m_projectManager == nullptr || m_currentModel.IsNull()) {
+    if (error != nullptr) *error = tr("请先打开一个工程。");
+    return false;
+  }
+
   // 主控 + 已加载/可加载的子文档必须一起迁移，跨文档引用才能保持一致
   std::vector<Handle(DataModel)> models;
   models.push_back(m_currentModel);
@@ -2607,13 +2632,37 @@ void MainWindow::onNormalizeGuids() {
     }
   }
 
-  const int changed = NodeIdentity::NormalizeGlobalIds(models);
-  if (changed == 0) {
-    QMessageBox::information(this, tr("统一 GUID"),
-                             tr("所有节点已是标准格式，无需修改。"));
-    return;
+  int modified = 0;
+  try {
+    modified = NodeIdentity::NormalizeGlobalIds(models);
+  } catch (const Standard_Failure &failure) {
+    const char *message = failure.GetMessageString();
+    qCritical() << "[GUID] 规范化时发生 OCCT 异常:"
+                << (message != nullptr ? QString::fromUtf8(message) : QStringLiteral("(unknown)"));
+    if (error != nullptr) {
+      *error = tr("规范化 GUID 时发生 OCCT 异常: %1")
+                   .arg(message != nullptr ? QString::fromUtf8(message) : tr("未知错误"));
+    }
+    return false;
+  } catch (const std::exception &e) {
+    qCritical() << "[GUID] 规范化时发生异常:" << e.what();
+    if (error != nullptr) {
+      *error = tr("规范化 GUID 时发生异常: %1").arg(QString::fromUtf8(e.what()));
+    }
+    return false;
+  } catch (...) {
+    qCritical() << "[GUID] 规范化时发生未知异常";
+    if (error != nullptr) *error = tr("规范化 GUID 时发生未知异常。");
+    return false;
+  }
+  if (changed != nullptr) {
+    *changed = modified;
+  }
+  if (modified == 0) {
+    return true;
   }
 
+  qInfo() << "[GUID] 已改写" << modified << "个节点，准备保存...";
   QProgressDialog dialog(tr("正在保存工程..."), tr("取消"), 0, 100, this);
   dialog.setWindowTitle(tr("统一 GUID"));
   dialog.setWindowModality(Qt::WindowModal);
@@ -2628,17 +2677,55 @@ void MainWindow::onNormalizeGuids() {
     return !dialog.wasCanceled();
   };
 
-  const bool saved = m_projectManager->SaveAll(progress);
+  bool saved = false;
+  try {
+    saved = m_projectManager->SaveAll(progress);
+  } catch (const Standard_Failure &failure) {
+    const char *message = failure.GetMessageString();
+    qCritical() << "[GUID] 保存时发生 OCCT 异常:"
+                << (message != nullptr ? QString::fromUtf8(message) : QStringLiteral("(unknown)"));
+    if (error != nullptr) {
+      *error = tr("保存工程时发生 OCCT 异常: %1")
+                   .arg(message != nullptr ? QString::fromUtf8(message) : tr("未知错误"));
+    }
+    dialog.close();
+    return false;
+  } catch (const std::exception &e) {
+    qCritical() << "[GUID] 保存时发生异常:" << e.what();
+    if (error != nullptr) {
+      *error = tr("保存工程时发生异常: %1").arg(QString::fromUtf8(e.what()));
+    }
+    dialog.close();
+    return false;
+  } catch (...) {
+    qCritical() << "[GUID] 保存时发生未知异常";
+    if (error != nullptr) *error = tr("保存工程时发生未知异常。");
+    dialog.close();
+    return false;
+  }
   dialog.close();
 
   if (!saved) {
-    QMessageBox::warning(this, tr("统一 GUID"),
-                         tr("已更新 %1 个节点，但保存失败或被取消。").arg(changed));
-  } else {
-    QMessageBox::information(this, tr("统一 GUID"),
-                             tr("已统一 %1 个节点的 GUID 并保存。").arg(changed));
+    if (error != nullptr) {
+      *error = tr("已更新 %1 个节点，但保存失败或被取消。").arg(modified);
+    }
+    return false;
   }
-  refreshViews();
+
+  qInfo() << "[GUID] 保存完成，刷新视图...";
+  try {
+    refreshViews();
+  } catch (const Standard_Failure &failure) {
+    const char *message = failure.GetMessageString();
+    qWarning() << "[GUID] 刷新视图时发生 OCCT 异常:"
+               << (message != nullptr ? QString::fromUtf8(message) : QStringLiteral("(unknown)"));
+  } catch (const std::exception &e) {
+    qWarning() << "[GUID] 刷新视图时发生异常:" << e.what();
+  } catch (...) {
+    qWarning() << "[GUID] 刷新视图时发生未知异常";
+  }
+  qInfo() << "[GUID] 视图刷新完成";
+  return true;
 }
 
 bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) {

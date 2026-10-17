@@ -51,6 +51,13 @@ public:
    */
   bool openProjectFile(const QString &fileName);
 
+  /**
+   * @brief 统一工程内 GUID 格式并保存（不含确认对话框，供测试与脚本调用）
+   * @param changed 返回被改写的节点数量
+   * @param error 失败原因
+   */
+  bool normalizeProjectGuids(int *changed, QString *error = nullptr);
+
 public slots:
   void onRunCqScript();
   /// 把旧版工程包（无清单 / TAR）升级为 ZIP v1（带 manifest.json）
