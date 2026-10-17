@@ -1,8 +1,9 @@
 #include "../include/ModelExplorerPanel.h"
 #include "../include/TextEncoding.h"
 #include <QFileInfo>
-#include <QVBoxLayout>
 #include <QHeaderView>
+#include <QSet>
+#include <QVBoxLayout>
 #include <ActAPI_IPartition.h>
 #include <ActData_BasePartition.h>
 #include <Standard_Failure.hxx>
@@ -15,7 +16,7 @@ ModelExplorerPanel::ModelExplorerPanel(QWidget* parent) : QDockWidget("Model Exp
     m_treeView = new QTreeView(this);
     m_itemModel = new QStandardItemModel(this);
     m_itemModel->setHorizontalHeaderLabels({"Model Tree"});
-    
+
     m_treeView->setModel(m_itemModel);
     m_treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_treeView->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -34,25 +35,150 @@ void ModelExplorerPanel::setUiPalette(const UiPalette& palette) {
     }
 }
 
+/**
+ * @brief 为任意节点创建树项
+ *
+ * schema 中 adSubDocRef / adDrawing2D / adRepresentation2D 等都派生自 adRoot
+ * 而不是 adObject。这里统一按 adRoot 处理，避免再次出现“只认 adObject、
+ * 其余节点被静默丢弃”的问题。
+ */
+QStandardItem* ModelExplorerPanel::appendNode(Handle(ActAPI_INode) node,
+                                              QStandardItem* parentItem) {
+    if (node.IsNull() || parentItem == nullptr) {
+        return nullptr;
+    }
+
+    QStandardItem* item = nullptr;
+    Handle(BrNode_adSubDocRef) subRef = Handle(BrNode_adSubDocRef)::DownCast(node);
+    if (!subRef.IsNull()) {
+        const QString docPath = TextEncoding::FromExtendedString(subRef->GetDocPath());
+        const QString docType = TextEncoding::FromExtendedString(subRef->GetDocType());
+        const QString fileName = QFileInfo(docPath).fileName();
+        QString label = fileName.isEmpty() ? QStringLiteral("子文档") : fileName;
+        if (!docType.isEmpty()) {
+            label += QStringLiteral(" [%1]").arg(docType);
+        }
+        item = new QStandardItem(label);
+        m_subDocRefItems.insert(item, subRef);
+    } else {
+        const QString name = TextEncoding::FromExtendedString(node->GetName());
+        QString type;
+        if (Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(node)) {
+            // GetObjectType() 定义在 adObject 上，优先使用业务类型名
+            type = TextEncoding::FromExtendedString(obj->GetObjectType());
+        } else {
+            type = QString::fromLatin1(node->DynamicType()->Name());
+        }
+        item = new QStandardItem(QStringLiteral("%1(%2)").arg(name, type));
+    }
+
+    item->setEditable(false);
+    parentItem->appendRow(item);
+    m_nodeMap.insert(item, node);
+    return item;
+}
+
+void ModelExplorerPanel::populateNode(Handle(ActAPI_INode) node,
+                                      QStandardItem* parentItem,
+                                      QSet<QString>* seen) {
+    if (node.IsNull() || parentItem == nullptr) {
+        return;
+    }
+
+    const QString entryId = QString(node->GetId().ToCString());
+    if (seen != nullptr) {
+        if (seen->contains(entryId)) {
+            return; // 层级路径与分区路径可能指向同一节点
+        }
+        seen->insert(entryId);
+    }
+
+    QStandardItem* item = appendNode(node, parentItem);
+    if (item == nullptr) {
+        return;
+    }
+
+    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(node);
+    if (obj.IsNull()) {
+        return; // 非业务对象节点（子文档引用/图纸/表达）没有 adObject 子级
+    }
+
+    const NCollection_Sequence<Handle(BrNode_adObject)> children = obj->GetSubObjectsList();
+    for (int i = 1; i <= children.Length(); ++i) {
+        populateNode(children.Value(i), item, seen);
+    }
+}
+
+int ModelExplorerPanel::populateRootChildren(Handle(DataModel) model,
+                                             QStandardItem* parentItem,
+                                             QSet<QString>* seen) {
+    if (model.IsNull() || parentItem == nullptr) return 0;
+
+    Handle(ActAPI_INode) rootBase = model->GetRootNode();
+    if (rootBase.IsNull()) return 0;
+
+    int added = 0;
+    Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
+    for (; it->More(); it->Next()) {
+        Handle(ActAPI_INode) child = it->Value();
+        if (child.IsNull()) continue;
+        const int before = parentItem->rowCount();
+        populateNode(child, parentItem, seen);
+        if (parentItem->rowCount() > before) ++added;
+    }
+    return added;
+}
+
+int ModelExplorerPanel::populateTopologyPartition(Handle(DataModel) model,
+                                                  QStandardItem* parentItem,
+                                                  QSet<QString>* seen) {
+    if (model.IsNull() || parentItem == nullptr) return 0;
+
+    int added = 0;
+    try {
+        // ID 2 = Topology 分区。子文档里的图纸/表达节点通常挂在这里，
+        // 且它们不是 adObject，必须按 adRoot 处理。
+        Handle(ActAPI_IPartition) topology = model->Partition(2);
+        if (topology.IsNull()) return 0;
+
+        for (ActData_BasePartition::Iterator it(topology); it.More(); it.Next()) {
+            Handle(ActAPI_INode) node = it.Value();
+            if (node.IsNull()) continue;
+            const int before = parentItem->rowCount();
+            populateNode(node, parentItem, seen);
+            if (parentItem->rowCount() > before) ++added;
+        }
+    } catch (const Standard_Failure& failure) {
+        qWarning() << "[ModelExplorerPanel] 遍历 Topology 分区失败:"
+                   << failure.GetMessageString();
+    } catch (...) {
+        qWarning() << "[ModelExplorerPanel] 遍历 Topology 分区时发生未知异常";
+    }
+    return added;
+}
+
 bool ModelExplorerPanel::selectNodeById(const QString& nodeId) {
     if (nodeId.isEmpty() || m_treeView == nullptr || m_itemModel == nullptr) {
         return false;
     }
 
     for (auto it = m_nodeMap.constBegin(); it != m_nodeMap.constEnd(); ++it) {
-        Handle(BrNode_adObject) node = it.value();
+        Handle(ActAPI_INode) node = it.value();
         if (node.IsNull()) continue;
 
-        // 视口对象的元数据里存的是 GlobalID；这里同时兼容自增 ID
-        const QString globalId = TextEncoding::FromExtendedString(node->GetGlobalID());
-        const QString innerId = QString(node->GetId().ToCString());
-        if (globalId != nodeId && innerId != nodeId) continue;
+        // 视口元数据里存的是 GlobalID；同时兼容 OCAF 条目 ID
+        Handle(BrNode_adRoot) rootNode = Handle(BrNode_adRoot)::DownCast(node);
+        const QString globalId =
+            rootNode.IsNull()
+                ? QString()
+                : TextEncoding::FromExtendedString(rootNode->GetGlobalID());
+        const QString entryId = QString(node->GetId().ToCString());
+        if (globalId != nodeId && entryId != nodeId) continue;
 
         QStandardItem* item = it.key();
         if (item == nullptr) return false;
 
         const QModelIndex index = item->index();
-        // 展开所有父级，否则目标项可能不可见
         for (QModelIndex parent = index.parent(); parent.isValid();
              parent = parent.parent()) {
             m_treeView->expand(parent);
@@ -76,93 +202,15 @@ void ModelExplorerPanel::setModel(Handle(DataModel) model) {
     Handle(ActAPI_INode) rootBase = m_dataModel->GetRootNode();
     if (rootBase.IsNull()) return;
 
-    // 根节点的子级里除了普通业务对象（adObject），还有子文档引用（adSubDocRef）等
-    // 非 adObject 节点。此前一律 DownCast 成 adObject 并丢弃失败者，导致
-    // “主控 + 子文档”形态的工程模型树完全为空。
+    // 根节点的子级里除了普通业务对象（adObject），还有子文档引用（adSubDocRef）
+    // 等非 adObject 节点；统一按 adRoot 处理，避免它们被丢弃。
     QStandardItem* rootItem = m_itemModel->invisibleRootItem();
+    QSet<QString> seen;
     Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
     for (; it->More(); it->Next()) {
-        Handle(ActAPI_INode) child = it->Value();
-        if (child.IsNull()) continue;
-
-        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(child);
-        if (!obj.IsNull()) {
-            populateModel(obj, rootItem);
-            continue;
-        }
-
-        Handle(BrNode_adSubDocRef) subRef =
-            Handle(BrNode_adSubDocRef)::DownCast(child);
-        if (!subRef.IsNull()) {
-            const QString docPath =
-                TextEncoding::FromExtendedString(subRef->GetDocPath());
-            const QString docType =
-                TextEncoding::FromExtendedString(subRef->GetDocType());
-            const QString fileName = QFileInfo(docPath).fileName();
-            QString label = fileName.isEmpty() ? QStringLiteral("子文档") : fileName;
-            if (!docType.isEmpty()) {
-                label += QStringLiteral(" [%1]").arg(docType);
-            }
-            QStandardItem* item = new QStandardItem(label);
-            item->setEditable(false);
-            rootItem->appendRow(item);
-            m_subDocRefItems.insert(item, subRef);
-            continue;
-        }
-
-        // 其它类型的节点（如 adDrawing2D）也按名称显示，保证结构可见
-        const QString name = TextEncoding::FromExtendedString(child->GetName());
-        // GetObjectType() 只定义在 adObject 上，这里用 OCC RTTI 取类型名
-        const QString type = QString::fromLatin1(child->DynamicType()->Name());
-        QStandardItem* item =
-            new QStandardItem(QStringLiteral("%1(%2)").arg(name, type));
-        item->setEditable(false);
-        rootItem->appendRow(item);
+        populateNode(it->Value(), rootItem, &seen);
     }
     m_treeView->expandAll();
-}
-
-int ModelExplorerPanel::populateRootChildren(Handle(DataModel) model,
-                                             QStandardItem* parentItem) {
-    if (model.IsNull() || parentItem == nullptr) return 0;
-
-    Handle(ActAPI_INode) rootBase = model->GetRootNode();
-    if (rootBase.IsNull()) return 0;
-
-    int added = 0;
-    Handle(ActAPI_IChildIterator) it = rootBase->GetChildIterator();
-    for (; it->More(); it->Next()) {
-        Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it->Value());
-        if (obj.IsNull()) continue;
-        populateModel(obj, parentItem);
-        ++added;
-    }
-    return added;
-}
-
-int ModelExplorerPanel::populateTopologyPartition(Handle(DataModel) model,
-                                                  QStandardItem* parentItem) {
-    if (model.IsNull() || parentItem == nullptr) return 0;
-
-    int added = 0;
-    try {
-        // ID 2 = Topology 分区
-        Handle(ActAPI_IPartition) topology = model->Partition(2);
-        if (topology.IsNull()) return 0;
-
-        for (ActData_BasePartition::Iterator it(topology); it.More(); it.Next()) {
-            Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(it.Value());
-            if (obj.IsNull()) continue;
-            populateModel(obj, parentItem);
-            ++added;
-        }
-    } catch (const Standard_Failure& failure) {
-        qWarning() << "[ModelExplorerPanel] 遍历 Topology 分区失败:"
-                   << failure.GetMessageString();
-    } catch (...) {
-        qWarning() << "[ModelExplorerPanel] 遍历 Topology 分区时发生未知异常";
-    }
-    return added;
 }
 
 void ModelExplorerPanel::addSubDocument(const QString& title,
@@ -194,11 +242,11 @@ void ModelExplorerPanel::addSubDocument(const QString& title,
         return;
     }
 
-    // 2. 先按对象层级填充；层级为空时退回 Topology 分区
-    int added = populateRootChildren(subModel, parentItem);
-    if (added == 0) {
-        added = populateTopologyPartition(subModel, parentItem);
-    }
+    // 2. 先按对象层级填充，再补 Topology 分区里尚未挂载的节点
+    //    （图纸的 adDrawing2D / adRepresentation2D 只在分区里，不在层级里）
+    QSet<QString> seen;
+    int added = populateRootChildren(subModel, parentItem, &seen);
+    added += populateTopologyPartition(subModel, parentItem, &seen);
     if (added == 0) {
         parentItem->appendRow(new QStandardItem(QStringLiteral("(无对象)")));
     }
@@ -208,28 +256,13 @@ void ModelExplorerPanel::addSubDocument(const QString& title,
 
 void ModelExplorerPanel::onItemClicked(const QModelIndex& index) {
     QStandardItem* item = m_itemModel->itemFromIndex(index);
-    if (item && m_nodeMap.contains(item)) {
-        emit nodeSelected(m_nodeMap[item]);
+    if (item == nullptr || !m_nodeMap.contains(item)) {
+        return;
     }
-}
 
-void ModelExplorerPanel::populateModel(Handle(BrNode_adObject) node, QStandardItem* parentItem) {
-    if (node.IsNull()) return;
-
-    // 统一走 TextEncoding::FromExtendedString，可顺带修复历史数据里
-    // “UTF-8 字节被按 Latin-1 写入”造成的乱码（桥梁 → æ¡¥æ¢）
-    QString qName = TextEncoding::FromExtendedString(node->GetName());
-    QString qType = TextEncoding::FromExtendedString(node->GetObjectType());
-
-    // Format: name(type)
-    QString displayText = QString("%1(%2)").arg(qName).arg(qType);
-
-    QStandardItem* nameItem = new QStandardItem(displayText);
-    parentItem->appendRow(nameItem);
-    m_nodeMap[nameItem] = node;
-
-    NCollection_Sequence<Handle(BrNode_adObject)> children = node->GetSubObjectsList();
-    for (int i = 1; i <= children.Length(); ++i) {
-        populateModel(children.Value(i), nameItem);
+    // 属性面板目前只接受业务对象；子文档引用/图纸等节点仅做树内选中
+    Handle(BrNode_adObject) obj = Handle(BrNode_adObject)::DownCast(m_nodeMap[item]);
+    if (!obj.IsNull()) {
+        emit nodeSelected(obj);
     }
 }

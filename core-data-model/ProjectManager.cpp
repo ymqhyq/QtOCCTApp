@@ -1,5 +1,6 @@
 #include "ProjectManager.h"
 #include "RwSlopeGeometryBuilder.h"
+#include "NodeIdentity.h"
 #include "generated/BrNode_adGeometry.h"
 
 // OCCT 核心驱动与 OCAF
@@ -63,19 +64,42 @@ ProjectManager::~ProjectManager()
 
 Standard_Boolean ProjectManager::OpenMasterProject(const std::string& filepath)
 {
-    m_masterPath = filepath;
     m_loadedSubDocs.clear();
     m_loadedSubModels.clear();
 
     std::cout << "[PM] OpenMasterProject: " << filepath << std::endl;
-    PCDM_ReaderStatus status = m_app->Open(filepath.c_str(), m_masterDoc);
-    std::cout << "[PM] Open status: " << status << " (0=OK)" << std::endl;
-    if (status != PCDM_RS_OK)
+
+    // 先读入临时句柄，成功后才替换当前文档：
+    // 打开失败时必须保留原文档并返回失败，不能静默 NewDocument（那会让用户
+    // 误以为加载成功，实际拿到的是空工程）。
+    Handle(TDocStd_Document) openedDoc;
+
+    // 同一文件已在当前会话打开时直接复用，避免 PCDM_RS_AlreadyRetrieved(17)；
+    // 直接 Open 会失败，而之前那种“失败就新建空文档”的处理会悄悄丢掉已有内容。
+    const TCollection_ExtendedString sessionPath(filepath.c_str(), Standard_True);
+    const int sessionIndex = m_app->IsInSession(sessionPath);
+    if (sessionIndex > 0)
     {
-        std::cout << "[PM] Open failed, creating new document..." << std::endl;
-        m_app->NewDocument("ACTBin", m_masterDoc);
-        if (m_masterDoc.IsNull()) return Standard_False;
-    } else {
+        openedDoc = m_app->GetDocument(sessionIndex);
+        std::cout << "[PM] 文件已在会话中打开，复用现有文档 (index "
+                  << sessionIndex << ")" << std::endl;
+    }
+
+    if (openedDoc.IsNull())
+    {
+        PCDM_ReaderStatus status = m_app->Open(filepath.c_str(), openedDoc);
+        std::cout << "[PM] Open status: " << status << " (0=OK)" << std::endl;
+        if (status != PCDM_RS_OK)
+        {
+            std::cerr << "[PM] Open failed: " << filepath
+                      << " (status=" << status << ")，保留当前文档" << std::endl;
+            return Standard_False;
+        }
+    }
+
+    m_masterDoc = openedDoc;
+    m_masterPath = filepath;
+    {
         std::cout << "[PM] Open succeeded. Dumping document structure..." << std::endl;
         TDF_Label root = m_masterDoc->Main().Root();
         TCollection_AsciiString rootEntry;
@@ -99,6 +123,15 @@ Standard_Boolean ProjectManager::OpenMasterProject(const std::string& filepath)
     }
 
     m_masterModel = new DataModel(m_masterDoc);
+
+    // 历史工程数据里 PID_GlobalID 多为空；补号后 2D/3D 软链接与跨文档查找
+    // 才能回到“以 GUID 为稳定身份”的设计意图（条目 ID 仅作兜底）。
+    const int assigned = NodeIdentity::EnsureGlobalIds(m_masterModel);
+    if (assigned > 0)
+    {
+        std::cout << "[PM] 为 " << assigned << " 个节点补齐 GlobalID" << std::endl;
+    }
+
     return Standard_True;
 }
 
@@ -125,17 +158,11 @@ Handle(TDocStd_Document) ProjectManager::GetOrLoadSubDocument(const std::string&
     }
     else
     {
-        // 若子文件不存在，则创建新文档并自动建立父子目录结构
-        std::filesystem::path parentDir = std::filesystem::path(absolutePath).parent_path();
-        if (!parentDir.empty()) {
-            std::filesystem::create_directories(parentDir);
-        }
-
-        m_app->NewDocument("ACTBin", subDoc);
-        if (subDoc.IsNull()) {
-            std::cerr << "[ProjectManager] Failed to create new XCAF document in memory." << std::endl;
-            return nullptr;
-        }
+        // 子文档缺失：明确报错而不是静默创建空文档。否则工程会“看起来加载成功”，
+        // 实际缺少整套构件，后续联动与导出都会得到空结果。
+        std::cerr << "[ProjectManager] 子文档不存在: " << absolutePath
+                  << "（相对路径: " << relativePath << "）" << std::endl;
+        return nullptr;
     }
 
     m_loadedSubDocs[relativePath] = subDoc;
@@ -143,6 +170,11 @@ Handle(TDocStd_Document) ProjectManager::GetOrLoadSubDocument(const std::string&
     // Also create and cache the DataModel wrapper
     std::cout << "[PM] Creating DataModel for sub-document..." << std::endl << std::flush;
     Handle(DataModel) subModel = new DataModel(subDoc);
+    const int assigned = NodeIdentity::EnsureGlobalIds(subModel);
+    if (assigned > 0)
+    {
+        std::cout << "[PM] 子文档补齐 " << assigned << " 个节点 GlobalID" << std::endl;
+    }
     m_loadedSubModels[relativePath] = subModel;
     std::cout << "[PM] DataModel for sub-document created." << std::endl << std::flush;
 

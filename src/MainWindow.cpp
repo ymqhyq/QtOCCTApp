@@ -91,6 +91,7 @@ namespace {
 #include "BrNode_adGeometry.h"
 #include "BrNode_adGeometricDef.h"
 #include "ProjectManager.h"
+#include "NodeIdentity.h"
 #include "generated/BrNode_adSubDocRef.h"
 #include "generated/BrNode_adModelRoot.h"
 #include "generated/BrNode_adDrawing2D.h"
@@ -1254,6 +1255,11 @@ void MainWindow::onLoadAsiModel() {
         return;
     }
 
+    // 历史工程可能没有 GlobalID；打开后补号，保证跨文档联动使用稳定身份
+    if (const int assigned = NodeIdentity::EnsureGlobalIds(m_currentModel); assigned > 0) {
+        qDebug() << "[GUI] 为" << assigned << "个节点补齐 GlobalID";
+    }
+
     std::vector<SceneDataExtractor::VisualShape> visualShapes;
 
     try {
@@ -1351,27 +1357,25 @@ void MainWindow::onLoadMasterCbf() {
 bool MainWindow::loadMasterCbf(const QString &fileName) {
     qDebug() << "[GUI] loadMasterCbf: Opening master project:" << fileName;
 
+    // 先在新管理器里打开，成功后再切换：
+    // 打开失败时必须保留当前工程与视图，而不是清空后弹个错误框。
+    auto newManager = std::unique_ptr<ProjectManager>(new ProjectManager());
+    if (!newManager->OpenMasterProject(fileName.toStdString())) {
+        QMessageBox::critical(this, "Error", "Failed to open master project: " + fileName);
+        return false;
+    }
+    qDebug() << "[GUI] loadMasterCbf: Master project opened successfully.";
+
+    // 切换工程：先释放旧模型引用，再销毁旧管理器（其析构会关闭旧文档）
     m_occtWidget->clearAll();
     m_occtWidget2D->clearAll();
     m_occtWidget2D->hide();
-
+    m_currentModel.Nullify();
     if (m_projectManager) {
         delete m_projectManager;
         m_projectManager = nullptr;
     }
-
-    if (!m_currentModel.IsNull()) {
-        m_currentModel.Nullify();
-    }
-
-    m_projectManager = new ProjectManager();
-    if (!m_projectManager->OpenMasterProject(fileName.toStdString())) {
-        QMessageBox::critical(this, "Error", "Failed to open master project: " + fileName);
-        delete m_projectManager;
-        m_projectManager = nullptr;
-        return false;
-    }
-    qDebug() << "[GUI] loadMasterCbf: Master project opened successfully.";
+    m_projectManager = newManager.release();
 
     m_currentModel = m_projectManager->GetMasterModel();
     if (m_currentModel.IsNull()) {

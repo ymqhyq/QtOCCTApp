@@ -41,6 +41,7 @@
 #include "OCCTWidget.h"
 #include "TextEncoding.h"
 #include "SceneDataExtractor.h"
+#include "NodeIdentity.h"
 #include "generated/DataModel.h"
 #include "generated/BrNode_adObject.h"
 
@@ -88,6 +89,7 @@ private slots:
   void metadataCarriesUsableNodeId();
   void treeSelectionFollowsLinkageId();
   void treeSelectionRejectsUnknownId();
+  void globalIdMigrationAssignsStableIds();
   void viewportPickReportsLinkedNode();
   void subDocumentObjectsAreAttachedToTree();
   void mainWindowLinksViewportPickToModelTree();
@@ -327,6 +329,46 @@ void SelectionLinkageTest::treeSelectionRejectsUnknownId() {
            "不存在的 ID 不应选中任何节点");
   QVERIFY2(!panel.selectNodeById(QStringLiteral("0:0:0:0")),
            "不存在的条目 ID 不应选中任何节点");
+}
+
+/**
+ * @brief 历史工程补号后，几何元数据的联动 ID 应变为稳定 GUID
+ *
+ * 设计上跨文档引用以 PID_GlobalID 为准，但历史数据里该属性为空。
+ * EnsureGlobalIds 负责一次性补号；本用例同时验证幂等性与元数据口径。
+ */
+void SelectionLinkageTest::globalIdMigrationAssignsStableIds() {
+  QVERIFY(!m_model.IsNull());
+
+  const int assigned = NodeIdentity::EnsureGlobalIds(m_model);
+  QVERIFY2(assigned > 0, "历史工程应当存在缺失 GlobalID 的节点");
+  QCOMPARE(NodeIdentity::EnsureGlobalIds(m_model), 0); // 幂等
+
+  std::vector<SceneDataExtractor::VisualShape> shapes;
+  QVERIFY(extractShapes(shapes) > 0);
+
+  ModelExplorerPanel panel;
+  panel.setModel(m_model);
+
+  // 历史数据里可能已有自定义格式的 GUID（例如测试夹具里的 "GUID_Slope_3D_1"），
+  // 因此这里只断言“非空且能在树中定位”，新补的号形如 32 位十六进制。
+  const QRegularExpression guidPattern(QStringLiteral("^[0-9A-F]{32}$"));
+  int checked = 0;
+  int newFormat = 0;
+  for (const SceneDataExtractor::VisualShape &vs : shapes) {
+    const QString id =
+        QString::fromStdString(vs.metadata["_adNodeId"].get<std::string>());
+    QVERIFY2(!id.isEmpty(), "补号后联动 ID 仍为空");
+    QVERIFY2(panel.selectNodeById(id),
+             qPrintable(QStringLiteral("GUID 无法在模型树中定位: %1").arg(id)));
+    if (guidPattern.match(id).hasMatch()) {
+      ++newFormat;
+    }
+    ++checked;
+  }
+  QVERIFY(checked > 0);
+  qInfo() << "补号节点数:" << assigned << " 已校验联动 ID 数:" << checked
+          << " 其中新格式 GUID 数:" << newFormat;
 }
 
 /// 在视口里点中构件后，必须发出带联动 ID 的 objectSelected 信号
