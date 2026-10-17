@@ -454,6 +454,11 @@ void SelectionLinkageTest::viewportPickReportsLinkedNode() {
   QVERIFY2(overlay != nullptr, "左上角没有 FPS 信息组件");
   QVERIFY2(overlay->x() < widget.width() / 4, "FPS 组件不在左侧");
   QVERIFY2(widget.isViewCubeVisible(), "右上角导航组件（视图立方体）未显示");
+
+  // 清空视图（打开工程时会走这里）之后，导航立方体必须仍然可用
+  widget.clearAll();
+  QTest::qWait(150);
+  QVERIFY2(widget.isViewCubeVisible(), "clearAll 之后导航组件消失");
 }
 
 /**

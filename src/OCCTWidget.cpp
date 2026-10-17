@@ -183,7 +183,32 @@ bool OCCTWidget::isViewCubeVisible() const {
   if (m_context.IsNull() || m_viewCube.IsNull()) {
     return false;
   }
-  return m_context->IsDisplayed(m_viewCube);
+  // AIS_ViewCube 只接受显示模式 0；模式 1 虽然 IsDisplayed 为 true，
+  // 但演示对象为空、实际不可见，因此这里一并校验模式。
+  return m_context->IsDisplayed(m_viewCube) && m_viewCube->DisplayMode() == 0;
+}
+
+/**
+ * @brief 确保导航立方体处于显示状态
+ *
+ * clearAll()/EraseAll() 会把立方体一并移除。这里统一恢复，并始终使用
+ * 显示模式 0（AIS_ViewCube 只接受模式 0，用 AIS_Shaded 会得到空演示对象）。
+ */
+void OCCTWidget::ensureViewCubeDisplayed() {
+  if (!m_showViewCube || m_context.IsNull()) {
+    return;
+  }
+  if (m_viewCube.IsNull()) {
+    initViewCube();
+    return;
+  }
+  if (m_context->IsDisplayed(m_viewCube)) {
+    return;
+  }
+  m_context->SetDisplayMode(m_viewCube, 0, Standard_False);
+  m_context->Display(m_viewCube, 0, 0, Standard_False, Standard_True);
+  m_context->Activate(m_viewCube, 0);
+  updateViewCubePlacement();
 }
 
 /**
@@ -319,9 +344,8 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
       updateViewCubePlacement();
     }
 
-    if (m_viewCube.IsNull()) {
-      initViewCube();
-    }
+    // 导航立方体可能被 clearAll()/EraseAll() 清掉，这里兜底恢复
+    ensureViewCubeDisplayed();
     m_view->Redraw();
   }
 
@@ -1369,13 +1393,10 @@ void OCCTWidget::clearAll() {
 
   qDebug() << "[OCCTWidget] clearAll: calling RemoveAll";
   m_context->RemoveAll(true);
-  
+
   qDebug() << "[OCCTWidget] clearAll: handling viewCube";
-  // 关键修复：RemoveAll 会移除 ViewCube，这里需要重新显示它
-  if (!m_viewCube.IsNull()) {
-    m_context->Display(m_viewCube, AIS_Shaded, 0, false);
-    m_context->Activate(m_viewCube, 0);
-  }
+  // RemoveAll 会移除 ViewCube；统一用 ensure 恢复（显示模式必须为 0）
+  ensureViewCubeDisplayed();
 
   qDebug() << "[OCCTWidget] clearAll: UpdateCurrentViewer";
   m_context->UpdateCurrentViewer();
@@ -2470,6 +2491,7 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
 
   // 1. 清除视口当前显示的普通对象和元数据映射
   m_context->EraseAll(Standard_True);
+  ensureViewCubeDisplayed(); // EraseAll 会连导航立方体一起清掉
   m_objectMetadata.clear();
   m_shapeCountDirty = true;
 

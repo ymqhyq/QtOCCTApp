@@ -175,6 +175,8 @@ private:
   void initViewCube();
   /// 更新右上角导航立方体的尺寸与屏幕位置（随视图尺寸变化）
   void updateViewCubePlacement();
+  /// 确保导航立方体处于显示状态（清空视图/切换文档后恢复）
+  void ensureViewCubeDisplayed();
   void updateView();
   void updateOverlayInfo(bool forceShapeCount = false);
   // 按固定节奏结算帧率（与 Qt 的重绘时机解耦，空闲时自然归零）
