@@ -83,9 +83,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-# Create executable
-add_executable(${PROJECT_NAME}
-    src/main.cpp
+# -----------------------------------------------------------------------------
+# 应用界面库：除入口 main.cpp 外的全部界面源码收拢为一个静态库，
+# 供可执行文件与测试程序共同链接（测试因此能覆盖真实的 MainWindow 接线）。
+# 资源文件放在可执行文件里，避免静态库中被链接器丢弃导致图标丢失。
+# -----------------------------------------------------------------------------
+add_library(qtocctapp_ui STATIC
     src/MainWindow.cpp
     include/MainWindow.h
     src/OCCTWidget.cpp
@@ -103,11 +106,10 @@ add_executable(${PROJECT_NAME}
     src/ComponentLibraryPanel.cpp
     include/UiTheme.h
     src/UiTheme.cpp
-    resources.qrc
 )
 
-# Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE
+# Include directories（PUBLIC：使用该库的测试程序同样需要这些头文件路径）
+target_include_directories(qtocctapp_ui PUBLIC
     ${OpenCASCADE_INCLUDE_DIRS}
     ${VTK_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/include
@@ -130,13 +132,13 @@ add_subdirectory(core-data-model)
 
 # ActiveData needs Standard_Boolean.hxx forced include on MSVC
 if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /FIStandard_Boolean.hxx /utf-8)
+    target_compile_options(qtocctapp_ui PUBLIC /FIStandard_Boolean.hxx /utf-8)
 endif()
 
 
 # Add shxparser library
 add_subdirectory(libs/shxparser)
-target_link_libraries(${PROJECT_NAME} PRIVATE shxparser)
+target_link_libraries(qtocctapp_ui PRIVATE shxparser)
 
 # Add SARibbonBar library from local 3rpart pre-compiled package
 set(SARibbonBar_DIR "${CMAKE_SOURCE_DIR}/3rpart/SARibbon_qt6.7.0_MSVC_x64_v142/lib/cmake/SARibbonBar")
@@ -145,15 +147,15 @@ find_package(SARibbonBar REQUIRED)
 # Add Qt OpenGL module if needed
 if(QT_VERSION STREQUAL "Qt6")
     find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets Network)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::OpenGLWidgets)
+    target_link_libraries(qtocctapp_ui PUBLIC Qt6::OpenGLWidgets)
 else()
     find_package(Qt5 REQUIRED COMPONENTS OpenGL Network)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Qt5::OpenGL)
+    target_link_libraries(qtocctapp_ui PUBLIC Qt5::OpenGL)
 endif()
 
-# Link libraries based on Qt version
+# Link libraries based on Qt version（PUBLIC：静态库的依赖需传递给最终目标）
 if(QT_VERSION STREQUAL "Qt6")
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    target_link_libraries(qtocctapp_ui PUBLIC
         Qt6::Core
         Qt6::Widgets
         Qt6::Gui
@@ -163,7 +165,7 @@ if(QT_VERSION STREQUAL "Qt6")
         core_data_model
     )
 else()
-    target_link_libraries(${PROJECT_NAME} PRIVATE
+    target_link_libraries(qtocctapp_ui PUBLIC
         Qt5::Core
         Qt5::Widgets
         Qt5::Gui
@@ -175,7 +177,7 @@ else()
 endif()
 
 # Link the OCCT, VTK, TBB, IfcOpenShell, asiActiveData, and SARibbonBar libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE 
+target_link_libraries(qtocctapp_ui PUBLIC
     ${OpenCASCADE_LIBRARIES}
     ${VTK_LIBRARIES}
     TBB::tbb
@@ -187,12 +189,20 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 # Set C++ properties for OCCT
-set_target_properties(${PROJECT_NAME} PROPERTIES
+set_target_properties(qtocctapp_ui PROPERTIES
     CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
 )
 
-# For Windows
+# -----------------------------------------------------------------------------
+# 可执行文件：只包含入口，其余全部来自 qtocctapp_ui；资源打包进可执行文件
+# -----------------------------------------------------------------------------
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+    resources.qrc
+)
+target_link_libraries(${PROJECT_NAME} PRIVATE qtocctapp_ui)
+
 if(WIN32)
     set_target_properties(${PROJECT_NAME} PROPERTIES
         WIN32_EXECUTABLE FALSE

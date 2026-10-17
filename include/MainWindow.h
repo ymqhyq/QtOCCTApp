@@ -45,6 +45,12 @@ public:
   MainWindow(QWidget *parent = nullptr);
   ~MainWindow();
 
+  /**
+   * @brief 打开工程文件（.rde 包 或 .cbf 主控/模型文件）
+   * 等价于菜单里的“打开”，供命令行与自动化测试直接调用。
+   */
+  bool openProjectFile(const QString &fileName);
+
 public slots:
   void onRunCqScript();
 
@@ -90,7 +96,6 @@ private:
   void createScriptsCategory();
   void initializeCqNetwork();
   void createTestCategory();
-  bool openProjectFile(const QString &fileName);
   bool loadMasterCbf(const QString &fileName);
   bool extractRdeFile(const QString &rdePath, const QString &destDir);
   bool packageToRde(const QString &sourceDir, const QString &rdePath);
@@ -104,6 +109,8 @@ private:
   QAction *makeIconAction(const QString &svgResourcePath, const QString &text);
   // 把当前配色应用到所有自有控件（图标、停靠面板、属性面板、脚本编辑器等）
   void applyUiThemeToWidgets();
+  // 重建模型树：主控文档节点 + 已加载子文档里的对象
+  void rebuildModelTree();
 
   OCCTWidget *m_occtWidget;
   OCCTWidget *m_occtWidget2D;

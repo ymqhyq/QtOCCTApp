@@ -628,6 +628,38 @@ void MainWindow::applyUiThemeToWidgets() {
   updatePropertyPanelUI(m_lastPropertyMeta);
 }
 
+void MainWindow::rebuildModelTree() {
+  if (m_modelExplorerDock == nullptr) {
+    return;
+  }
+
+  // 1. 主控文档自身：普通对象直接挂在根节点下
+  m_modelExplorerDock->setModel(m_currentModel);
+
+  // 2. 子文档对象：“主控 + 子文档”形态的工程里，主控只保存 adSubDocRef 引用，
+  //    真正的业务对象在子文档中。不把它们挂进树的话，模型树为空、
+  //    视口点选也就无法联动到任何节点。
+  if (m_projectManager == nullptr) {
+    return;
+  }
+  const QStringList subDocPaths = {m_subDocPath3D, m_subDocPath2D};
+  for (const QString &path : subDocPaths) {
+    if (path.isEmpty()) {
+      continue;
+    }
+    const std::string subPath = path.toStdString();
+    m_projectManager->GetOrLoadSubDocument(subPath);
+    Handle(DataModel) subModel = m_projectManager->GetSubModel(subPath);
+    if (subModel.IsNull()) {
+      continue;
+    }
+    const QFileInfo pathInfo(path);
+    const QString title = pathInfo.fileName().isEmpty() ? path : pathInfo.fileName();
+    m_modelExplorerDock->addSubDocument(title, subModel);
+    qDebug() << "[GUI] rebuildModelTree: 已挂载子文档" << title;
+  }
+}
+
 void MainWindow::createTestCategory() {
   SARibbonBar *ribbon = ribbonBar();
   // 3. 增加“测试”面板
@@ -1305,7 +1337,7 @@ void MainWindow::onLoadAsiModel() {
 
     m_occtWidget->fitAll();
     
-    m_modelExplorerDock->setModel(m_currentModel);
+    rebuildModelTree();
     statusBar()->showMessage("Model loaded: " + fileName, 3000);
 }
 
@@ -1444,7 +1476,7 @@ bool MainWindow::loadMasterCbf(const QString &fileName) {
     // Call unified refresh to extract and display 3D geometries and 2D drawings
     refreshViews();
 
-    m_modelExplorerDock->setModel(m_currentModel);
+    rebuildModelTree();
     statusBar()->showMessage("Master project loaded: " + fileName, 3000);
 
     return true;
@@ -2197,7 +2229,7 @@ void MainWindow::refreshViews() {
     // Sync and refresh 2D view
     if (m_subDocPath2D.isEmpty()) {
         qDebug() << "[GUI] refreshViews: 主控文档没有可用的 2D 子文档，跳过二维刷新。";
-        m_modelExplorerDock->setModel(m_currentModel);
+        rebuildModelTree();
         return;
     }
     const std::string path2D = m_subDocPath2D.toStdString();
@@ -2287,7 +2319,7 @@ void MainWindow::refreshViews() {
         }
     }
     
-    m_modelExplorerDock->setModel(m_currentModel);
+    rebuildModelTree();
 }
 
 void MainWindow::onComponentSelected(const QString& category, const QString& name) {

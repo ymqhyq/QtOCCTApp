@@ -6,6 +6,7 @@
 #include <QStandardItemModel>
 #include "DataModel.h"
 #include "BrNode_adObject.h"
+#include "BrNode_adSubDocRef.h"
 #include "UiTheme.h"
 
 class ModelExplorerPanel : public QDockWidget {
@@ -13,6 +14,15 @@ class ModelExplorerPanel : public QDockWidget {
 public:
     explicit ModelExplorerPanel(QWidget* parent = nullptr);
     void setModel(Handle(DataModel) model);
+    /**
+     * @brief 把某个子文档里的对象挂进模型树
+     *
+     * “主控 + 子文档”形态的工程里，主控只保存子文档引用（adSubDocRef），
+     * 真正的业务对象在子文档中；本方法把子文档对象挂到对应的引用节点下。
+     * @param title    子文档标题（一般为文件名，用于匹配引用节点）
+     * @param subModel 已加载的子文档模型
+     */
+    void addSubDocument(const QString& title, Handle(DataModel) subModel);
     /// 应用界面配色（切换主题时调用）
     void setUiPalette(const UiPalette& palette);
     /**
@@ -30,11 +40,16 @@ private slots:
 
 private:
     void populateModel(Handle(BrNode_adObject) node, QStandardItem* parentItem);
+    /// 递归遍历某个模型的根节点子级
+    int populateRootChildren(Handle(DataModel) model, QStandardItem* parentItem);
+    /// 遍历 Topology 分区（子文档对象常挂在分区里，而非根节点子级）
+    int populateTopologyPartition(Handle(DataModel) model, QStandardItem* parentItem);
 
     QTreeView* m_treeView;
     QStandardItemModel* m_itemModel;
     Handle(DataModel) m_dataModel;
     QMap<QStandardItem*, Handle(BrNode_adObject)> m_nodeMap;
+    QMap<QStandardItem*, Handle(BrNode_adSubDocRef)> m_subDocRefItems;
 };
 
 #endif

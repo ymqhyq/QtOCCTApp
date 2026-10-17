@@ -15,7 +15,11 @@
  */
 
 #include <QtTest>
+#include <QApplication>
+#include <QMessageBox>
+#include <QRegularExpression>
 #include <QSignalSpy>
+#include <QTimer>
 #include <QTreeView>
 #include <QDir>
 #include <QFileInfo>
@@ -33,11 +37,48 @@
 #include <vector>
 
 #include "ModelExplorerPanel.h"
+#include "MainWindow.h"
 #include "OCCTWidget.h"
 #include "TextEncoding.h"
 #include "SceneDataExtractor.h"
 #include "generated/DataModel.h"
 #include "generated/BrNode_adObject.h"
+
+namespace {
+/**
+ * @brief 测试期间的模态对话框看门狗
+ *
+ * 工程加载失败时 MainWindow 会弹出 QMessageBox::critical，模态对话框会阻塞事件循环
+ * 让测试挂死。这里定时关闭任何弹出的消息框并记录下来，使测试以明确的断言失败收场。
+ */
+class DialogGuard : public QObject {
+public:
+  explicit DialogGuard(QObject *parent = nullptr) : QObject(parent) {
+    m_timer.setInterval(150);
+    connect(&m_timer, &QTimer::timeout, this, [this]() {
+      const QWidgetList widgets = QApplication::topLevelWidgets();
+      for (QWidget *widget : widgets) {
+        QMessageBox *box = qobject_cast<QMessageBox *>(widget);
+        if (box == nullptr || !box->isVisible()) {
+          continue;
+        }
+        m_lastMessage = box->text();
+        ++m_count;
+        box->close();
+      }
+    });
+    m_timer.start();
+  }
+
+  int count() const { return m_count; }
+  QString lastMessage() const { return m_lastMessage; }
+
+private:
+  QTimer m_timer;
+  int m_count = 0;
+  QString m_lastMessage;
+};
+} // namespace
 
 class SelectionLinkageTest : public QObject {
   Q_OBJECT
@@ -48,6 +89,8 @@ private slots:
   void treeSelectionFollowsLinkageId();
   void treeSelectionRejectsUnknownId();
   void viewportPickReportsLinkedNode();
+  void subDocumentObjectsAreAttachedToTree();
+  void mainWindowLinksViewportPickToModelTree();
 
 private:
   /// 从工程文件加载模型并提取几何；返回提取到的几何数量
@@ -57,6 +100,7 @@ private:
   QStringList m_linkIds;              ///< 几何元数据里出现过的联动 ID
   QMap<QString, QString> m_idToName;  ///< 联动 ID -> 节点名（用于校验树选中项）
   QString m_sourceFile;
+  QString m_projectFile;              ///< 主控工程（含子文档），用于 MainWindow 端到端测试
 };
 
 int SelectionLinkageTest::extractShapes(
@@ -196,6 +240,26 @@ void SelectionLinkageTest::initTestCase() {
 
   qInfo() << "联动 ID 数量:" << m_linkIds.size()
           << " 节点索引数量:" << m_idToName.size();
+
+  // 3. 另外找一个"主控工程"用于 MainWindow 端到端测试（含子文档，走真实加载路径）
+  const QStringList projectCandidates = {
+      QStringLiteral("temp_debug/master.cbf"),
+      QStringLiteral("scratch/check_rde/master.cbf"),
+      QStringLiteral("temp_slope_extracted/master.cbf"),
+  };
+  for (const QString &dir : searchDirs) {
+    for (const QString &candidate : projectCandidates) {
+      const QString full = QDir(dir).absoluteFilePath(candidate);
+      if (QFileInfo::exists(full)) {
+        m_projectFile = full;
+        break;
+      }
+    }
+    if (!m_projectFile.isEmpty()) {
+      break;
+    }
+  }
+  qInfo() << "端到端测试用主控工程:" << (m_projectFile.isEmpty() ? QStringLiteral("(未找到)") : m_projectFile);
 }
 
 /// 几何元数据必须带上可用的联动 ID。
@@ -300,6 +364,207 @@ void SelectionLinkageTest::viewportPickReportsLinkedNode() {
            QStringLiteral("unit-test-node"));
   QCOMPARE(emitted.value(QStringLiteral("Pset_UnitTest.Marker")).toString(),
            QStringLiteral("1"));
+}
+
+/**
+ * @brief 子文档对象必须挂到模型树对应的引用节点下，并且参与联动
+ *
+ * “主控 + 子文档”形态的工程里主控只保存 adSubDocRef 引用，真正的业务对象在子文档中。
+ * 本用例不依赖 ProjectManager 的加载路径，直接用 DataModel 打开两个文件来验证挂载逻辑。
+ */
+void SelectionLinkageTest::subDocumentObjectsAreAttachedToTree() {
+  if (m_projectFile.isEmpty() || m_sourceFile.isEmpty()) {
+    QSKIP("需要主控工程与子文档模型文件才能验证子文档挂载");
+  }
+
+  // 注意：同一个 OCAF 文件在同一进程里重复打开会失败，这里直接复用 initTestCase 中
+  // 已经打开的子文档模型（也正是视口几何与联动 ID 的来源）
+  Handle(DataModel) sub = m_model;
+  QVERIFY2(!sub.IsNull(), "子文档模型不可用");
+
+  Handle(DataModel) master = new DataModel();
+  if (!master->Open(m_projectFile.toStdString().c_str())) {
+    QSKIP("主控工程无法直接打开，跳过子文档挂载用例");
+  }
+
+  ModelExplorerPanel panel;
+  panel.resize(320, 480);
+  panel.setModel(master);
+  panel.show();
+
+  QTreeView *tree = panel.findChild<QTreeView *>();
+  QVERIFY2(tree != nullptr, "模型树内部没有 QTreeView");
+  QAbstractItemModel *model = tree->model();
+
+  // 1. 主控文档的子文档引用节点必须显示出来（此前被 DownCast 到 adObject 时全部丢弃）
+  const QString subTitle = QFileInfo(m_sourceFile).fileName();
+  QModelIndex subIndex;
+  for (int row = 0; row < model->rowCount(); ++row) {
+    const QModelIndex index = model->index(row, 0);
+    if (model->data(index, Qt::DisplayRole).toString().startsWith(subTitle)) {
+      subIndex = index;
+      break;
+    }
+  }
+  QVERIFY2(subIndex.isValid(),
+           qPrintable(QStringLiteral("模型树里没有子文档引用节点: %1").arg(subTitle)));
+
+  // 2. 把子文档对象挂到该引用节点下
+  panel.addSubDocument(subTitle, sub);
+  const int attached = model->rowCount(subIndex);
+  QVERIFY2(attached > 0, "子文档对象没有挂到引用节点下");
+  qInfo() << "子文档对象已挂入模型树，节点数:" << attached;
+
+  // 3. 挂进来的对象必须能与几何元数据的联动 ID 对应
+  std::vector<SceneDataExtractor::VisualShape> shapes;
+  SceneDataExtractor::Extract(sub, shapes);
+  QVERIFY(!shapes.empty());
+
+  int checked = 0;
+  for (const SceneDataExtractor::VisualShape &vs : shapes) {
+    const QString id =
+        QString::fromStdString(vs.metadata["_adNodeId"].get<std::string>());
+    QVERIFY2(panel.selectNodeById(id),
+             qPrintable(QStringLiteral("子文档对象的联动 ID 无法在树中定位: %1").arg(id)));
+    ++checked;
+  }
+  QVERIFY(checked > 0);
+  qInfo() << "已在树中定位子文档对象数量:" << checked;
+}
+
+/**
+ * @brief 端到端：真实 MainWindow 中，在视口点选构件后模型树必须同步选中对应节点
+ *
+ * 这条用例覆盖的是 MainWindow::onObjectSelected 的接线（此前缺失的正是这一段：
+ * 点选后只更新属性面板，从不选中树节点）。
+ */
+void SelectionLinkageTest::mainWindowLinksViewportPickToModelTree() {
+  DialogGuard dialogGuard;
+
+  // 依次尝试各候选工程，取第一个"确实能加载出可点选内容"的：
+  // 主控工程往往只挂子文档引用，模型树会是空的，因此优先用含几何的模型文件。
+  QStringList fixtures;
+  if (!m_sourceFile.isEmpty()) fixtures << m_sourceFile;
+  if (!m_projectFile.isEmpty()) fixtures << m_projectFile;
+  QVERIFY2(!fixtures.isEmpty(), "没有可用的工程文件");
+
+  MainWindow *window = nullptr;
+  QTreeView *tree = nullptr;
+  OCCTWidget *view = nullptr;
+  QString usedFixture;
+
+  for (const QString &fixture : fixtures) {
+    MainWindow *candidate = new MainWindow();
+    candidate->resize(1280, 900);
+    candidate->show();
+    if (!QTest::qWaitForWindowExposed(candidate, 5000)) {
+      delete candidate;
+      continue;
+    }
+
+    if (!candidate->openProjectFile(fixture)) {
+      delete candidate;
+      continue;
+    }
+    QTest::qWait(800); // 等待刷新视图、填充模型树与首帧渲染
+
+    QTreeView *candidateTree = nullptr;
+    if (ModelExplorerPanel *explorer =
+            candidate->findChild<ModelExplorerPanel *>()) {
+      candidateTree = explorer->findChild<QTreeView *>();
+    }
+
+    OCCTWidget *candidateView = nullptr;
+    const QList<OCCTWidget *> views = candidate->findChildren<OCCTWidget *>();
+    for (OCCTWidget *candidateWidget : views) {
+      if (candidateWidget->isVisible()) {
+        candidateView = candidateWidget;
+        break;
+      }
+    }
+
+    if (candidateTree != nullptr && candidateTree->model() != nullptr &&
+        candidateTree->model()->rowCount() > 0 && candidateView != nullptr) {
+      window = candidate;
+      tree = candidateTree;
+      view = candidateView;
+      usedFixture = fixture;
+      break;
+    }
+    delete candidate;
+  }
+
+  if (window == nullptr) {
+    // 仓库内置的边坡工程把对象放在子文档分区里，主控文档本身没有可填充树的对象，
+    // 因此这里跳过；用真实工程（例如桥梁工程）显式指定路径即可启用本用例：
+    //   test_selection_linkage.exe <工程文件.cbf>
+    QSKIP("没有候选工程能在主窗口里加载出模型树内容，跳过端到端用例"
+          "（可用命令行参数指定一个含几何对象的工程文件）");
+  }
+  qInfo() << "端到端测试使用工程:" << usedFixture;
+  QCOMPARE(dialogGuard.count(), 0);
+
+  // 打印树结构，便于确认"子文档对象已挂进树"
+  {
+    qInfo() << "--- 模型树结构 ---";
+    QAbstractItemModel *model = tree->model();
+    for (int row = 0; row < model->rowCount(); ++row) {
+      const QModelIndex index = model->index(row, 0);
+      qInfo().noquote() << QStringLiteral("  ") +
+                               model->data(index, Qt::DisplayRole).toString();
+      const int childRows = model->rowCount(index);
+      for (int child = 0; child < childRows; ++child) {
+        qInfo().noquote() << QStringLiteral("    ") +
+                                 model->data(model->index(child, 0, index),
+                                             Qt::DisplayRole)
+                                     .toString();
+      }
+    }
+    qInfo() << "--- 模型树结构结束 ---";
+  }
+
+  // 视口里必须真的有几何对象才能点选；叠加标签里的 "Shapes: N" 可以据此判断
+  int shapeCount = 0;
+  if (QLabel *info = view->findChild<QLabel *>()) {
+    const QString text = info->text();
+    const QRegularExpression re(QStringLiteral("Shapes:\\s*(\\d+)"));
+    const QRegularExpressionMatch match = re.match(text);
+    if (match.hasMatch()) {
+      shapeCount = match.captured(1).toInt();
+    }
+  }
+  if (shapeCount <= 1) {
+    QSKIP("视口里没有已显示的几何对象（仅有视口立方体），跳过点选联动断言");
+  }
+
+  // 点选前清掉当前项，确保后续断言确实来自点选
+  tree->setCurrentIndex(QModelIndex());
+  QVERIFY2(!tree->currentIndex().isValid(), "清空后当前项仍有效");
+
+  // 模型不一定正好落在视口正中，因此在中心附近多次试探点选
+  const QPoint center(view->width() / 2, view->height() / 2);
+  const QPoint offsets[] = {{0, 0},    {0, -100}, {0, 100},  {-160, 0},
+                            {160, 0},  {-120, -80}, {120, 80}, {-300, 0},
+                            {300, 0},  {0, -220}, {0, 220}};
+
+  bool selected = false;
+  for (const QPoint &offset : offsets) {
+    QTest::mouseClick(view, Qt::LeftButton, Qt::NoModifier, center + offset);
+    QTest::qWait(150);
+    if (tree->currentIndex().isValid()) {
+      selected = true;
+      break;
+    }
+  }
+
+  QVERIFY2(selected, "在视口内点选构件后，模型树没有选中任何节点");
+  const QString selectedText =
+      tree->currentIndex().data(Qt::DisplayRole).toString();
+  QVERIFY2(!selectedText.isEmpty(), "选中的树项内容为空");
+  qInfo() << "端到端点选后模型树选中项:" << selectedText;
+  QCOMPARE(dialogGuard.count(), 0);
+
+  delete window; // 主动释放，避免测试进程退出时残留图形资源
 }
 
 QTEST_MAIN(SelectionLinkageTest)

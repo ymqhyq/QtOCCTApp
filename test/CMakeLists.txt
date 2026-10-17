@@ -92,43 +92,16 @@ find_package(Qt6 QUIET COMPONENTS Test Widgets Svg OpenGLWidgets)
 if(TARGET Qt6::Test)
     add_executable(test_selection_linkage
         test_selection_linkage.cpp
-        # 头文件必须列入源文件，AUTOMOC 才会为其生成 moc（否则 Q_OBJECT 符号缺失）
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include/OCCTWidget.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include/ModelExplorerPanel.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include/AspectWindow.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include/Line.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include/UiTheme.h
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/ModelExplorerPanel.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/OCCTWidget.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/AspectWindow.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/Line.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/../src/UiTheme.cpp
+        # 资源打包进测试可执行文件（静态库中的资源可能被链接器丢弃）
+        ${CMAKE_CURRENT_SOURCE_DIR}/../resources.qrc
     )
 
-    target_include_directories(test_selection_linkage PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
-        ${CMAKE_CURRENT_SOURCE_DIR}/../core-data-model
-        ${CMAKE_CURRENT_SOURCE_DIR}/../core-data-model/generated
-        ${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/asiActiveData
-        ${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/asiActiveData/API
-        ${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/asiActiveData/Kernel
-        ${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/SARibbon_qt6.7.0_MSVC_x64_v142/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/../3rpart/SARibbon_qt6.7.0_MSVC_x64_v142/include/SARibbonBar
-    )
-
+    # 头文件路径与依赖库由 qtocctapp_ui 以 PUBLIC 方式传递，
+    # 因此测试链接的是与主程序完全相同的那套界面代码
     target_link_libraries(test_selection_linkage PRIVATE
-        core_data_model
+        qtocctapp_ui
         Qt6::Test
-        Qt6::Widgets
-        Qt6::Svg
-        Qt6::OpenGLWidgets
-        ${OpenCASCADE_LIBRARIES}
-        TBB::tbb
     )
-
-    if(MSVC)
-        target_compile_options(test_selection_linkage PRIVATE /FIStandard_Boolean.hxx /utf-8)
-    endif()
 
     add_test(NAME selection_linkage COMMAND test_selection_linkage)
 endif()
