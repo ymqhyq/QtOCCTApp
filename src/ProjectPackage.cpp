@@ -121,9 +121,17 @@ bool deflateStream(const QByteArray &input, QIODevice *out, quint32 *crcOut,
   return true;
 }
 
-// 以 64KB 分块压缩文件（out 为空时只统计尺寸与 CRC）
-bool deflateFile(const QString &path, QIODevice *out, quint32 *crcOut,
-                 quint32 *compressedOut, quint32 *uncompressedOut) {
+struct DeflateStats {
+  quint32 crc = 0;
+  quint32 compressed = 0;
+  quint32 uncompressed = 0;
+};
+
+// 以 64KB 分块单遍流式压缩文件，并上报总体进度
+bool deflateFileStreaming(const QString &path, QIODevice *out,
+                          const ProjectPackage::ProgressCallback &progress,
+                          qint64 *processedBytes, qint64 totalBytes,
+                          DeflateStats *stats, bool *canceled) {
   QFile file(path);
   if (!file.open(QIODevice::ReadOnly)) {
     return false;
@@ -153,6 +161,14 @@ bool deflateFile(const QString &path, QIODevice *out, quint32 *crcOut,
       crc = crc32(crc, reinterpret_cast<const Bytef *>(inBuf.constData()),
                   static_cast<uInt>(got));
       totalIn += static_cast<quint32>(got);
+      if (processedBytes != nullptr) {
+        *processedBytes += got;
+        if (progress && !progress(*processedBytes, totalBytes, path)) {
+          if (canceled != nullptr) *canceled = true;
+          ok = false;
+          break;
+        }
+      }
     }
 
     zs.next_in = reinterpret_cast<Bytef *>(inBuf.data());
@@ -191,9 +207,11 @@ bool deflateFile(const QString &path, QIODevice *out, quint32 *crcOut,
   if (!ok) {
     return false;
   }
-  if (crcOut != nullptr) *crcOut = static_cast<quint32>(crc);
-  if (compressedOut != nullptr) *compressedOut = totalOut;
-  if (uncompressedOut != nullptr) *uncompressedOut = totalIn;
+  if (stats != nullptr) {
+    stats->crc = static_cast<quint32>(crc);
+    stats->compressed = totalOut;
+    stats->uncompressed = totalIn;
+  }
   return true;
 }
 
@@ -247,9 +265,12 @@ struct ZipEntry {
   quint32 localOffset = 0;
 };
 
-bool writeLocalHeader(QIODevice *out, const QString &name, quint32 crc,
-                      quint32 compressedSize, quint32 uncompressedSize,
-                      quint16 dosTime, quint16 dosDate, quint32 *offsetOut) {
+constexpr quint16 kFlagDataDescriptor = 0x0008;
+
+// 数据描述符模式：本地头中的 CRC/尺寸先写 0，真实值紧随数据之后写入，
+// 因此可以单遍流式压缩（无需为计算尺寸而先压缩一遍）。
+bool writeLocalHeader(QIODevice *out, const QString &name, quint16 dosTime,
+                      quint16 dosDate, quint32 *offsetOut) {
   const QByteArray nameBytes = name.toUtf8();
   if (nameBytes.size() > 0xFFFF) {
     return false;
@@ -262,91 +283,93 @@ bool writeLocalHeader(QIODevice *out, const QString &name, quint32 crc,
   header.reserve(30 + nameBytes.size());
   put32(header, kLocalHeaderSig);
   put16(header, 20); // version needed
-  put16(header, kFlagUtf8);
+  put16(header, static_cast<quint16>(kFlagUtf8 | kFlagDataDescriptor));
   put16(header, kMethodDeflate);
   put16(header, dosTime);
   put16(header, dosDate);
-  put32(header, crc);
-  put32(header, compressedSize);
-  put32(header, uncompressedSize);
+  put32(header, 0); // CRC（见数据描述符）
+  put32(header, 0); // compressed size
+  put32(header, 0); // uncompressed size
   put16(header, static_cast<quint16>(nameBytes.size()));
   put16(header, 0); // extra length
   header.append(nameBytes);
   return writeAll(out, header);
 }
 
+bool writeDataDescriptor(QIODevice *out, quint32 crc, quint32 compressedSize,
+                         quint32 uncompressedSize) {
+  QByteArray descriptor;
+  descriptor.reserve(16);
+  put32(descriptor, 0x08074b50);
+  put32(descriptor, crc);
+  put32(descriptor, compressedSize);
+  put32(descriptor, uncompressedSize);
+  return writeAll(out, descriptor);
+}
+
 bool addFileToZip(QIODevice *out, const QString &sourcePath, const QString &zipName,
-                  QList<ZipItem> *items, QString *error) {
-  quint32 crc = 0;
-  quint32 compressedSize = 0;
-  quint32 uncompressedSize = 0;
-
-  // 第一遍：统计 CRC 与压缩后尺寸（写成已知尺寸的定长头部，兼容性最好）
-  if (!deflateFile(sourcePath, nullptr, &crc, &compressedSize,
-                   &uncompressedSize)) {
-    if (error != nullptr) *error = QStringLiteral("读取文件失败: %1").arg(sourcePath);
-    return false;
-  }
-
+                  QList<ZipItem> *items,
+                  const ProjectPackage::ProgressCallback &progress,
+                  qint64 *processedBytes, qint64 totalBytes, QString *error,
+                  bool *canceled) {
   quint16 dosTime = 0;
   quint16 dosDate = 0;
   dosDateTime(&dosTime, &dosDate);
 
   ZipItem item;
   item.name = zipName;
-  item.crc = crc;
-  item.compressedSize = compressedSize;
-  item.uncompressedSize = uncompressedSize;
 
-  if (!writeLocalHeader(out, zipName, crc, compressedSize, uncompressedSize,
-                        dosTime, dosDate, &item.localOffset)) {
+  if (!writeLocalHeader(out, zipName, dosTime, dosDate, &item.localOffset)) {
     if (error != nullptr) *error = QStringLiteral("写入 ZIP 头失败");
     return false;
   }
 
-  // 第二遍：真正的压缩输出
-  quint32 writtenCompressed = 0;
-  quint32 writtenUncompressed = 0;
-  if (!deflateFile(sourcePath, out, nullptr, &writtenCompressed,
-                   &writtenUncompressed) ||
-      writtenCompressed != compressedSize ||
-      writtenUncompressed != uncompressedSize) {
+  DeflateStats stats;
+  if (!deflateFileStreaming(sourcePath, out, progress, processedBytes,
+                            totalBytes, &stats, canceled)) {
     if (error != nullptr) *error = QStringLiteral("写入 ZIP 数据失败: %1").arg(sourcePath);
     return false;
   }
+  if (!writeDataDescriptor(out, stats.crc, stats.compressed, stats.uncompressed)) {
+    if (error != nullptr) *error = QStringLiteral("写入 ZIP 描述符失败");
+    return false;
+  }
 
+  item.crc = stats.crc;
+  item.compressedSize = stats.compressed;
+  item.uncompressedSize = stats.uncompressed;
   if (items != nullptr) items->append(item);
   return true;
 }
 
 bool addBytesToZip(QIODevice *out, const QString &zipName, const QByteArray &data,
                    QList<ZipItem> *items, QString *error) {
-  quint32 crc = 0;
-  quint32 compressedSize = 0;
-  if (!deflateStream(data, nullptr, &crc, &compressedSize)) {
-    if (error != nullptr) *error = QStringLiteral("压缩清单失败");
-    return false;
-  }
-
   quint16 dosTime = 0;
   quint16 dosDate = 0;
   dosDateTime(&dosTime, &dosDate);
 
   ZipItem item;
   item.name = zipName;
-  item.crc = crc;
-  item.compressedSize = compressedSize;
-  item.uncompressedSize = static_cast<quint32>(data.size());
-  if (!writeLocalHeader(out, zipName, crc, compressedSize,
-                        item.uncompressedSize, dosTime, dosDate,
-                        &item.localOffset)) {
+  if (!writeLocalHeader(out, zipName, dosTime, dosDate, &item.localOffset)) {
     if (error != nullptr) *error = QStringLiteral("写入 ZIP 头失败");
     return false;
   }
-  if (!deflateStream(data, out, nullptr, nullptr)) {
+
+  quint32 crc = 0;
+  quint32 compressedSize = 0;
+  if (!deflateStream(data, out, &crc, &compressedSize)) {
     if (error != nullptr) *error = QStringLiteral("写入清单数据失败");
     return false;
   }
+  if (!writeDataDescriptor(out, crc, compressedSize,
+                           static_cast<quint32>(data.size()))) {
+    if (error != nullptr) *error = QStringLiteral("写入 ZIP 描述符失败");
+    return false;
+  }
+
+  item.crc = crc;
+  item.compressedSize = compressedSize;
+  item.uncompressedSize = static_cast<quint32>(data.size());
   if (items != nullptr) items->append(item);
   return true;
 }
@@ -529,6 +552,62 @@ QString sha256OfBytes(const QByteArray &data) {
       QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
 }
 
+bool parseManifest(const QByteArray &data, ProjectPackage::Manifest *out,
+                   QString *error) {
+  QJsonParseError parseError{};
+  const QJsonDocument doc = QJsonDocument::fromJson(data, &parseError);
+  if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
+    if (error != nullptr) {
+      *error = QStringLiteral("manifest.json 解析失败: %1").arg(parseError.errorString());
+    }
+    return false;
+  }
+
+  ProjectPackage::Manifest manifest;
+  const QJsonObject obj = doc.object();
+  manifest.formatVersion = obj.value(QStringLiteral("formatVersion")).toInt();
+  if (manifest.formatVersion <= 0 ||
+      manifest.formatVersion > ProjectPackage::kFormatVersion) {
+    if (error != nullptr) {
+      *error = QStringLiteral("不支持的包格式版本: %1（当前程序支持 %2）")
+                   .arg(manifest.formatVersion)
+                   .arg(ProjectPackage::kFormatVersion);
+    }
+    return false;
+  }
+  manifest.appVersion = obj.value(QStringLiteral("appVersion")).toString();
+  manifest.projectName = obj.value(QStringLiteral("projectName")).toString();
+  manifest.createdAt = obj.value(QStringLiteral("createdAt")).toString();
+  manifest.layout = obj.value(QStringLiteral("layout")).toString();
+  manifest.master =
+      obj.value(QStringLiteral("master")).toString(QStringLiteral("master.cbf"));
+
+  for (const QJsonValue &value : obj.value(QStringLiteral("files")).toArray()) {
+    const QJsonObject fileObj = value.toObject();
+    ProjectPackage::FileEntry entry;
+    entry.path = fileObj.value(QStringLiteral("path")).toString();
+    entry.size = static_cast<qint64>(fileObj.value(QStringLiteral("size")).toDouble());
+    entry.sha256 = fileObj.value(QStringLiteral("sha256")).toString().toLower();
+    if (!entry.path.isEmpty()) {
+      manifest.files.append(entry);
+    }
+  }
+  for (const QJsonValue &value : obj.value(QStringLiteral("subDocuments")).toArray()) {
+    const QJsonObject subObj = value.toObject();
+    ProjectPackage::SubDocEntry entry;
+    entry.path = subObj.value(QStringLiteral("path")).toString();
+    entry.docType = subObj.value(QStringLiteral("docType")).toString();
+    if (!entry.path.isEmpty()) {
+      manifest.subDocuments.append(entry);
+    }
+  }
+
+  if (out != nullptr) {
+    *out = manifest;
+  }
+  return true;
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -581,10 +660,36 @@ bool ProjectPackage::isZipArchive(const QString &archivePath) {
          ((m[2] == 0x03 && m[3] == 0x04) || (m[2] == 0x05 && m[3] == 0x06));
 }
 
+bool ProjectPackage::readManifest(const QString &archivePath, Manifest *manifest,
+                                  QString *error) {
+  QFile file(archivePath);
+  if (!file.open(QIODevice::ReadOnly)) {
+    if (error != nullptr) *error = QStringLiteral("无法读取工程包: %1").arg(archivePath);
+    return false;
+  }
+  QList<ZipEntry> entries;
+  if (!readZipIndex(file, &entries, error)) {
+    return false;
+  }
+  for (const ZipEntry &entry : entries) {
+    if (entry.name != QStringLiteral("manifest.json")) {
+      continue;
+    }
+    QByteArray data;
+    if (!readEntryData(file, entry, &data, error)) {
+      return false;
+    }
+    return parseManifest(data, manifest, error);
+  }
+  if (error != nullptr) *error = QStringLiteral("包内没有 manifest.json（旧格式）");
+  return false;
+}
+
 bool ProjectPackage::createArchive(const QString &archivePath,
                                    const QString &sourceDir,
                                    const QList<SubDocEntry> &subDocuments,
                                    const QString &projectName,
+                                   const ProgressCallback &progress,
                                    QString *error) {
   const QDir root(sourceDir);
   if (!root.exists()) {
@@ -673,9 +778,18 @@ bool ProjectPackage::createArchive(const QString &archivePath,
     return false;
   }
 
+  qint64 totalBytes = manifestJson.size();
+  for (const FileEntry &entry : files) {
+    totalBytes += entry.size;
+  }
+  qint64 processedBytes = 0;
+  bool canceled = false;
+
   QList<ZipItem> items;
-  if (!addFileToZip(&out, masterAbs, masterRel, &items, error)) {
+  if (!addFileToZip(&out, masterAbs, masterRel, &items, progress, &processedBytes,
+                    totalBytes, error, &canceled)) {
     out.cancelWriting();
+    if (canceled && error != nullptr) *error = QStringLiteral("打包已取消");
     return false;
   }
   for (const FileEntry &entry : files) {
@@ -683,14 +797,21 @@ bool ProjectPackage::createArchive(const QString &archivePath,
       continue;
     }
     if (!addFileToZip(&out, root.absoluteFilePath(entry.path), entry.path, &items,
-                      error)) {
+                      progress, &processedBytes, totalBytes, error, &canceled)) {
       out.cancelWriting();
+      if (canceled && error != nullptr) *error = QStringLiteral("打包已取消");
       return false;
     }
   }
   if (!addBytesToZip(&out, QStringLiteral("manifest.json"), manifestJson, &items,
                      error)) {
     out.cancelWriting();
+    return false;
+  }
+  processedBytes += manifestJson.size();
+  if (progress && !progress(processedBytes, totalBytes, QStringLiteral("manifest.json"))) {
+    out.cancelWriting();
+    if (error != nullptr) *error = QStringLiteral("打包已取消");
     return false;
   }
   if (!writeCentralDirectory(&out, items)) {
@@ -732,46 +853,8 @@ bool ProjectPackage::extractArchive(const QString &archivePath,
     if (!readEntryData(file, entries.at(manifestIt.value()), &manifestData, error)) {
       return false;
     }
-    QJsonParseError parseError{};
-    const QJsonDocument doc = QJsonDocument::fromJson(manifestData, &parseError);
-    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-      if (error != nullptr) *error = QStringLiteral("manifest.json 解析失败: %1")
-                                         .arg(parseError.errorString());
+    if (!parseManifest(manifestData, &manifest, error)) {
       return false;
-    }
-    const QJsonObject obj = doc.object();
-    manifest.formatVersion = obj.value(QStringLiteral("formatVersion")).toInt();
-    if (manifest.formatVersion <= 0 || manifest.formatVersion > kFormatVersion) {
-      if (error != nullptr) {
-        *error = QStringLiteral("不支持的包格式版本: %1（当前程序支持 %2）")
-                     .arg(manifest.formatVersion)
-                     .arg(kFormatVersion);
-      }
-      return false;
-    }
-    manifest.appVersion = obj.value(QStringLiteral("appVersion")).toString();
-    manifest.projectName = obj.value(QStringLiteral("projectName")).toString();
-    manifest.createdAt = obj.value(QStringLiteral("createdAt")).toString();
-    manifest.layout = obj.value(QStringLiteral("layout")).toString();
-    manifest.master = obj.value(QStringLiteral("master")).toString(QStringLiteral("master.cbf"));
-
-    for (const QJsonValue &value : obj.value(QStringLiteral("files")).toArray()) {
-      const QJsonObject fileObj = value.toObject();
-      FileEntry entry;
-      entry.path = fileObj.value(QStringLiteral("path")).toString();
-      entry.size = static_cast<qint64>(fileObj.value(QStringLiteral("size")).toDouble());
-      entry.sha256 = fileObj.value(QStringLiteral("sha256")).toString().toLower();
-      if (entry.path.isEmpty()) continue;
-      manifest.files.append(entry);
-    }
-    for (const QJsonValue &value : obj.value(QStringLiteral("subDocuments")).toArray()) {
-      const QJsonObject subObj = value.toObject();
-      SubDocEntry entry;
-      entry.path = subObj.value(QStringLiteral("path")).toString();
-      entry.docType = subObj.value(QStringLiteral("docType")).toString();
-      if (!entry.path.isEmpty()) {
-        manifest.subDocuments.append(entry);
-      }
     }
   }
 

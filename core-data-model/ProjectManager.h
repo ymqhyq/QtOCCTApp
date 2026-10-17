@@ -11,6 +11,7 @@
 
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
+#include <functional>
 #include <string>
 #include <map>
 #include <vector>
@@ -44,7 +45,12 @@ public:
     /**
      * @brief 统一保存所有已打开的子文档以及主控文档
      */
-    Standard_Boolean SaveAll();
+    /**
+     * @brief 保存所有已打开的子文档与主控文档
+     * @param progress 进度回调 (已完成, 总数, 当前文件)；返回 false 表示取消
+     * @return 全部保存成功返回 true（被取消或写入失败返回 false）
+     */
+    Standard_Boolean SaveAll(const std::function<bool(int, int, const std::string&)>& progress = {});
 
     /**
      * @brief 延迟加载子文档

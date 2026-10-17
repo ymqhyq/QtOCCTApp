@@ -4,6 +4,8 @@
 #include <QList>
 #include <QString>
 
+#include <functional>
+
 /**
  * @brief RDE 工程包（ZIP 容器）的读写
  *
@@ -17,6 +19,10 @@ namespace ProjectPackage {
 
 /// 当前包格式版本
 constexpr int kFormatVersion = 1;
+
+/// 打包进度回调：已完成字节 / 总字节 / 当前处理项；返回 false 表示取消
+using ProgressCallback =
+    std::function<bool(qint64 done, qint64 total, const QString &step)>;
 
 struct FileEntry {
   QString path;        ///< 包内相对路径（'/' 分隔）
@@ -50,6 +56,13 @@ bool isSafeRelativePath(const QString &path);
 bool isZipArchive(const QString &archivePath);
 
 /**
+ * @brief 只读取包内 manifest.json（不解包），用于判断包格式版本
+ * @return 找不到或解析失败时返回 false（旧包没有清单即属于这种情况）
+ */
+bool readManifest(const QString &archivePath, Manifest *manifest,
+                  QString *error = nullptr);
+
+/**
  * @brief 把工程目录打包为 ZIP 格式的 .rde
  *
  * 会递归收集 sourceDir 下的所有文件，写入 master.cbf、子文档与 manifest.json。
@@ -60,7 +73,9 @@ bool isZipArchive(const QString &archivePath);
  */
 bool createArchive(const QString &archivePath, const QString &sourceDir,
                    const QList<SubDocEntry> &subDocuments,
-                   const QString &projectName, QString *error = nullptr);
+                   const QString &projectName,
+                   const ProgressCallback &progress = {},
+                   QString *error = nullptr);
 
 /**
  * @brief 解包到 destDir，并校验清单/哈希

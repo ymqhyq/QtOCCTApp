@@ -181,20 +181,54 @@ Handle(TDocStd_Document) ProjectManager::GetOrLoadSubDocument(const std::string&
     return subDoc;
 }
 
-Standard_Boolean ProjectManager::SaveAll()
+Standard_Boolean ProjectManager::SaveAll(
+    const std::function<bool(int, int, const std::string&)>& progress)
 {
     if (m_masterDoc.IsNull()) return Standard_False;
+
+    const int total = static_cast<int>(m_loadedSubDocs.size()) + 1;
+    int done = 0;
+    bool allOk = true;
 
     // 1. 循环保存内存中已加载/修改过的子文档
     for (auto& pair : m_loadedSubDocs)
     {
         std::string absolutePath = ResolveAbsolutePath(pair.first);
-        m_app->SaveAs(pair.second, absolutePath.c_str());
+        if (progress && !progress(done, total, absolutePath))
+        {
+            std::cerr << "[PM] SaveAll 已取消" << std::endl;
+            return Standard_False;
+        }
+        const PCDM_StoreStatus status = m_app->SaveAs(pair.second, absolutePath.c_str());
+        if (status != PCDM_SS_OK)
+        {
+            std::cerr << "[PM] 保存子文档失败: " << absolutePath
+                      << " (status=" << status << ")" << std::endl;
+            allOk = false;
+        }
+        ++done;
     }
 
     // 2. 保存 Master 项目
-    m_app->SaveAs(m_masterDoc, m_masterPath.c_str());
-    return Standard_True;
+    if (progress && !progress(done, total, m_masterPath))
+    {
+        std::cerr << "[PM] SaveAll 已取消" << std::endl;
+        return Standard_False;
+    }
+    const PCDM_StoreStatus status = m_app->SaveAs(m_masterDoc, m_masterPath.c_str());
+    if (status != PCDM_SS_OK)
+    {
+        std::cerr << "[PM] 保存主控文档失败: " << m_masterPath
+                  << " (status=" << status << ")" << std::endl;
+        allOk = false;
+    }
+    ++done;
+
+    if (progress)
+    {
+        progress(done, total, m_masterPath);
+    }
+    return allOk ? Standard_True : Standard_False;
 }
 
 Standard_Boolean ProjectManager::Sync2DDrawing(const Handle(BrNode_adDrawing2D)& drawingNode)

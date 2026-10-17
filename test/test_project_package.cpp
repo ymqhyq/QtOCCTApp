@@ -47,6 +47,8 @@ private slots:
   void roundTripPreservesFilesAndManifest();
   void legacyZipWithoutManifestIsAccepted();
   void realProjectArchivesAndReopens();
+  void manifestVersionIsReadableWithoutExtracting();
+  void progressCallbackReportsAndCanCancel();
   void rejectsTruncatedArchive();
   void failsWhenMasterIsMissing();
   void sanitizesRelativePaths();
@@ -73,7 +75,7 @@ void ProjectPackageTest::roundTripPreservesFilesAndManifest() {
 
   QString error;
   QVERIFY2(ProjectPackage::createArchive(archive, sourceDir.path(), subDocs,
-                                         QStringLiteral("unit-test-project"), &error),
+                                         QStringLiteral("unit-test-project"), {}, &error),
            qPrintable(error));
 
   // 容器必须是 ZIP
@@ -153,7 +155,7 @@ void ProjectPackageTest::realProjectArchivesAndReopens() {
 
   QString error;
   QVERIFY2(ProjectPackage::createArchive(archive, projectDir.absolutePath(),
-                                         subDocs, QStringLiteral("slope"), &error),
+                                         subDocs, QStringLiteral("slope"), {}, &error),
            qPrintable(error));
 
   ProjectPackage::Manifest manifest;
@@ -172,6 +174,87 @@ void ProjectPackageTest::realProjectArchivesAndReopens() {
 }
 
 /// 截断的包必须报错而不是产生部分结果
+void ProjectPackageTest::manifestVersionIsReadableWithoutExtracting() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid());
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(512, 'M')));
+
+  const QString archive = outputDir.filePath(QStringLiteral("v1.rde"));
+  QString error;
+  QVERIFY(ProjectPackage::createArchive(archive, sourceDir.path(), {},
+                                        QStringLiteral("v1"), {}, &error));
+
+  ProjectPackage::Manifest manifest;
+  QVERIFY2(ProjectPackage::readManifest(archive, &manifest, &error),
+           qPrintable(error));
+  QCOMPARE(manifest.formatVersion, ProjectPackage::kFormatVersion);
+  QCOMPARE(manifest.layout, QStringLiteral("self-contained"));
+
+  // 旧包没有清单，readManifest 应返回 false
+  const QString legacy = findRepoFile(QStringLiteral("slope.rde"));
+  if (!legacy.isEmpty()) {
+    ProjectPackage::Manifest legacyManifest;
+    QVERIFY(!ProjectPackage::readManifest(legacy, &legacyManifest, &error));
+  }
+}
+
+/// 进度回调必须被调用；返回 false 时应能取消且不留下目标文件
+void ProjectPackageTest::progressCallbackReportsAndCanCancel() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid());
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(200 * 1024, 'M')));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("models/big.cbf")),
+                     QByteArray(300 * 1024, 'B')));
+
+  // 1. 正常打包：进度单调递增，最终 done == total
+  const QString archive = outputDir.filePath(QStringLiteral("progress.rde"));
+  qint64 lastDone = -1;
+  qint64 finalDone = 0;
+  qint64 finalTotal = 0;
+  int calls = 0;
+  bool monotonic = true;
+  auto recordProgress = [&](qint64 done, qint64 total, const QString &) -> bool {
+    ++calls;
+    if (done < lastDone) {
+      monotonic = false;
+    }
+    lastDone = done;
+    finalDone = done;
+    finalTotal = total;
+    return true;
+  };
+  QString error;
+  QVERIFY2(ProjectPackage::createArchive(archive, sourceDir.path(), {},
+                                         QStringLiteral("progress"), recordProgress,
+                                         &error),
+           qPrintable(error));
+  QVERIFY(calls > 0);
+  QVERIFY(monotonic);
+  QVERIFY(finalTotal >= 200 * 1024);
+  QCOMPARE(finalDone, finalTotal);
+
+  // 2. 取消：回调返回 false 后应中止且不留下目标文件
+  const QString canceledArchive =
+      outputDir.filePath(QStringLiteral("canceled.rde"));
+  int cancelCalls = 0;
+  auto cancelProgress = [&](qint64, qint64, const QString &) -> bool {
+    ++cancelCalls;
+    return cancelCalls < 2; // 第二次调用时取消
+  };
+  error.clear();
+  QVERIFY2(!ProjectPackage::createArchive(canceledArchive, sourceDir.path(), {},
+                                          QStringLiteral("cancel"), cancelProgress,
+                                          &error),
+           "取消后不应返回成功");
+  QVERIFY(error.contains(QStringLiteral("取消")));
+  QVERIFY2(!QFileInfo::exists(canceledArchive), "取消后不应留下半成品文件");
+}
+
+/// 截断的包必须报错而不是产生部分结果
 void ProjectPackageTest::rejectsTruncatedArchive() {
   QTemporaryDir sourceDir;
   QTemporaryDir outputDir;
@@ -183,7 +266,7 @@ void ProjectPackageTest::rejectsTruncatedArchive() {
   const QString archive = outputDir.filePath(QStringLiteral("bad.rde"));
   QString error;
   QVERIFY(ProjectPackage::createArchive(archive, sourceDir.path(), {},
-                                        QStringLiteral("truncated"), &error));
+                                        QStringLiteral("truncated"), {}, &error));
 
   QFile original(archive);
   QVERIFY(original.open(QIODevice::ReadOnly));
@@ -212,7 +295,7 @@ void ProjectPackageTest::failsWhenMasterIsMissing() {
   QString error;
   QVERIFY2(!ProjectPackage::createArchive(outputDir.filePath(QStringLiteral("x.rde")),
                                           sourceDir.path(), {},
-                                          QStringLiteral("no-master"), &error),
+                                          QStringLiteral("no-master"), {}, &error),
            "缺少 master.cbf 时不应打包成功");
   QVERIFY(error.contains(QStringLiteral("master.cbf")));
 }

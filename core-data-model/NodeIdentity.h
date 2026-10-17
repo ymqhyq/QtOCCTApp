@@ -12,6 +12,8 @@
 #include <Standard_Handle.hxx>
 #include <TCollection_ExtendedString.hxx>
 
+#include <vector>
+
 #include "generated/DataModel.h"
 
 /**
@@ -33,6 +35,17 @@ BR_EXPORT TCollection_ExtendedString NewGuid();
  * @return 实际补号数量
  */
 BR_EXPORT int EnsureGlobalIds(const Handle(DataModel) &model);
+
+/**
+ * @brief 统一 GUID 格式：把非 32 位十六进制的 GUID 替换为标准格式
+ *
+ * 迁移会同步更新引用旧 GUID 的字符串属性（adSlopeIndication::TargetObjectID、
+ * 图纸 XCAF 标签上的 AsciiString），因此必须把主控与全部相关子文档一起传入，
+ * 否则跨文档引用会失效。
+ *
+ * @return 发生变化的节点数量
+ */
+BR_EXPORT int NormalizeGlobalIds(const std::vector<Handle(DataModel)> &models);
 
 } // namespace NodeIdentity
 

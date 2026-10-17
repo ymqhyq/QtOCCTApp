@@ -53,6 +53,10 @@ public:
 
 public slots:
   void onRunCqScript();
+  /// 把旧版工程包（无清单 / TAR）升级为 ZIP v1（带 manifest.json）
+  void onUpgradeLegacyPackage();
+  /// 一次性迁移：把非标准 GUID 统一为 32 位十六进制，并保存工程
+  void onNormalizeGuids();
 
 private slots:
   void onDrawLineClicked();

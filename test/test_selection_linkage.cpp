@@ -90,6 +90,7 @@ private slots:
   void treeSelectionFollowsLinkageId();
   void treeSelectionRejectsUnknownId();
   void globalIdMigrationAssignsStableIds();
+  void guidFormatIsNormalized();
   void viewportPickReportsLinkedNode();
   void subDocumentObjectsAreAttachedToTree();
   void mainWindowLinksViewportPickToModelTree();
@@ -369,6 +370,41 @@ void SelectionLinkageTest::globalIdMigrationAssignsStableIds() {
   QVERIFY(checked > 0);
   qInfo() << "补号节点数:" << assigned << " 已校验联动 ID 数:" << checked
           << " 其中新格式 GUID 数:" << newFormat;
+}
+
+/**
+ * @brief GUID 格式统一：非标准 GUID 应被替换，且树定位改用新 ID
+ */
+void SelectionLinkageTest::guidFormatIsNormalized() {
+  QVERIFY(!m_model.IsNull());
+
+  // 夹具里存在自定义格式的 GUID（如 GUID_Slope_3D_1），迁移应至少改动一个节点
+  const int changed = NodeIdentity::NormalizeGlobalIds({m_model});
+  QVERIFY2(changed > 0, "应当存在需要规范化的 GUID");
+
+  const QRegularExpression guidPattern(QStringLiteral("^[0-9A-F]{32}$"));
+  std::vector<SceneDataExtractor::VisualShape> shapes;
+  QVERIFY(extractShapes(shapes) > 0);
+
+  ModelExplorerPanel panel;
+  panel.setModel(m_model);
+
+  for (const SceneDataExtractor::VisualShape &vs : shapes) {
+    const QString id =
+        QString::fromStdString(vs.metadata["_adNodeId"].get<std::string>());
+    QVERIFY2(guidPattern.match(id).hasMatch(),
+             qPrintable(QStringLiteral("联动 ID 未被规范化: %1").arg(id)));
+    QVERIFY2(panel.selectNodeById(id),
+             qPrintable(QStringLiteral("规范化后的 GUID 无法定位: %1").arg(id)));
+  }
+
+  // 旧格式 ID 不应再能命中
+  QVERIFY2(!panel.selectNodeById(QStringLiteral("GUID_Slope_3D_1")),
+           "旧格式 GUID 不应再能定位节点");
+
+  // 幂等：再次规范化不应有改动
+  QCOMPARE(NodeIdentity::NormalizeGlobalIds({m_model}), 0);
+  qInfo() << "GUID 规范化节点数:" << changed;
 }
 
 /// 在视口里点中构件后，必须发出带联动 ID 的 objectSelected 信号

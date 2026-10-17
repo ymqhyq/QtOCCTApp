@@ -69,6 +69,7 @@ namespace {
 #include <QVBoxLayout>
 #include <QDirIterator>
 #include <QProcess>
+#include <QProgressDialog>
 #include <QFileInfo>
 #include <BinXCAFDrivers.hxx>
 #include <TDocStd_Application.hxx>
@@ -195,6 +196,48 @@ static int themeIndexOf(SARibbonTheme theme) {
 
 // 主题偏好持久化键（记录的是 kThemeEntries 中的下标）
 static const char *const kThemeSettingsKey = "ui/ribbonTheme";
+
+namespace {
+
+/// 按约定目录收集子文档：models/ -> 3DModel，drawings/ -> 2DDrawing
+QList<ProjectPackage::SubDocEntry> collectSubDocuments(const QString &projectDir) {
+  QList<ProjectPackage::SubDocEntry> result;
+  const QDir root(projectDir);
+  const std::pair<const char *, const char *> kinds[] = {
+      {"models", "3DModel"}, {"drawings", "2DDrawing"}};
+  for (const auto &kind : kinds) {
+    QDirIterator it(root.absoluteFilePath(QString::fromLatin1(kind.first)),
+                    QStringList() << "*.cbf", QDir::Files,
+                    QDirIterator::Subdirectories);
+    while (it.hasNext()) {
+      const QString relPath =
+          QDir::fromNativeSeparators(root.relativeFilePath(it.next()));
+      result.append({relPath, QString::fromLatin1(kind.second)});
+    }
+  }
+  return result;
+}
+
+/// 打包进度回调（按字节），带节流以避免频繁刷新界面
+ProjectPackage::ProgressCallback makePackageProgressCallback(QProgressDialog *dialog,
+                                                             qint64 *lastUpdateMs) {
+  return [dialog, lastUpdateMs](qint64 done, qint64 total,
+                                const QString &step) -> bool {
+    const int percent = total > 0 ? static_cast<int>(done * 100 / total) : 0;
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (percent == dialog->value() && now - *lastUpdateMs < 200) {
+      return !dialog->wasCanceled();
+    }
+    *lastUpdateMs = now;
+    dialog->setValue(percent);
+    dialog->setLabelText(
+        QObject::tr("正在打包: %1").arg(QFileInfo(step).fileName()));
+    QCoreApplication::processEvents();
+    return !dialog->wasCanceled();
+  };
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : SARibbonMainWindow(parent), m_occtWidget(new OCCTWidget(this)),
@@ -337,6 +380,19 @@ void MainWindow::createRibbon() {
   QAction *closeAction = makeIconAction(":/resources/icons/close.svg", "关闭");
   connect(closeAction, &QAction::triggered, this, &MainWindow::onCloseModel);
   panelProject->addLargeAction(closeAction);
+
+  // 工程包维护：旧包升级 / GUID 规范化（一次性迁移）
+  QAction *upgradePackageAction =
+      makeIconAction(":/resources/icons/import.svg", "升级工程包");
+  connect(upgradePackageAction, &QAction::triggered, this,
+          &MainWindow::onUpgradeLegacyPackage);
+  panelProject->addSmallAction(upgradePackageAction);
+
+  QAction *normalizeGuidAction =
+      makeIconAction(":/resources/icons/check.svg", "统一 GUID");
+  connect(normalizeGuidAction, &QAction::triggered, this,
+          &MainWindow::onNormalizeGuids);
+  panelProject->addSmallAction(normalizeGuidAction);
 
   // 增加 "导入" 分组并归类
   SARibbonPanel *panelImport = categoryMain->addPanel("导入");
@@ -2451,6 +2507,140 @@ bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) 
     return true;
 }
 
+void MainWindow::onUpgradeLegacyPackage() {
+  const QString source = QFileDialog::getOpenFileName(
+      this, tr("选择要升级的工程包"), QString(),
+      tr("RDE 工程包 (*.rde);;所有文件 (*.*)"));
+  if (source.isEmpty()) {
+    return;
+  }
+
+  // 已是新版（带清单）则无需升级
+  ProjectPackage::Manifest existing;
+  QString manifestError;
+  if (ProjectPackage::readManifest(source, &existing, &manifestError) &&
+      existing.formatVersion >= ProjectPackage::kFormatVersion) {
+    QMessageBox::information(
+        this, tr("升级工程包"),
+        tr("该工程包已经是 v%1 格式，无需升级。").arg(existing.formatVersion));
+    return;
+  }
+
+  QTemporaryDir tempDir;
+  if (!tempDir.isValid()) {
+    QMessageBox::critical(this, tr("升级工程包"), tr("无法创建临时目录。"));
+    return;
+  }
+  if (!extractRdeFile(source, tempDir.path())) {
+    return; // 解包失败已由 extractRdeFile 提示
+  }
+
+  // 旧包没有清单：按约定目录识别子文档
+  const QList<ProjectPackage::SubDocEntry> subDocuments =
+      collectSubDocuments(tempDir.path());
+
+  const QFileInfo sourceInfo(source);
+  const QString target = sourceInfo.absoluteDir().filePath(
+      sourceInfo.completeBaseName() + QStringLiteral("_v1.rde"));
+  if (QFileInfo::exists(target) &&
+      QMessageBox::question(
+          this, tr("升级工程包"),
+          tr("目标文件已存在，是否覆盖？\n%1").arg(target)) != QMessageBox::Yes) {
+    return;
+  }
+
+  QProgressDialog dialog(tr("正在升级工程包..."), tr("取消"), 0, 100, this);
+  dialog.setWindowTitle(tr("升级工程包"));
+  dialog.setWindowModality(Qt::WindowModal);
+  dialog.setMinimumDuration(0);
+  dialog.setAutoClose(false);
+  dialog.setValue(0);
+
+  qint64 lastUpdateMs = 0;
+  QString error;
+  const bool ok = ProjectPackage::createArchive(
+      target, tempDir.path(), subDocuments, sourceInfo.completeBaseName(),
+      makePackageProgressCallback(&dialog, &lastUpdateMs), &error);
+  dialog.setValue(100);
+  dialog.close();
+
+  if (!ok) {
+    if (error != QStringLiteral("打包已取消")) {
+      QMessageBox::critical(this, tr("升级工程包"), error);
+    }
+    return;
+  }
+
+  QMessageBox::information(
+      this, tr("升级工程包"),
+      tr("升级完成：\n%1\n\n子文档：%2 个\n原文件未被修改。")
+          .arg(target)
+          .arg(subDocuments.size()));
+}
+
+void MainWindow::onNormalizeGuids() {
+  if (m_projectManager == nullptr || m_currentModel.IsNull()) {
+    QMessageBox::information(this, tr("统一 GUID"), tr("请先打开一个工程。"));
+    return;
+  }
+
+  if (QMessageBox::question(
+          this, tr("统一 GUID"),
+          tr("将把工程内非标准格式的 GUID 统一为 32 位十六进制，并同步更新引用它们的属性，"
+             "随后保存工程文件。\n\n此操作会修改磁盘上的工程，是否继续？")) !=
+      QMessageBox::Yes) {
+    return;
+  }
+
+  // 主控 + 已加载/可加载的子文档必须一起迁移，跨文档引用才能保持一致
+  std::vector<Handle(DataModel)> models;
+  models.push_back(m_currentModel);
+  const QStringList subDocPaths = {m_subDocPath3D, m_subDocPath2D};
+  for (const QString &path : subDocPaths) {
+    if (path.isEmpty()) {
+      continue;
+    }
+    m_projectManager->GetOrLoadSubDocument(path.toStdString());
+    Handle(DataModel) subModel = m_projectManager->GetSubModel(path.toStdString());
+    if (!subModel.IsNull()) {
+      models.push_back(subModel);
+    }
+  }
+
+  const int changed = NodeIdentity::NormalizeGlobalIds(models);
+  if (changed == 0) {
+    QMessageBox::information(this, tr("统一 GUID"),
+                             tr("所有节点已是标准格式，无需修改。"));
+    return;
+  }
+
+  QProgressDialog dialog(tr("正在保存工程..."), tr("取消"), 0, 100, this);
+  dialog.setWindowTitle(tr("统一 GUID"));
+  dialog.setWindowModality(Qt::WindowModal);
+  dialog.setMinimumDuration(0);
+  dialog.setAutoClose(false);
+
+  auto progress = [&dialog](int done, int total, const std::string &step) -> bool {
+    dialog.setMaximum(total > 0 ? total : 1);
+    dialog.setValue(done);
+    dialog.setLabelText(tr("正在保存: %1").arg(QString::fromStdString(step)));
+    QCoreApplication::processEvents();
+    return !dialog.wasCanceled();
+  };
+
+  const bool saved = m_projectManager->SaveAll(progress);
+  dialog.close();
+
+  if (!saved) {
+    QMessageBox::warning(this, tr("统一 GUID"),
+                         tr("已更新 %1 个节点，但保存失败或被取消。").arg(changed));
+  } else {
+    QMessageBox::information(this, tr("统一 GUID"),
+                             tr("已统一 %1 个节点的 GUID 并保存。").arg(changed));
+  }
+  refreshViews();
+}
+
 bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) {
     // 子文档以“相对工程目录”的路径登记进清单
     QList<ProjectPackage::SubDocEntry> subDocuments;
@@ -2473,15 +2663,33 @@ bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) 
     appendSubDoc(m_subDocPath3D, QStringLiteral("3DModel"));
     appendSubDoc(m_subDocPath2D, QStringLiteral("2DDrawing"));
 
+    // 打包进度：大量构件时压缩耗时较长，用模态进度条给出反馈并允许取消
+    QProgressDialog progressDialog(tr("正在保存工程包..."), tr("取消"), 0, 100, this);
+    progressDialog.setWindowTitle(tr("保存工程包"));
+    progressDialog.setWindowModality(Qt::WindowModal);
+    progressDialog.setMinimumDuration(0);
+    progressDialog.setAutoClose(false);
+    progressDialog.setAutoReset(false);
+    progressDialog.setValue(0);
+
+    qint64 lastUpdateMs = 0;
+    const ProjectPackage::ProgressCallback progress =
+        makePackageProgressCallback(&progressDialog, &lastUpdateMs);
+
     QString error;
     const QString projectName = QFileInfo(sourceDir).fileName();
     if (!ProjectPackage::createArchive(rdePath, sourceDir, subDocuments,
-                                       projectName, &error)) {
+                                       projectName, progress, &error)) {
+        progressDialog.close();
         qWarning() << "[RDE] 打包失败:" << error;
-        QMessageBox::critical(this, "Export RDE",
-                              "Failed to package project:\n" + error);
+        if (error != QStringLiteral("打包已取消")) {
+            QMessageBox::critical(this, "Export RDE",
+                                  "Failed to package project:\n" + error);
+        }
         return false;
     }
+    progressDialog.setValue(100);
+    progressDialog.close();
 
     qDebug() << "[RDE] 打包完成:" << rdePath
              << "子文档数:" << subDocuments.size();

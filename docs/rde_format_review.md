@@ -90,7 +90,19 @@
 - **P2-8 入口语义**：日志区分「工程包(.rde) / 主控(master.cbf) / 自包含模型(.cbf)」。
 
 ### 仍可继续
-- 旧包（无 manifest）升级为 v1：打开后重新导出一次即可。
-- 现有数据里自定义格式的 GUID（如 `GUID_Slope_3D_1`）如需统一为 32 位 UUID，
-  需要一次显式数据迁移（当前策略仅补空、不改旧）。
-- 打包进度回调（当前为进程内同步打包，大工程时 UI 仍会短暂阻塞）。
+- 超大工程的打包仍在主线程同步执行（已提供进度与取消，界面在处理间隙保持响应）；
+  如需完全后台化，可进一步改成工作线程 + 队列信号。
+
+### 后续补充（本轮新增）
+- **旧包升级**：Ribbon「项目」面板新增「升级工程包」，把旧 .rde（无清单的 ZIP 或 TAR）
+  解包后重新打包为 v1（`<原名>_v1.rde`，不覆盖原文件），自动按 `models/`、`drawings/`
+  约定识别子文档。若已是 v1 会提示无需升级。
+- **GUID 格式统一**：「统一 GUID」动作调用 `NodeIdentity::NormalizeGlobalIds()`，
+  将非 32 位十六进制的 GUID 批量替换，并同步更新引用它们的
+  `adSlopeIndication::TargetObjectID` 与图纸 XCAF 标签上的 `AsciiString`；
+  随后带进度保存工程。该操作需用户确认，执行后刷新视图。
+- **保存/打包进度条**：`ProjectManager::SaveAll()` 与 `ProjectPackage::createArchive()`
+  均支持进度回调（后者按字节、带节流）；导出/升级弹出模态进度条并支持取消，
+  取消时不留下半成品文件（QSaveFile 回滚）。
+- **ZIP 写入改为单遍流式**（数据描述符模式），进度准确且少一次压缩；
+  已用 bsdtar 与 .NET `Expand-Archive` 验证互操作性。
