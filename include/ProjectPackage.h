@@ -19,6 +19,12 @@ namespace ProjectPackage {
 
 /// 当前包格式版本
 constexpr int kFormatVersion = 1;
+/// 当前实现使用 ZIP32 结构：单文件/单包 4GiB 上限、最多 65535 个条目
+constexpr qint64 kMaxZipEntrySize = 0xFFFFFFFELL;
+constexpr qint64 kMaxZipArchiveSize = 0xFFFFFFFFLL;
+constexpr int kMaxZipEntries = 0xFFFF;
+/// 解包前的总未压缩大小保护，防止损坏包或 ZIP 炸弹耗尽磁盘
+constexpr qint64 kMaxTotalUncompressedBytes = 16LL * 1024 * 1024 * 1024;
 
 /// 打包进度回调：已完成字节 / 总字节 / 当前处理项；返回 false 表示取消
 using ProgressCallback =
@@ -37,10 +43,19 @@ struct SubDocEntry {
 
 struct Manifest {
   int formatVersion = 0;   ///< 0 表示旧包（无 manifest.json）
+  QString packageId;       ///< 包实例 ID
+  QString projectId;       ///< 工程 ID（可选，跨包稳定）
   QString appVersion;
+  QString buildId;         ///< 构建标识/应用版本
   QString projectName;
   QString createdAt;       ///< ISO 8601
+  QString updatedAt;       ///< ISO 8601
   QString layout;          ///< indexed | self-contained
+  QString units = QStringLiteral("mm"); ///< 长度单位
+  QString coordinateSystem;///< 坐标系/CRS（可选）
+  QString schemaVersion;   ///< 业务数据模型版本（可选）
+  QString sourcePlatform;  ///< 生成平台
+  QString comment;         ///< 备注
   QString master = QStringLiteral("master.cbf");
   QList<FileEntry> files;
   QList<SubDocEntry> subDocuments;
@@ -82,9 +97,12 @@ bool createArchive(const QString &archivePath, const QString &sourceDir,
  *
  * 兼容没有 manifest.json 的旧 ZIP（返回的 formatVersion 为 0）。
  * 不是 ZIP 容器时返回 false（调用方可退回旧式 TAR 解析）。
+ *
+ * @param progress 解包进度回调（按未压缩字节）；返回 false 可取消
  */
 bool extractArchive(const QString &archivePath, const QString &destDir,
-                    Manifest *manifest = nullptr, QString *error = nullptr);
+                    Manifest *manifest = nullptr, QString *error = nullptr,
+                    const ProgressCallback &progress = {});
 
 } // namespace ProjectPackage
 

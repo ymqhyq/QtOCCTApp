@@ -12,16 +12,68 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#include <QSet>
+#include <QStorageInfo>
+#include <QSysInfo>
+#include <QUuid>
 
 #include <zlib.h>
 
 #include <cstring>
+#include <algorithm>
 
 namespace {
 
 // ---------------------------------------------------------------------------
 // 基础读写
 // ---------------------------------------------------------------------------
+
+QString normalizedAbsolutePath(const QString &path) {
+  const QFileInfo info(path);
+  const QString canonical = info.canonicalFilePath();
+  return QDir::cleanPath(canonical.isEmpty() ? info.absoluteFilePath() : canonical);
+}
+
+bool sameFilePath(const QString &a, const QString &b) {
+  const QString left = normalizedAbsolutePath(a);
+  const QString right = normalizedAbsolutePath(b);
+#if defined(Q_OS_WIN)
+  return QString::compare(left, right, Qt::CaseInsensitive) == 0;
+#else
+  return left == right;
+#endif
+}
+
+/// 工程目录中不应被打进 RDE 的临时/备份/历史包文件。
+bool shouldPackageFile(const QString &relativePath) {
+  const QString normalized = QDir::fromNativeSeparators(relativePath);
+  const QString lower = normalized.toLower();
+  if (lower == QStringLiteral("manifest.json")) {
+    return false;
+  }
+
+  const QStringList parts = lower.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+  for (const QString &part : parts) {
+    if (part == QStringLiteral(".git") || part == QStringLiteral(".svn") ||
+        part == QStringLiteral(".hg") || part == QStringLiteral(".cache") ||
+        part == QStringLiteral("__pycache__") ||
+        part == QStringLiteral("node_modules")) {
+      return false;
+    }
+  }
+
+  const QFileInfo info(normalized);
+  const QString suffix = info.suffix().toLower();
+  if (suffix == QStringLiteral("rde") || suffix == QStringLiteral("tmp") ||
+      suffix == QStringLiteral("bak") || suffix == QStringLiteral("log") ||
+      suffix == QStringLiteral("swp") || suffix == QStringLiteral("swo")) {
+    return false;
+  }
+  const QString base = info.fileName();
+  return base.compare(QStringLiteral("Thumbs.db"), Qt::CaseInsensitive) != 0 &&
+         base.compare(QStringLiteral(".DS_Store"), Qt::CaseInsensitive) != 0 &&
+         !base.startsWith(QStringLiteral("~$"));
+}
 
 bool writeAll(QIODevice *device, const QByteArray &data) {
   qint64 written = 0;
@@ -125,6 +177,7 @@ struct DeflateStats {
   quint32 crc = 0;
   quint32 compressed = 0;
   quint32 uncompressed = 0;
+  QByteArray sha256;
 };
 
 // 以 64KB 分块单遍流式压缩文件，并上报总体进度
@@ -144,6 +197,7 @@ bool deflateFileStreaming(const QString &path, QIODevice *out,
   }
 
   uLong crc = crc32(0L, Z_NULL, 0);
+  QCryptographicHash sha256(QCryptographicHash::Sha256);
   quint32 totalIn = 0;
   quint32 totalOut = 0;
   QByteArray inBuf(64 * 1024, '\0');
@@ -160,6 +214,7 @@ bool deflateFileStreaming(const QString &path, QIODevice *out,
     if (got > 0) {
       crc = crc32(crc, reinterpret_cast<const Bytef *>(inBuf.constData()),
                   static_cast<uInt>(got));
+      sha256.addData(inBuf.constData(), static_cast<int>(got));
       totalIn += static_cast<quint32>(got);
       if (processedBytes != nullptr) {
         *processedBytes += got;
@@ -211,6 +266,7 @@ bool deflateFileStreaming(const QString &path, QIODevice *out,
     stats->crc = static_cast<quint32>(crc);
     stats->compressed = totalOut;
     stats->uncompressed = totalIn;
+    stats->sha256 = sha256.result();
   }
   return true;
 }
@@ -219,7 +275,25 @@ bool inflateRaw(const QByteArray &input, quint32 expectedSize,
                 QByteArray *output) {
   output->clear();
   if (expectedSize == 0) {
-    return input.isEmpty();
+    if (input.isEmpty()) {
+      return true;
+    }
+    // zlib 对空文件也会产生一个短 deflate 结束流（通常为 03 00），
+    // 这里仍要验证该流是合法的且没有输出数据。
+    z_stream emptyStream{};
+    if (inflateInit2(&emptyStream, -15) != Z_OK) {
+      return false;
+    }
+    unsigned char dummy = 0;
+    emptyStream.next_in =
+        reinterpret_cast<Bytef *>(const_cast<char *>(input.constData()));
+    emptyStream.avail_in = static_cast<uInt>(input.size());
+    emptyStream.next_out = &dummy;
+    emptyStream.avail_out = 1;
+    const int rc = inflate(&emptyStream, Z_FINISH);
+    const bool ok = rc == Z_STREAM_END && emptyStream.total_out == 0;
+    inflateEnd(&emptyStream);
+    return ok;
   }
   output->resize(static_cast<int>(expectedSize));
 
@@ -250,6 +324,7 @@ constexpr quint16 kMethodDeflate = 8;
 
 struct ZipItem {
   QString name;
+  QByteArray sha256;
   quint32 crc = 0;
   quint32 compressedSize = 0;
   quint32 uncompressedSize = 0;
@@ -336,6 +411,7 @@ bool addFileToZip(QIODevice *out, const QString &sourcePath, const QString &zipN
   }
 
   item.crc = stats.crc;
+  item.sha256 = stats.sha256;
   item.compressedSize = stats.compressed;
   item.uncompressedSize = stats.uncompressed;
   if (items != nullptr) items->append(item);
@@ -455,6 +531,15 @@ bool readZipIndex(QFile &file, QList<ZipEntry> *entries, QString *error) {
   const quint16 count = get16(eocd + 10);
   const quint32 centralSize = get32(eocd + 12);
   const quint32 centralOffset = get32(eocd + 16);
+  if (count > static_cast<quint16>(ProjectPackage::kMaxZipEntries)) {
+    if (error != nullptr) *error = QStringLiteral("ZIP 条目数超过支持上限");
+    return false;
+  }
+  if (centralOffset > fileSize ||
+      centralSize > static_cast<quint64>(fileSize - centralOffset)) {
+    if (error != nullptr) *error = QStringLiteral("ZIP 目录超出文件范围");
+    return false;
+  }
 
   if (!file.seek(centralOffset)) {
     return false;
@@ -468,6 +553,8 @@ bool readZipIndex(QFile &file, QList<ZipEntry> *entries, QString *error) {
   const uchar *p = reinterpret_cast<const uchar *>(central.constData());
   const uchar *end = p + central.size();
   entries->clear();
+  QSet<QString> names;
+  qint64 totalUncompressed = 0;
   for (quint16 i = 0; i < count; ++i) {
     if (p + 46 > end || get32(p) != kCentralHeaderSig) {
       if (error != nullptr) *error = QStringLiteral("ZIP 目录项损坏");
@@ -482,11 +569,29 @@ bool readZipIndex(QFile &file, QList<ZipEntry> *entries, QString *error) {
     const quint16 extraLen = get16(p + 30);
     const quint16 commentLen = get16(p + 32);
     entry.localOffset = get32(p + 42);
+    if (entry.compressedSize > ProjectPackage::kMaxZipEntrySize ||
+        entry.uncompressedSize > ProjectPackage::kMaxZipEntrySize ||
+        entry.localOffset > fileSize ||
+        entry.compressedSize > fileSize - entry.localOffset) {
+      if (error != nullptr) *error = QStringLiteral("ZIP 条目尺寸非法: %1").arg(entry.name);
+      return false;
+    }
     if (p + 46 + nameLen > end) {
       if (error != nullptr) *error = QStringLiteral("ZIP 文件名损坏");
       return false;
     }
     entry.name = QString::fromUtf8(reinterpret_cast<const char *>(p + 46), nameLen);
+    const QString key = entry.name.toLower();
+    if (names.contains(key)) {
+      if (error != nullptr) *error = QStringLiteral("ZIP 中存在重复条目: %1").arg(entry.name);
+      return false;
+    }
+    names.insert(key);
+    totalUncompressed += entry.uncompressedSize;
+    if (totalUncompressed > ProjectPackage::kMaxTotalUncompressedBytes) {
+      if (error != nullptr) *error = QStringLiteral("ZIP 解压总大小超过安全上限");
+      return false;
+    }
     entries->append(entry);
     p += 46 + nameLen + extraLen + commentLen;
   }
@@ -495,6 +600,11 @@ bool readZipIndex(QFile &file, QList<ZipEntry> *entries, QString *error) {
 
 bool readEntryData(QFile &file, const ZipEntry &entry, QByteArray *data,
                    QString *error) {
+  constexpr quint32 kMaxManifestBytes = 8 * 1024 * 1024;
+  if (entry.uncompressedSize > kMaxManifestBytes) {
+    if (error != nullptr) *error = QStringLiteral("manifest.json 过大");
+    return false;
+  }
   if (!file.seek(entry.localOffset)) {
     return false;
   }
@@ -547,9 +657,201 @@ bool readEntryData(QFile &file, const ZipEntry &entry, QByteArray *data,
   return true;
 }
 
-QString sha256OfBytes(const QByteArray &data) {
-  return QString::fromLatin1(
-      QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
+bool localDataOffset(QFile &file, const ZipEntry &entry, qint64 *offset,
+                     QString *error) {
+  if (!file.seek(entry.localOffset)) {
+    if (error != nullptr) *error = QStringLiteral("无法定位 ZIP 条目: %1").arg(entry.name);
+    return false;
+  }
+  const QByteArray header = file.read(30);
+  if (header.size() != 30 ||
+      get32(reinterpret_cast<const uchar *>(header.constData())) != kLocalHeaderSig) {
+    if (error != nullptr) *error = QStringLiteral("ZIP 本地头损坏: %1").arg(entry.name);
+    return false;
+  }
+  const uchar *h = reinterpret_cast<const uchar *>(header.constData());
+  const quint16 nameLen = get16(h + 26);
+  const quint16 extraLen = get16(h + 28);
+  const qint64 dataOffset = entry.localOffset + 30 + nameLen + extraLen;
+  if (dataOffset < entry.localOffset || dataOffset > file.size()) {
+    if (error != nullptr) *error = QStringLiteral("ZIP 条目偏移非法: %1").arg(entry.name);
+    return false;
+  }
+  if (offset != nullptr) *offset = dataOffset;
+  return true;
+}
+
+bool extractEntryStreaming(QFile &file, const ZipEntry &entry,
+                           const QString &targetPath, const QString &expectedSha,
+                           const ProjectPackage::ProgressCallback &progress,
+                           qint64 *processedBytes, qint64 totalBytes,
+                           bool *canceled, QString *error) {
+  qint64 dataOffset = 0;
+  if (!localDataOffset(file, entry, &dataOffset, error)) {
+    return false;
+  }
+  if (!file.seek(dataOffset)) {
+    if (error != nullptr) *error = QStringLiteral("无法定位 ZIP 数据: %1").arg(entry.name);
+    return false;
+  }
+
+  QSaveFile out(targetPath);
+  if (!out.open(QIODevice::WriteOnly)) {
+    if (error != nullptr) *error = QStringLiteral("无法写入文件: %1").arg(targetPath);
+    return false;
+  }
+
+  QCryptographicHash sha256(QCryptographicHash::Sha256);
+  uLong crc = crc32(0L, Z_NULL, 0);
+  qint64 written = 0;
+  bool ok = true;
+  QByteArray inBuf(64 * 1024, '\0');
+  QByteArray outBuf(64 * 1024, '\0');
+
+  auto reportProgress = [&]() -> bool {
+    if (!progress || processedBytes == nullptr) {
+      return true;
+    }
+    if (!progress(*processedBytes, totalBytes, entry.name)) {
+      if (canceled != nullptr) *canceled = true;
+      return false;
+    }
+    return true;
+  };
+
+  if (entry.method == 0) {
+    qint64 remaining = entry.compressedSize;
+    while (remaining > 0) {
+      const qint64 got = file.read(inBuf.data(),
+                                   static_cast<qint64>(inBuf.size()) < remaining
+                                       ? inBuf.size()
+                                       : static_cast<int>(remaining));
+      if (got <= 0) {
+        ok = false;
+        break;
+      }
+      if (!writeAll(&out, QByteArray::fromRawData(inBuf.constData(),
+                                                   static_cast<int>(got)))) {
+        ok = false;
+        break;
+      }
+      sha256.addData(inBuf.constData(), static_cast<int>(got));
+      crc = crc32(crc, reinterpret_cast<const Bytef *>(inBuf.constData()),
+                  static_cast<uInt>(got));
+      written += got;
+      remaining -= got;
+      if (processedBytes != nullptr) *processedBytes += got;
+      if (!reportProgress()) {
+        ok = false;
+        break;
+      }
+    }
+  } else if (entry.method == kMethodDeflate) {
+    z_stream zs{};
+    if (inflateInit2(&zs, -15) != Z_OK) {
+      if (error != nullptr) *error = QStringLiteral("ZIP 解压初始化失败: %1").arg(entry.name);
+      out.cancelWriting();
+      return false;
+    }
+
+    qint64 remaining = entry.compressedSize;
+    bool streamEnd = entry.compressedSize == 0 && entry.uncompressedSize == 0;
+    int idleRounds = 0;
+    while (!streamEnd) {
+      if (zs.avail_in == 0 && remaining > 0) {
+        const qint64 got = file.read(
+            inBuf.data(), static_cast<qint64>(inBuf.size()) < remaining
+                              ? inBuf.size()
+                              : static_cast<int>(remaining));
+        if (got <= 0) {
+          ok = false;
+          break;
+        }
+        remaining -= got;
+        zs.next_in = reinterpret_cast<Bytef *>(inBuf.data());
+        zs.avail_in = static_cast<uInt>(got);
+      }
+
+      zs.next_out = reinterpret_cast<Bytef *>(outBuf.data());
+      zs.avail_out = static_cast<uInt>(outBuf.size());
+      const int flush = (remaining == 0 && zs.avail_in == 0) ? Z_FINISH : Z_NO_FLUSH;
+      const int rc = inflate(&zs, flush);
+      if (rc != Z_OK && rc != Z_STREAM_END && rc != Z_BUF_ERROR) {
+        ok = false;
+        break;
+      }
+      const qint64 produced =
+          static_cast<qint64>(outBuf.size()) - static_cast<qint64>(zs.avail_out);
+      if (produced > 0) {
+        idleRounds = 0;
+        if (!writeAll(&out, QByteArray::fromRawData(
+                               outBuf.constData(), static_cast<int>(produced)))) {
+          ok = false;
+          break;
+        }
+        sha256.addData(outBuf.constData(), static_cast<int>(produced));
+        crc = crc32(crc, reinterpret_cast<const Bytef *>(outBuf.constData()),
+                    static_cast<uInt>(produced));
+        written += produced;
+        if (processedBytes != nullptr) *processedBytes += produced;
+        if (!reportProgress()) {
+          ok = false;
+          break;
+        }
+      }
+      if (rc == Z_STREAM_END) {
+        streamEnd = true;
+      } else if (produced == 0 && zs.avail_in == 0 && remaining == 0) {
+        if (++idleRounds > 2) {
+          ok = false;
+          break;
+        }
+      }
+    }
+    inflateEnd(&zs);
+  } else {
+    if (error != nullptr) {
+      *error = QStringLiteral("不支持的 ZIP 压缩方式: %1").arg(entry.name);
+    }
+    out.cancelWriting();
+    return false;
+  }
+
+  if (!ok || written != static_cast<qint64>(entry.uncompressedSize) ||
+      (written > 0 && crc != entry.crc) ||
+      (!expectedSha.isEmpty() &&
+       QString::fromLatin1(sha256.result().toHex()) != expectedSha)) {
+    out.cancelWriting();
+    if (error != nullptr) {
+      if (written != static_cast<qint64>(entry.uncompressedSize)) {
+        *error = QStringLiteral("ZIP 尺寸校验失败: %1").arg(entry.name);
+      } else if (!expectedSha.isEmpty()) {
+        *error = QStringLiteral("文件校验失败（内容被修改）: %1").arg(entry.name);
+      } else {
+        *error = QStringLiteral("ZIP CRC 校验失败: %1").arg(entry.name);
+      }
+    }
+    return false;
+  }
+  if (!out.commit()) {
+    if (error != nullptr) *error = QStringLiteral("写入文件失败: %1").arg(targetPath);
+    return false;
+  }
+  return true;
+}
+
+bool looksLikeSha256(const QString &value) {
+  if (value.size() != 64) {
+    return false;
+  }
+  for (const QChar ch : value) {
+    const ushort code = ch.unicode();
+    if (!((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f') ||
+          (code >= 'A' && code <= 'F'))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool parseManifest(const QByteArray &data, ProjectPackage::Manifest *out,
@@ -575,13 +877,32 @@ bool parseManifest(const QByteArray &data, ProjectPackage::Manifest *out,
     }
     return false;
   }
+  manifest.packageId = obj.value(QStringLiteral("packageId")).toString();
+  manifest.projectId = obj.value(QStringLiteral("projectId")).toString();
   manifest.appVersion = obj.value(QStringLiteral("appVersion")).toString();
+  manifest.buildId = obj.value(QStringLiteral("buildId")).toString();
   manifest.projectName = obj.value(QStringLiteral("projectName")).toString();
   manifest.createdAt = obj.value(QStringLiteral("createdAt")).toString();
+  manifest.updatedAt = obj.value(QStringLiteral("updatedAt")).toString();
   manifest.layout = obj.value(QStringLiteral("layout")).toString();
+  manifest.units = obj.value(QStringLiteral("units")).toString(QStringLiteral("mm"));
+  manifest.coordinateSystem =
+      obj.value(QStringLiteral("coordinateSystem")).toString();
+  manifest.schemaVersion =
+      obj.value(QStringLiteral("schemaVersion")).toString();
+  manifest.sourcePlatform =
+      obj.value(QStringLiteral("sourcePlatform")).toString();
+  manifest.comment = obj.value(QStringLiteral("comment")).toString();
   manifest.master =
       obj.value(QStringLiteral("master")).toString(QStringLiteral("master.cbf"));
+  if (!ProjectPackage::isSafeRelativePath(manifest.master)) {
+    if (error != nullptr) {
+      *error = QStringLiteral("清单中的主控路径非法: %1").arg(manifest.master);
+    }
+    return false;
+  }
 
+  QSet<QString> filePaths;
   for (const QJsonValue &value : obj.value(QStringLiteral("files")).toArray()) {
     const QJsonObject fileObj = value.toObject();
     ProjectPackage::FileEntry entry;
@@ -589,15 +910,59 @@ bool parseManifest(const QByteArray &data, ProjectPackage::Manifest *out,
     entry.size = static_cast<qint64>(fileObj.value(QStringLiteral("size")).toDouble());
     entry.sha256 = fileObj.value(QStringLiteral("sha256")).toString().toLower();
     if (!entry.path.isEmpty()) {
+      if (!ProjectPackage::isSafeRelativePath(entry.path)) {
+        if (error != nullptr) {
+          *error = QStringLiteral("清单中的文件路径非法: %1").arg(entry.path);
+        }
+        return false;
+      }
+      if (entry.size < 0 || !looksLikeSha256(entry.sha256)) {
+        if (error != nullptr) {
+          *error = QStringLiteral("清单文件条目损坏: %1").arg(entry.path);
+        }
+        return false;
+      }
+      const QString key = entry.path.toLower();
+      if (filePaths.contains(key)) {
+        if (error != nullptr) {
+          *error = QStringLiteral("清单中存在重复文件: %1").arg(entry.path);
+        }
+        return false;
+      }
+      filePaths.insert(key);
       manifest.files.append(entry);
     }
   }
+  if (manifest.files.isEmpty() ||
+      !filePaths.contains(manifest.master.toLower())) {
+    if (error != nullptr) {
+      *error = QStringLiteral("清单没有登记主控文档: %1").arg(manifest.master);
+    }
+    return false;
+  }
+
+  QSet<QString> subDocPaths;
   for (const QJsonValue &value : obj.value(QStringLiteral("subDocuments")).toArray()) {
     const QJsonObject subObj = value.toObject();
     ProjectPackage::SubDocEntry entry;
     entry.path = subObj.value(QStringLiteral("path")).toString();
     entry.docType = subObj.value(QStringLiteral("docType")).toString();
     if (!entry.path.isEmpty()) {
+      if (!ProjectPackage::isSafeRelativePath(entry.path) ||
+          !filePaths.contains(entry.path.toLower())) {
+        if (error != nullptr) {
+          *error = QStringLiteral("子文档未登记或路径非法: %1").arg(entry.path);
+        }
+        return false;
+      }
+      const QString key = entry.path.toLower();
+      if (subDocPaths.contains(key)) {
+        if (error != nullptr) {
+          *error = QStringLiteral("清单中存在重复子文档: %1").arg(entry.path);
+        }
+        return false;
+      }
+      subDocPaths.insert(key);
       manifest.subDocuments.append(entry);
     }
   }
@@ -706,70 +1071,64 @@ bool ProjectPackage::createArchive(const QString &archivePath,
 
   // 1. 收集文件并计算校验值
   QList<FileEntry> files;
+  QSet<QString> filePaths;
   const QString archiveAbs = QFileInfo(archivePath).absoluteFilePath();
   QDirIterator it(sourceDir, QDir::Files | QDir::NoSymLinks,
                   QDirIterator::Subdirectories);
   while (it.hasNext()) {
     const QString absPath = it.next();
     // 目标包若位于工程目录内，绝不能把旧包再打进去（会导致包中包、体积翻倍）
-    if (QFileInfo(absPath).absoluteFilePath() == archiveAbs) {
+    if (sameFilePath(absPath, archiveAbs)) {
       continue;
     }
     const QString relPath = QDir::fromNativeSeparators(root.relativeFilePath(absPath));
-    if (!isSafeRelativePath(relPath)) {
+    if (!isSafeRelativePath(relPath) || !shouldPackageFile(relPath)) {
       continue;
     }
     FileEntry entry;
     entry.path = relPath;
     entry.size = QFileInfo(absPath).size();
-    entry.sha256 = sha256OfFile(absPath);
-    if (entry.sha256.isEmpty()) {
-      if (error != nullptr) *error = QStringLiteral("计算校验值失败: %1").arg(relPath);
+    files.append(entry);
+    filePaths.insert(relPath.toLower());
+  }
+  std::sort(files.begin(), files.end(),
+            [](const FileEntry &a, const FileEntry &b) {
+              return a.path < b.path;
+            });
+  for (const SubDocEntry &entry : subDocuments) {
+    if (!isSafeRelativePath(entry.path) ||
+        !filePaths.contains(entry.path.toLower())) {
+      if (error != nullptr) {
+        *error = QStringLiteral("子文档未包含在待打包文件中: %1").arg(entry.path);
+      }
       return false;
     }
-    files.append(entry);
   }
 
-  // 2. 生成清单
-  QJsonObject manifest;
-  manifest[QStringLiteral("formatVersion")] = kFormatVersion;
-  manifest[QStringLiteral("appVersion")] =
-      QCoreApplication::applicationVersion().isEmpty()
-          ? QStringLiteral("1.0.0")
-          : QCoreApplication::applicationVersion();
-  manifest[QStringLiteral("projectName")] =
-      projectName.isEmpty() ? root.dirName() : projectName;
-  manifest[QStringLiteral("createdAt")] =
-      QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-  manifest[QStringLiteral("layout")] =
-      subDocuments.isEmpty() ? QStringLiteral("self-contained")
-                             : QStringLiteral("indexed");
-  manifest[QStringLiteral("master")] = masterRel;
-
-  QJsonArray fileArray;
-  for (const FileEntry &entry : files) {
-    QJsonObject obj;
-    obj[QStringLiteral("path")] = entry.path;
-    obj[QStringLiteral("size")] = static_cast<double>(entry.size);
-    obj[QStringLiteral("sha256")] = entry.sha256;
-    fileArray.append(obj);
-  }
-  manifest[QStringLiteral("files")] = fileArray;
-
-  QJsonArray subDocArray;
-  for (const SubDocEntry &entry : subDocuments) {
-    if (!isSafeRelativePath(entry.path)) {
-      continue;
+  qint64 totalFileBytes = 0;
+  if (files.size() > kMaxZipEntries) {
+    if (error != nullptr) {
+      *error = QStringLiteral("工程文件数超过 ZIP32 上限（最多 %1 个）")
+                   .arg(kMaxZipEntries);
     }
-    QJsonObject obj;
-    obj[QStringLiteral("path")] = entry.path;
-    obj[QStringLiteral("docType")] = entry.docType;
-    subDocArray.append(obj);
+    return false;
   }
-  manifest[QStringLiteral("subDocuments")] = subDocArray;
-
-  const QByteArray manifestJson =
-      QJsonDocument(manifest).toJson(QJsonDocument::Indented);
+  for (const FileEntry &entry : files) {
+    if (entry.size < 0 || entry.size > kMaxZipEntrySize) {
+      if (error != nullptr) {
+        *error = QStringLiteral("文件超过 ZIP32 单文件上限（4GiB）: %1")
+                     .arg(entry.path);
+      }
+      return false;
+    }
+    totalFileBytes += entry.size;
+    if (totalFileBytes > kMaxZipArchiveSize) {
+      if (error != nullptr) {
+        *error = QStringLiteral("工程总大小超过 ZIP32 容器上限（4GiB）");
+      }
+      return false;
+    }
+  }
 
   // 3. 写入 ZIP（QSaveFile 保证原子替换）
   QSaveFile out(archivePath);
@@ -778,10 +1137,7 @@ bool ProjectPackage::createArchive(const QString &archivePath,
     return false;
   }
 
-  qint64 totalBytes = manifestJson.size();
-  for (const FileEntry &entry : files) {
-    totalBytes += entry.size;
-  }
+  qint64 totalBytes = totalFileBytes;
   qint64 processedBytes = 0;
   bool canceled = false;
 
@@ -803,6 +1159,82 @@ bool ProjectPackage::createArchive(const QString &archivePath,
       return false;
     }
   }
+
+  // 压缩阶段已经算过 SHA-256，这里直接填回 manifest，避免整包再读一遍。
+  QHash<QString, QByteArray> hashes;
+  for (const ZipItem &item : items) {
+    if (!item.sha256.isEmpty()) {
+      hashes.insert(item.name, item.sha256);
+    }
+  }
+  for (FileEntry &entry : files) {
+    entry.sha256 =
+        QString::fromLatin1(hashes.value(entry.path).toHex());
+    if (entry.sha256.isEmpty()) {
+      if (error != nullptr) {
+        *error = QStringLiteral("内部错误：缺少文件校验值 %1").arg(entry.path);
+      }
+      out.cancelWriting();
+      return false;
+    }
+  }
+
+  QJsonObject manifest;
+  manifest[QStringLiteral("formatVersion")] = kFormatVersion;
+  manifest[QStringLiteral("packageId")] =
+      QUuid::createUuid().toString(QUuid::WithoutBraces);
+  manifest[QStringLiteral("projectId")] = QString();
+  manifest[QStringLiteral("appVersion")] =
+      QCoreApplication::applicationVersion().isEmpty()
+          ? QStringLiteral("1.0.0")
+          : QCoreApplication::applicationVersion();
+  manifest[QStringLiteral("buildId")] =
+      manifest.value(QStringLiteral("appVersion")).toString();
+  manifest[QStringLiteral("projectName")] =
+      projectName.isEmpty() ? root.dirName() : projectName;
+  const QString now = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+  manifest[QStringLiteral("createdAt")] = now;
+  manifest[QStringLiteral("updatedAt")] = now;
+  manifest[QStringLiteral("layout")] =
+      subDocuments.isEmpty() ? QStringLiteral("self-contained")
+                             : QStringLiteral("indexed");
+  manifest[QStringLiteral("units")] = QStringLiteral("mm");
+  manifest[QStringLiteral("coordinateSystem")] = QString();
+  manifest[QStringLiteral("schemaVersion")] = QString();
+  manifest[QStringLiteral("sourcePlatform")] = QSysInfo::prettyProductName();
+  manifest[QStringLiteral("comment")] = QString();
+  manifest[QStringLiteral("master")] = masterRel;
+
+  QJsonArray fileArray;
+  for (const FileEntry &entry : files) {
+    QJsonObject obj;
+    obj[QStringLiteral("path")] = entry.path;
+    obj[QStringLiteral("size")] = static_cast<double>(entry.size);
+    obj[QStringLiteral("sha256")] = entry.sha256;
+    fileArray.append(obj);
+  }
+  manifest[QStringLiteral("files")] = fileArray;
+
+  QJsonArray subDocArray;
+  for (const SubDocEntry &entry : subDocuments) {
+    QJsonObject obj;
+    obj[QStringLiteral("path")] = entry.path;
+    obj[QStringLiteral("docType")] = entry.docType;
+    subDocArray.append(obj);
+  }
+  manifest[QStringLiteral("subDocuments")] = subDocArray;
+
+  const QByteArray manifestJson =
+      QJsonDocument(manifest).toJson(QJsonDocument::Indented);
+  totalBytes = processedBytes + manifestJson.size();
+  if (totalBytes > kMaxZipArchiveSize) {
+    if (error != nullptr) {
+      *error = QStringLiteral("工程包超过 ZIP32 容器上限（4GiB）");
+    }
+    out.cancelWriting();
+    return false;
+  }
+
   if (!addBytesToZip(&out, QStringLiteral("manifest.json"), manifestJson, &items,
                      error)) {
     out.cancelWriting();
@@ -828,7 +1260,8 @@ bool ProjectPackage::createArchive(const QString &archivePath,
 
 bool ProjectPackage::extractArchive(const QString &archivePath,
                                     const QString &destDir, Manifest *manifestOut,
-                                    QString *error) {
+                                    QString *error,
+                                    const ProgressCallback &progress) {
   QFile file(archivePath);
   if (!file.open(QIODevice::ReadOnly)) {
     if (error != nullptr) *error = QStringLiteral("无法读取工程包: %1").arg(archivePath);
@@ -858,57 +1291,30 @@ bool ProjectPackage::extractArchive(const QString &archivePath,
     }
   }
 
-  // 2. 解包（有清单时逐项校验哈希；旧包则全量解出）
+  // 2. 选择待解包条目，并在写盘前检查总大小和磁盘空间
   QDir dest(destDir);
   if (!dest.exists() && !QDir().mkpath(destDir)) {
     if (error != nullptr) *error = QStringLiteral("无法创建解包目录: %1").arg(destDir);
     return false;
   }
 
-  auto extractEntryTo = [&](const QString &name, const QString &expectedSha) -> bool {
-    const auto it = indexByName.constFind(name);
-    if (it == indexByName.constEnd()) {
-      if (error != nullptr) *error = QStringLiteral("包内缺少文件: %1").arg(name);
-      return false;
-    }
-    if (!isSafeRelativePath(name)) {
-      if (error != nullptr) *error = QStringLiteral("包内路径非法: %1").arg(name);
-      return false;
-    }
-    QByteArray data;
-    if (!readEntryData(file, entries.at(it.value()), &data, error)) {
-      return false;
-    }
-    if (!expectedSha.isEmpty() && sha256OfBytes(data) != expectedSha) {
-      if (error != nullptr) *error = QStringLiteral("文件校验失败（内容被修改）: %1").arg(name);
-      return false;
-    }
-    const QString target = dest.absoluteFilePath(name);
-    const QFileInfo targetInfo(target);
-    if (!QDir().mkpath(targetInfo.absolutePath())) {
-      if (error != nullptr) *error = QStringLiteral("无法创建目录: %1").arg(targetInfo.absolutePath());
-      return false;
-    }
-    QFile out(target);
-    if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-      if (error != nullptr) *error = QStringLiteral("无法写入文件: %1").arg(target);
-      return false;
-    }
-    if (!writeAll(&out, data)) {
-      if (error != nullptr) *error = QStringLiteral("写入文件失败: %1").arg(target);
-      return false;
-    }
-    return true;
-  };
-
+  QList<int> extractionIndexes;
+  QHash<QString, QString> expectedHashes;
+  qint64 totalUncompressed = 0;
   if (manifest.formatVersion > 0) {
     for (const FileEntry &entry : manifest.files) {
-      if (!extractEntryTo(entry.path, entry.sha256)) {
+      const auto it = indexByName.constFind(entry.path);
+      if (it == indexByName.constEnd()) {
+        if (error != nullptr) *error = QStringLiteral("包内缺少文件: %1").arg(entry.path);
         return false;
       }
+      extractionIndexes.append(it.value());
+      expectedHashes.insert(entry.path, entry.sha256);
+      totalUncompressed += entries.at(it.value()).uncompressedSize;
     }
   } else {
-    for (const ZipEntry &entry : entries) {
+    for (int i = 0; i < entries.size(); ++i) {
+      const ZipEntry &entry = entries.at(i);
       if (entry.name.endsWith(QLatin1Char('/'))) {
         continue;
       }
@@ -916,21 +1322,50 @@ bool ProjectPackage::extractArchive(const QString &archivePath,
         if (error != nullptr) *error = QStringLiteral("包内路径非法: %1").arg(entry.name);
         return false;
       }
-      QByteArray data;
-      if (!readEntryData(file, entry, &data, error)) {
-        return false;
-      }
-      const QString target = dest.absoluteFilePath(entry.name);
-      if (!QDir().mkpath(QFileInfo(target).absolutePath())) {
-        return false;
-      }
-      QFile out(target);
-      if (!out.open(QIODevice::WriteOnly | QIODevice::Truncate) ||
-          !writeAll(&out, data)) {
-        if (error != nullptr) *error = QStringLiteral("写入文件失败: %1").arg(target);
-        return false;
-      }
+      extractionIndexes.append(i);
+      totalUncompressed += entry.uncompressedSize;
     }
+  }
+  if (totalUncompressed > kMaxTotalUncompressedBytes) {
+    if (error != nullptr) *error = QStringLiteral("工程包解压总大小超过安全上限");
+    return false;
+  }
+  const QStorageInfo storage(destDir);
+  constexpr qint64 kDiskReserve = 64LL * 1024 * 1024;
+  if (storage.isValid() && storage.bytesAvailable() >= 0 &&
+      (storage.bytesAvailable() < kDiskReserve ||
+       totalUncompressed > storage.bytesAvailable() - kDiskReserve)) {
+    if (error != nullptr) *error = QStringLiteral("磁盘空间不足，无法解包工程");
+    return false;
+  }
+
+  qint64 processedBytes = 0;
+  bool canceled = false;
+  if (progress && !progress(0, totalUncompressed, QString())) {
+    if (error != nullptr) *error = QStringLiteral("解包已取消");
+    return false;
+  }
+  for (int index : extractionIndexes) {
+    const ZipEntry &entry = entries.at(index);
+    const QString target = dest.absoluteFilePath(entry.name);
+    if (!QDir().mkpath(QFileInfo(target).absolutePath())) {
+      if (error != nullptr) *error = QStringLiteral("无法创建目录: %1")
+                                           .arg(QFileInfo(target).absolutePath());
+      return false;
+    }
+    if (!extractEntryStreaming(file, entry, target, expectedHashes.value(entry.name),
+                               progress, &processedBytes, totalUncompressed,
+                               &canceled, error)) {
+      if (canceled && error != nullptr) {
+        *error = QStringLiteral("解包已取消");
+      }
+      return false;
+    }
+  }
+  if (progress &&
+      !progress(processedBytes, totalUncompressed, QStringLiteral("解包完成"))) {
+    if (error != nullptr) *error = QStringLiteral("解包已取消");
+    return false;
   }
 
   // 3. 主控文件必须存在

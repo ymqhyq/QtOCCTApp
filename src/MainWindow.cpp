@@ -58,12 +58,14 @@ namespace {
 #include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTextEdit>
+#include <QThread>
 #include <QTimer>
 #include <QUuid>
 #include <QVBoxLayout>
@@ -71,6 +73,9 @@ namespace {
 #include <QProcess>
 #include <QProgressDialog>
 #include <QFileInfo>
+#include <QEventLoop>
+#include <atomic>
+#include <functional>
 #include <BinXCAFDrivers.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
@@ -218,23 +223,67 @@ QList<ProjectPackage::SubDocEntry> collectSubDocuments(const QString &projectDir
   return result;
 }
 
-/// 打包进度回调（按字节），带节流以避免频繁刷新界面
-ProjectPackage::ProgressCallback makePackageProgressCallback(QProgressDialog *dialog,
-                                                             qint64 *lastUpdateMs) {
-  return [dialog, lastUpdateMs](qint64 done, qint64 total,
-                                const QString &step) -> bool {
-    const int percent = total > 0 ? static_cast<int>(done * 100 / total) : 0;
-    const qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (percent == dialog->value() && now - *lastUpdateMs < 200) {
-      return !dialog->wasCanceled();
-    }
-    *lastUpdateMs = now;
-    dialog->setValue(percent);
-    dialog->setLabelText(
-        QObject::tr("正在打包: %1").arg(QFileInfo(step).fileName()));
-    QCoreApplication::processEvents();
-    return !dialog->wasCanceled();
-  };
+/**
+ * @brief 在后台线程执行工程包任务，并在主线程显示进度/取消
+ *
+ * ProjectPackage 本身只依赖 QtCore；这里用 QThread 把它移出 UI 线程。
+ * 进度通过 BlockingQueuedConnection 回到 owner 所在线程，避免跨线程操作 QWidget。
+ */
+bool runPackageJob(
+    QWidget *owner, const QString &title,
+    const std::function<bool(const ProjectPackage::ProgressCallback &, QString *)> &job,
+    QString *error) {
+  QProgressDialog dialog(title, QObject::tr("取消"), 0, 100, owner);
+  dialog.setWindowTitle(title);
+  dialog.setWindowModality(Qt::WindowModal);
+  dialog.setMinimumDuration(0);
+  dialog.setAutoClose(false);
+  dialog.setAutoReset(false);
+  dialog.setValue(0);
+
+  std::atomic_bool canceled{false};
+  bool result = false;
+  QString jobError;
+  QThread *thread = QThread::create([&]() {
+    QElapsedTimer updateTimer;
+    updateTimer.start();
+    auto progress = [&](qint64 done, qint64 total, const QString &step) -> bool {
+      if (updateTimer.elapsed() >= 80 || done == total) {
+        updateTimer.restart();
+        QMetaObject::invokeMethod(
+            owner,
+            [&dialog, done, total, step]() {
+              const int percent =
+                  total > 0 ? static_cast<int>(done * 100 / total) : 0;
+              dialog.setValue(percent);
+              const QString name = QFileInfo(step).fileName();
+              dialog.setLabelText(
+                  name.isEmpty()
+                      ? QObject::tr("正在处理工程包...")
+                      : QObject::tr("正在处理: %1").arg(name));
+            },
+            Qt::BlockingQueuedConnection);
+      }
+      return !canceled.load(std::memory_order_relaxed);
+    };
+    result = job(progress, &jobError);
+  });
+
+  QEventLoop loop;
+  QObject::connect(thread, &QThread::finished, &loop, &QEventLoop::quit);
+  QObject::connect(&dialog, &QProgressDialog::canceled, owner,
+                   [&canceled]() { canceled.store(true, std::memory_order_relaxed); });
+  thread->start();
+  dialog.show();
+  loop.exec();
+  dialog.close();
+  thread->wait();
+  delete thread;
+
+  if (error != nullptr) {
+    *error = jobError;
+  }
+  return result;
 }
 
 } // namespace
@@ -2447,8 +2496,40 @@ bool MainWindow::openProjectFile(const QString &fileName) {
             }
         }
         
-        return loadMasterCbf(masterPath);
+        const bool loaded = loadMasterCbf(masterPath);
+        if (loaded && !m_packageSubDocPaths.isEmpty()) {
+            const QDir masterDir = QFileInfo(masterPath).absoluteDir();
+            QStringList actualSubDocs;
+            for (const QString &path : {m_subDocPath3D, m_subDocPath2D}) {
+                if (!path.isEmpty()) {
+                    actualSubDocs.append(QDir::fromNativeSeparators(
+                        masterDir.relativeFilePath(path)));
+                }
+            }
+            auto containsPath = [](const QStringList &paths, const QString &value) {
+                for (const QString &path : paths) {
+                    if (QString::compare(path, value, Qt::CaseInsensitive) == 0) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            for (const QString &expected : m_packageSubDocPaths) {
+                if (!containsPath(actualSubDocs, expected)) {
+                    qWarning() << "[RDE] manifest 登记的子文档未被主控引用:"
+                               << expected;
+                }
+            }
+            for (const QString &actual : actualSubDocs) {
+                if (!containsPath(m_packageSubDocPaths, actual)) {
+                    qWarning() << "[RDE] 主控引用的子文档未登记在 manifest:"
+                               << actual;
+                }
+            }
+        }
+        return loaded;
     } else {
+        m_packageSubDocPaths.clear();
         if (m_tempProjDir) {
             delete m_tempProjDir;
             m_tempProjDir = nullptr;
@@ -2458,14 +2539,24 @@ bool MainWindow::openProjectFile(const QString &fileName) {
 }
 
 bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) {
+    m_packageSubDocPaths.clear();
     // 1. 新版包：ZIP 容器 + manifest.json（格式版本、布局、文件清单与 SHA-256）
     if (ProjectPackage::isZipArchive(rdePath)) {
         ProjectPackage::Manifest manifest;
         QString error;
-        if (!ProjectPackage::extractArchive(rdePath, destDir, &manifest, &error)) {
+        const bool extracted = runPackageJob(
+            this, tr("正在解包工程包..."),
+            [&](const ProjectPackage::ProgressCallback &progress, QString *err) {
+                return ProjectPackage::extractArchive(rdePath, destDir, &manifest,
+                                                      err, progress);
+            },
+            &error);
+        if (!extracted) {
             qWarning() << "[RDE] 解包失败:" << error;
-            QMessageBox::critical(this, "Error",
-                                  "Failed to extract project package:\n" + error);
+            if (error != QStringLiteral("解包已取消")) {
+                QMessageBox::critical(this, "Error",
+                                      "Failed to extract project package:\n" + error);
+            }
             return false;
         }
 
@@ -2474,6 +2565,9 @@ bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) 
                                  : manifest.master;
         m_packageLayout = manifest.layout;
         m_packageFormatVersion = manifest.formatVersion;
+        for (const ProjectPackage::SubDocEntry &entry : manifest.subDocuments) {
+            m_packageSubDocPaths.append(entry.path);
+        }
 
         if (manifest.formatVersion == 0) {
             qWarning() << "[RDE] 旧格式 ZIP 包（无 manifest.json），未做完整性校验";
@@ -2489,6 +2583,33 @@ bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) 
 
     // 2. 兼容旧式 TAR 容器（历史 .rde 包）
     qWarning() << "[RDE] 非 ZIP 容器，按旧式 TAR 包解包:" << rdePath;
+    // 先列出条目并检查路径，避免旧 tar 包把文件写到临时目录之外。
+    {
+        QProcess listProcess;
+        listProcess.start("tar", QStringList() << "-tf"
+                                                << QDir::toNativeSeparators(rdePath));
+        if (!listProcess.waitForFinished(120000) ||
+            listProcess.exitCode() != 0) {
+            qWarning() << "Failed to list legacy TAR package:"
+                       << listProcess.readAllStandardError();
+            QMessageBox::critical(this, "Error",
+                                  "Failed to inspect legacy TAR package.");
+            return false;
+        }
+        const QStringList entries =
+            QString::fromUtf8(listProcess.readAllStandardOutput())
+                .split(QRegularExpression(QStringLiteral("[\r\n]+")),
+                       Qt::SkipEmptyParts);
+        for (const QString &entry : entries) {
+            if (!ProjectPackage::isSafeRelativePath(entry)) {
+                qWarning() << "[RDE] 旧 TAR 包包含非法路径:" << entry;
+                QMessageBox::critical(this, "Error",
+                                      "Legacy TAR package contains an unsafe path:\n" +
+                                          entry);
+                return false;
+            }
+        }
+    }
     QProcess process;
     QStringList arguments;
     arguments << "-xf" << QDir::toNativeSeparators(rdePath)
@@ -2508,6 +2629,11 @@ bool MainWindow::extractRdeFile(const QString &rdePath, const QString &destDir) 
     m_packageMasterRel = QStringLiteral("master.cbf");
     m_packageLayout.clear();
     m_packageFormatVersion = 0;
+    const QList<ProjectPackage::SubDocEntry> legacySubDocs =
+        collectSubDocuments(destDir);
+    for (const ProjectPackage::SubDocEntry &entry : legacySubDocs) {
+        m_packageSubDocPaths.append(entry.path);
+    }
     return true;
 }
 
@@ -2553,20 +2679,15 @@ void MainWindow::onUpgradeLegacyPackage() {
     return;
   }
 
-  QProgressDialog dialog(tr("正在升级工程包..."), tr("取消"), 0, 100, this);
-  dialog.setWindowTitle(tr("升级工程包"));
-  dialog.setWindowModality(Qt::WindowModal);
-  dialog.setMinimumDuration(0);
-  dialog.setAutoClose(false);
-  dialog.setValue(0);
-
-  qint64 lastUpdateMs = 0;
   QString error;
-  const bool ok = ProjectPackage::createArchive(
-      target, tempDir.path(), subDocuments, sourceInfo.completeBaseName(),
-      makePackageProgressCallback(&dialog, &lastUpdateMs), &error);
-  dialog.setValue(100);
-  dialog.close();
+  const bool ok = runPackageJob(
+      this, tr("正在升级工程包..."),
+      [&](const ProjectPackage::ProgressCallback &progress, QString *err) {
+        return ProjectPackage::createArchive(
+            target, tempDir.path(), subDocuments, sourceInfo.completeBaseName(),
+            progress, err);
+      },
+      &error);
 
   if (!ok) {
     if (error != QStringLiteral("打包已取消")) {
@@ -2733,6 +2854,51 @@ bool MainWindow::normalizeProjectGuids(int *changed, QString *error) {
 }
 
 bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) {
+    // 导出包必须反映当前内存状态，否则用户刚修改的属性/几何可能不在包里。
+    if (m_projectManager != nullptr) {
+        QProgressDialog saveProgressDialog(tr("正在保存工程..."), tr("取消"), 0, 100, this);
+        saveProgressDialog.setWindowTitle(tr("保存工程包"));
+        saveProgressDialog.setWindowModality(Qt::WindowModal);
+        saveProgressDialog.setMinimumDuration(0);
+        saveProgressDialog.setAutoClose(false);
+        saveProgressDialog.setValue(0);
+
+        auto saveProgress = [&saveProgressDialog](int done, int total,
+                                                  const std::string &step) -> bool {
+            saveProgressDialog.setMaximum(total > 0 ? total : 1);
+            saveProgressDialog.setValue(done);
+            saveProgressDialog.setLabelText(
+                tr("正在保存: %1").arg(QString::fromStdString(step)));
+            QCoreApplication::processEvents();
+            return !saveProgressDialog.wasCanceled();
+        };
+
+        bool saved = false;
+        try {
+            saved = m_projectManager->SaveAll(saveProgress);
+        } catch (const std::exception &e) {
+            qCritical() << "[RDE] 打包前保存工程异常:" << e.what();
+            saveProgressDialog.close();
+            QMessageBox::critical(this, tr("保存工程包"),
+                                  tr("打包前保存工程失败: %1")
+                                      .arg(QString::fromUtf8(e.what())));
+            return false;
+        } catch (...) {
+            saveProgressDialog.close();
+            QMessageBox::critical(this, tr("保存工程包"),
+                                  tr("打包前保存工程失败。"));
+            return false;
+        }
+        saveProgressDialog.close();
+        if (!saved) {
+            if (!saveProgressDialog.wasCanceled()) {
+                QMessageBox::critical(this, tr("保存工程包"),
+                                      tr("打包前保存工程失败，已取消导出。"));
+            }
+            return false;
+        }
+    }
+
     // 子文档以“相对工程目录”的路径登记进清单
     QList<ProjectPackage::SubDocEntry> subDocuments;
     auto appendSubDoc = [&](const QString &subDocPath, const QString &docType) {
@@ -2754,24 +2920,16 @@ bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) 
     appendSubDoc(m_subDocPath3D, QStringLiteral("3DModel"));
     appendSubDoc(m_subDocPath2D, QStringLiteral("2DDrawing"));
 
-    // 打包进度：大量构件时压缩耗时较长，用模态进度条给出反馈并允许取消
-    QProgressDialog progressDialog(tr("正在保存工程包..."), tr("取消"), 0, 100, this);
-    progressDialog.setWindowTitle(tr("保存工程包"));
-    progressDialog.setWindowModality(Qt::WindowModal);
-    progressDialog.setMinimumDuration(0);
-    progressDialog.setAutoClose(false);
-    progressDialog.setAutoReset(false);
-    progressDialog.setValue(0);
-
-    qint64 lastUpdateMs = 0;
-    const ProjectPackage::ProgressCallback progress =
-        makePackageProgressCallback(&progressDialog, &lastUpdateMs);
-
     QString error;
     const QString projectName = QFileInfo(sourceDir).fileName();
-    if (!ProjectPackage::createArchive(rdePath, sourceDir, subDocuments,
-                                       projectName, progress, &error)) {
-        progressDialog.close();
+    const bool packaged = runPackageJob(
+        this, tr("正在保存工程包..."),
+        [&](const ProjectPackage::ProgressCallback &progress, QString *err) {
+            return ProjectPackage::createArchive(rdePath, sourceDir, subDocuments,
+                                                 projectName, progress, err);
+        },
+        &error);
+    if (!packaged) {
         qWarning() << "[RDE] 打包失败:" << error;
         if (error != QStringLiteral("打包已取消")) {
             QMessageBox::critical(this, "Export RDE",
@@ -2779,8 +2937,6 @@ bool MainWindow::packageToRde(const QString &sourceDir, const QString &rdePath) 
         }
         return false;
     }
-    progressDialog.setValue(100);
-    progressDialog.close();
 
     qDebug() << "[RDE] 打包完成:" << rdePath
              << "子文档数:" << subDocuments.size();
@@ -2805,8 +2961,6 @@ void MainWindow::onExportRdeClicked() {
     
     if (success) {
         QMessageBox::information(this, "Export RDE", "Successfully packaged master project to " + savePath);
-    } else {
-        QMessageBox::critical(this, "Export RDE", "Failed to package project. Please check if tar utility is available.");
     }
 }
 

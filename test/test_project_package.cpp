@@ -52,6 +52,10 @@ private slots:
   void rejectsTruncatedArchive();
   void failsWhenMasterIsMissing();
   void sanitizesRelativePaths();
+  void handlesEmptyFiles();
+  void filtersTemporaryAndArchiveFiles();
+  void extractionReportsProgressAndCanCancel();
+  void rejectsSubDocumentMissingFromArchive();
 };
 
 /// 打包 → 解包 → 逐文件哈希比对，并校验清单内容
@@ -97,6 +101,9 @@ void ProjectPackageTest::roundTripPreservesFilesAndManifest() {
   QCOMPARE(manifest.master, QStringLiteral("master.cbf"));
   QCOMPARE(manifest.files.size(), 3);
   QCOMPARE(manifest.subDocuments.size(), 2);
+  QVERIFY(!manifest.packageId.isEmpty());
+  QCOMPARE(manifest.units, QStringLiteral("mm"));
+  QVERIFY(!manifest.sourcePlatform.isEmpty());
 
   const QStringList expectedFiles = {
       QStringLiteral("master.cbf"),
@@ -309,6 +316,145 @@ void ProjectPackageTest::sanitizesRelativePaths() {
   QVERIFY(!ProjectPackage::isSafeRelativePath(QStringLiteral("a/../../evil.txt")));
   QVERIFY(!ProjectPackage::isSafeRelativePath(QStringLiteral("C:/Windows/evil.txt")));
   QVERIFY(!ProjectPackage::isSafeRelativePath(QStringLiteral("/etc/passwd")));
+}
+
+/// 0 字节文件也必须能往返，不能因为 deflate 空流而解包失败
+void ProjectPackageTest::handlesEmptyFiles() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QTemporaryDir extractDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid() && extractDir.isValid());
+
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(1024, 'M')));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("empty.txt")),
+                     QByteArray()));
+
+  const QString archive = outputDir.filePath(QStringLiteral("empty.rde"));
+  QString error;
+  QVERIFY2(ProjectPackage::createArchive(archive, sourceDir.path(), {},
+                                         QStringLiteral("empty"), {}, &error),
+           qPrintable(error));
+
+  ProjectPackage::Manifest manifest;
+  error.clear();
+  QVERIFY2(ProjectPackage::extractArchive(archive, extractDir.path(), &manifest, &error),
+           qPrintable(error));
+  QVERIFY(QFileInfo::exists(extractDir.filePath(QStringLiteral("empty.txt"))));
+  QCOMPARE(QFileInfo(extractDir.filePath(QStringLiteral("empty.txt"))).size(), qint64(0));
+}
+
+/// 打包时不能把旧包、日志和源目录里的 manifest.json 再次打进包内
+void ProjectPackageTest::filtersTemporaryAndArchiveFiles() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid());
+
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(1024, 'M')));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("keep.txt")),
+                     QByteArray("keep")));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("manifest.json")),
+                     QByteArray("{\"old\":true}")));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("old.rde")),
+                     QByteArray("old package")));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("debug.log")),
+                     QByteArray("log")));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("backup.bak")),
+                     QByteArray("backup")));
+
+  const QString archive = outputDir.filePath(QStringLiteral("filtered.rde"));
+  QString error;
+  QVERIFY2(ProjectPackage::createArchive(archive, sourceDir.path(), {},
+                                         QStringLiteral("filtered"), {}, &error),
+           qPrintable(error));
+
+  ProjectPackage::Manifest manifest;
+  QVERIFY2(ProjectPackage::readManifest(archive, &manifest, &error),
+           qPrintable(error));
+  QStringList paths;
+  for (const ProjectPackage::FileEntry &entry : manifest.files) {
+    paths.append(entry.path);
+  }
+  QVERIFY(paths.contains(QStringLiteral("master.cbf")));
+  QVERIFY(paths.contains(QStringLiteral("keep.txt")));
+  QVERIFY(!paths.contains(QStringLiteral("manifest.json")));
+  QVERIFY(!paths.contains(QStringLiteral("old.rde")));
+  QVERIFY(!paths.contains(QStringLiteral("debug.log")));
+  QVERIFY(!paths.contains(QStringLiteral("backup.bak")));
+}
+
+/// 解包进度必须单调递增，取消后不得返回成功
+void ProjectPackageTest::extractionReportsProgressAndCanCancel() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QTemporaryDir extractDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid() && extractDir.isValid());
+
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(1024 * 1024, 'M')));
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("models/big.cbf")),
+                     QByteArray(2 * 1024 * 1024, 'B')));
+
+  const QString archive = outputDir.filePath(QStringLiteral("extract.rde"));
+  QString error;
+  QVERIFY2(ProjectPackage::createArchive(archive, sourceDir.path(), {},
+                                         QStringLiteral("extract"), {}, &error),
+           qPrintable(error));
+
+  qint64 lastDone = -1;
+  qint64 finalDone = 0;
+  qint64 finalTotal = 0;
+  int calls = 0;
+  bool monotonic = true;
+  auto progress = [&](qint64 done, qint64 total, const QString &) -> bool {
+    ++calls;
+    if (done < lastDone) {
+      monotonic = false;
+    }
+    lastDone = done;
+    finalDone = done;
+    finalTotal = total;
+    return true;
+  };
+
+  ProjectPackage::Manifest manifest;
+  QVERIFY2(ProjectPackage::extractArchive(archive, extractDir.path(), &manifest,
+                                          &error, progress),
+           qPrintable(error));
+  QVERIFY(calls > 0);
+  QVERIFY(monotonic);
+  QVERIFY(finalTotal > 0);
+  QCOMPARE(finalDone, finalTotal);
+
+  QTemporaryDir canceledDir;
+  QVERIFY(canceledDir.isValid());
+  int cancelCalls = 0;
+  auto cancelProgress = [&](qint64, qint64, const QString &) -> bool {
+    ++cancelCalls;
+    return cancelCalls < 2;
+  };
+  error.clear();
+  QVERIFY2(!ProjectPackage::extractArchive(archive, canceledDir.path(), nullptr,
+                                           &error, cancelProgress),
+           "取消解包后不应返回成功");
+  QVERIFY(error.contains(QStringLiteral("取消")));
+}
+
+void ProjectPackageTest::rejectsSubDocumentMissingFromArchive() {
+  QTemporaryDir sourceDir;
+  QTemporaryDir outputDir;
+  QVERIFY(sourceDir.isValid() && outputDir.isValid());
+  QVERIFY(writeBytes(sourceDir.filePath(QStringLiteral("master.cbf")),
+                     QByteArray(256, 'M')));
+
+  const QList<ProjectPackage::SubDocEntry> subDocs = {
+      {QStringLiteral("models/missing.cbf"), QStringLiteral("3DModel")}};
+  QString error;
+  QVERIFY(!ProjectPackage::createArchive(
+      outputDir.filePath(QStringLiteral("missing-subdoc.rde")),
+      sourceDir.path(), subDocs, QStringLiteral("missing-subdoc"), {}, &error));
+  QVERIFY(error.contains(QStringLiteral("子文档未包含")));
 }
 
 QTEST_MAIN(ProjectPackageTest)

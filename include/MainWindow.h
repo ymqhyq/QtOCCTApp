@@ -160,6 +160,7 @@ private:
   // 主控文档引用的 3D/2D 子文档（相对主控文档的路径；空 = 没有可用子文档）
   QString m_subDocPath3D;
   QString m_subDocPath2D;
+  QStringList m_packageSubDocPaths; // RDE manifest 中登记的子文档，用于一致性检查
 
   // 主题相关
   QVector<QPair<QAction *, QString>> m_themedActions; // 动作 -> SVG 资源路径
