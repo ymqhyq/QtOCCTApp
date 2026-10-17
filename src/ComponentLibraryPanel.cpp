@@ -1,8 +1,6 @@
 #include "ComponentLibraryPanel.h"
-#include <QAction>
 #include <QCoreApplication>
 #include <QLabel>
-#include <QListView>
 #include <QMessageBox>
 
 ComponentLibraryPanel::ComponentLibraryPanel(QWidget* parent)
@@ -78,7 +76,7 @@ void ComponentLibraryPanel::setUiPalette(const UiPalette& palette)
     QString listStyle = QStringLiteral(
         "QListWidget { background-color: %1; border: none; padding: 5px;"
         " outline: none; }"
-        "QListWidget::item { min-height: 28px; padding: 6px; color: %2; }"
+        "QListWidget::item { height: 32px; padding-left: 10px; color: %2; }"
         "QListWidget::item:hover { background-color: %3; color: %4; }"
         "QListWidget::item:selected { background-color: %4; color: #ffffff;"
         " outline: none; }");
@@ -92,13 +90,6 @@ void ComponentLibraryPanel::setUiPalette(const UiPalette& palette)
     }
     if (m_nonParametricListWidget) {
         m_nonParametricListWidget->setStyleSheet(listStyle);
-    }
-
-    // 构件项由 QAction 驱动，主题切换后重新取一次 Action 图标。
-    for (auto it = m_itemActions.constBegin(); it != m_itemActions.constEnd(); ++it) {
-        if (it.key() != nullptr && it.value() != nullptr) {
-            it.key()->setIcon(it.value()->icon());
-        }
     }
 }
 
@@ -119,34 +110,6 @@ void ComponentLibraryPanel::populateParametricList()
     for (const QString& name : list) {
         QListWidgetItem* item = new QListWidgetItem(name, m_parametricListWidget);
         item->setData(Qt::UserRole, name); // 保存标识名
-    }
-}
-
-void ComponentLibraryPanel::setParametricActions(const QList<QAction*>& actions)
-{
-    if (actions.isEmpty()) {
-        return;
-    }
-
-    m_itemActions.clear();
-    m_parametricListWidget->clear();
-    m_parametricListWidget->setViewMode(QListView::IconMode);
-    m_parametricListWidget->setMovement(QListView::Static);
-    m_parametricListWidget->setResizeMode(QListView::Adjust);
-    m_parametricListWidget->setIconSize(QSize(30, 30));
-    m_parametricListWidget->setGridSize(QSize(104, 82));
-    m_parametricListWidget->setWordWrap(true);
-    m_parametricListWidget->setTextElideMode(Qt::ElideNone);
-    m_parametricListWidget->setToolTip(tr("双击构件加载到三维视图"));
-
-    for (QAction* action : actions) {
-        if (action == nullptr) {
-            continue;
-        }
-        QListWidgetItem* item =
-            new QListWidgetItem(action->icon(), action->text(), m_parametricListWidget);
-        item->setToolTip(action->text());
-        m_itemActions.insert(item, action);
     }
 }
 
@@ -201,11 +164,6 @@ void ComponentLibraryPanel::refreshNonParametricList()
 void ComponentLibraryPanel::onItemDoubleClicked(QListWidgetItem* item)
 {
     if (!item) return;
-
-    if (QAction* action = m_itemActions.value(item, nullptr)) {
-        action->trigger();
-        return;
-    }
 
     QString dataVal = item->data(Qt::UserRole).toString();
     if (dataVal.isEmpty()) return;

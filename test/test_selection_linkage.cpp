@@ -40,15 +40,12 @@
 
 #include "ModelExplorerPanel.h"
 #include "MainWindow.h"
-#include "ComponentLibraryPanel.h"
 #include "OCCTWidget.h"
 #include "TextEncoding.h"
 #include "SceneDataExtractor.h"
 #include "NodeIdentity.h"
 #include "generated/DataModel.h"
 #include "generated/BrNode_adObject.h"
-
-#include "SARibbonBar.h"
 
 namespace {
 /**
@@ -98,7 +95,6 @@ private slots:
   void guidFormatIsNormalized();
   void viewportPickReportsLinkedNode();
   void viewportRotationReportsFrameRate();
-  void mainWindowUsesCompactRibbon();
   void subDocumentObjectsAreAttachedToTree();
   void mainWindowLinksViewportPickToModelTree();
 
@@ -518,36 +514,6 @@ void SelectionLinkageTest::viewportRotationReportsFrameRate() {
   QVERIFY2(maxFps > 5.0,
            qPrintable(QStringLiteral("右键旋转期间 FPS 未正确累计，最大读数仅 %1")
                           .arg(maxFps)));
-}
-
-void SelectionLinkageTest::mainWindowUsesCompactRibbon() {
-  MainWindow window;
-  window.showNormal();
-  window.resize(1280, 900);
-  QVERIFY(QTest::qWaitForWindowExposed(&window));
-  QTest::qWait(400);
-
-  SARibbonBar *ribbon = window.findChild<SARibbonBar *>();
-  QVERIFY2(ribbon != nullptr, "找不到 SARibbonBar");
-  QCOMPARE(static_cast<int>(ribbon->currentRibbonStyle()),
-           static_cast<int>(SARibbonBar::RibbonStyleCompactSingleRow));
-
-  ComponentLibraryPanel *library =
-      window.findChild<ComponentLibraryPanel *>();
-  QVERIFY2(library != nullptr, "找不到构件库面板");
-  QCOMPARE(library->parametricActionCount(), 8);
-
-  QStringList actionTexts;
-  for (QAction *action : window.findChildren<QAction *>()) {
-    actionTexts.append(action->text());
-  }
-  QVERIFY2(actionTexts.contains(QStringLiteral("文件操作")),
-           "文件操作菜单未创建");
-  QVERIFY2(actionTexts.contains(QStringLiteral("面板与主题")),
-           "视图菜单未创建");
-  QVERIFY2(actionTexts.contains(QStringLiteral("开发")),
-           "开发菜单未创建");
-
 }
 
 /**

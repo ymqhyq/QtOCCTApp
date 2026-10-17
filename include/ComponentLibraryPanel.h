@@ -2,8 +2,6 @@
 #define COMPONENTLIBRARYPANEL_H
 
 #include <QDockWidget>
-#include <QHash>
-#include <QList>
 #include <QListWidget>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -12,8 +10,6 @@
 #include <QListWidgetItem>
 
 #include "UiTheme.h"
-
-class QAction;
 
 /**
  * @brief 构件库菜单面板类
@@ -36,15 +32,6 @@ public:
      */
     void refreshNonParametricList();
 
-    /**
-     * @brief 用真实 QAction 填充参数化构件页
-     *
-     * 构件项双击时直接触发对应 QAction，保证与 Ribbon 按钮的行为一致，
-     * 同时让图标能够随主题切换同步刷新。
-     */
-    void setParametricActions(const QList<QAction*>& actions);
-    int parametricActionCount() const { return m_itemActions.size(); }
-
 signals:
     /**
      * @brief 当选择并请求展示构件时发射的信号
@@ -63,7 +50,6 @@ private:
     QTabWidget* m_tabWidget;
     QListWidget* m_parametricListWidget;
     QListWidget* m_nonParametricListWidget;
-    QHash<QListWidgetItem*, QAction*> m_itemActions;
 };
 
 #endif // COMPONENTLIBRARYPANEL_H
