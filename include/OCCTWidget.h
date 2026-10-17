@@ -173,6 +173,8 @@ private:
 private:
   void initOCCT();
   void initViewCube();
+  /// 更新右上角导航立方体的尺寸与屏幕位置（随视图尺寸变化）
+  void updateViewCubePlacement();
   void updateView();
   void updateOverlayInfo(bool forceShapeCount = false);
   // 按固定节奏结算帧率（与 Qt 的重绘时机解耦，空闲时自然归零）

@@ -186,6 +186,40 @@ bool OCCTWidget::isViewCubeVisible() const {
   return m_context->IsDisplayed(m_viewCube);
 }
 
+/**
+ * @brief 把视图立方体摆到视图右上角
+ *
+ * 使用 LEFT_UPPER + 按视图宽度计算的偏移，而不是 RIGHT_UPPER：
+ * 当前 OCCT 构建中 RIGHT_UPPER 的偏移方向会把立方体推到画面之外。
+ * 偏移与尺寸均按设备像素计算（TriedronPers 使用帧缓冲像素）。
+ */
+void OCCTWidget::updateViewCubePlacement() {
+  if (m_viewCube.IsNull()) {
+    return;
+  }
+  const qreal dpr = devicePixelRatio();
+  const int cubeSize = qRound(88.0 * dpr);
+  const int margin = qRound(24.0 * dpr);
+  const int viewWidthPx = qRound(width() * dpr);
+  const int viewHeightPx = qRound(height() * dpr);
+  if (viewWidthPx <= 0 || viewHeightPx <= 0) {
+    return;
+  }
+
+  // 立方体中心距右边缘 margin + 半个立方体、距上边缘 margin + 半个立方体，
+  // 保证整块完整落在视图右上角内（RIGHT_UPPER 的偏移方向在此 OCCT 构建中不可靠，
+  // 因此统一用 LEFT_UPPER + 计算出的偏移定位）。
+  const int pivotX =
+      qMax(cubeSize / 2 + margin, viewWidthPx - margin - cubeSize / 2);
+  const int pivotY = margin + cubeSize / 2;
+
+  m_viewCube->SetSize(cubeSize);
+  m_viewCube->SetFontHeight(10.0 * dpr);
+  m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
+      Graphic3d_TMF_TriedronPers, Aspect_TOTP_LEFT_UPPER,
+      Graphic3d_Vec2i(pivotX, pivotY)));
+}
+
 void OCCTWidget::initViewCube() {
   if (!m_showViewCube || m_context.IsNull() || !m_viewCube.IsNull())
     return;
@@ -197,15 +231,13 @@ void OCCTWidget::initViewCube() {
     m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
     m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
     
-    // 固定在视图右上角（TriedronPers + 屏幕偏移），作为导航组件
-    m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
-        Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER, Graphic3d_Vec2i(100, 100)));
-    m_viewCube->SetFontHeight(12.0);
-
-    // 注意：AIS_ViewCube 只接受显示模式 0（AcceptDisplayMode 返回 mode==0）。
-    // 之前传入模式 1 会导致演示对象为空、立方体不可见。
-    m_context->Display(m_viewCube, Standard_False);
+    // 注意：AIS_ViewCube 只接受显示模式 0（AcceptDisplayMode 返回 mode==0），
+    // 而上下文默认显示模式已被 SetDisplayMode(AIS_Shaded) 设为 1。
+    // 必须显式指定模式 0，否则得到的是空演示对象、立方体不可见。
+    m_context->SetDisplayMode(m_viewCube, 0, Standard_False);
+    m_context->Display(m_viewCube, 0, 0, Standard_False, Standard_True);
     m_context->Activate(m_viewCube, 0);
+    updateViewCubePlacement();
     m_shapeCountDirty = true;
   } catch (...) {
     // 忽略异常
@@ -284,6 +316,7 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
     if (currentSize != m_lastSize && currentSize.width() > 0 && currentSize.height() > 0) {
       m_lastSize = currentSize;
       m_view->MustBeResized();
+      updateViewCubePlacement();
     }
 
     if (m_viewCube.IsNull()) {
@@ -325,6 +358,7 @@ void OCCTWidget::resizeEvent(QResizeEvent *event) {
 
   if (!m_view.IsNull()) {
     m_view->MustBeResized();
+    updateViewCubePlacement();
     m_view->Redraw();
   }
 }
