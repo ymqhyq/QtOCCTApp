@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QMetaObject>
+#include <QTimer>
 #include "MainWindow.h"
 
 #ifdef _WIN32
@@ -36,6 +37,16 @@ int main(int argc, char *argv[])
 
     MainWindow window;
     window.show();
+
+    // 支持通过命令行直接打开工程：QtOCCTApp.exe <工程文件>
+    // （便于自动化验证与从资源管理器拖拽/关联打开）
+    const QStringList args = QCoreApplication::arguments();
+    if (args.size() > 1) {
+        const QString filePath = args.at(1);
+        QTimer::singleShot(0, &window, [&window, filePath]() {
+            window.openProjectFile(filePath);
+        });
+    }
 
     return app.exec();
 }

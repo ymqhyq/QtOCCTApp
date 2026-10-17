@@ -223,8 +223,8 @@ void OCCTWidget::updateViewCubePlacement() {
     return;
   }
   const qreal dpr = devicePixelRatio();
-  const int cubeSize = qRound(88.0 * dpr);
-  const int margin = qRound(24.0 * dpr);
+  const int cubeSize = qRound(60.0 * dpr);
+  const int margin = qRound(20.0 * dpr);
   const int viewWidthPx = qRound(width() * dpr);
   const int viewHeightPx = qRound(height() * dpr);
   if (viewWidthPx <= 0 || viewHeightPx <= 0) {

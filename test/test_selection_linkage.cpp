@@ -632,6 +632,19 @@ void SelectionLinkageTest::mainWindowLinksViewportPickToModelTree() {
     QSKIP("视口里没有已显示的几何对象（仅有视口立方体），跳过点选联动断言");
   }
 
+  // 打开工程后，左上角 FPS 组件必须仍然存在且位于左上区域
+  QLabel *fpsLabel = nullptr;
+  for (QLabel *label : view->findChildren<QLabel *>()) {
+    if (label->text().startsWith(QStringLiteral("FPS:"))) {
+      fpsLabel = label;
+      break;
+    }
+  }
+  QVERIFY2(fpsLabel != nullptr, "打开工程后左上角没有 FPS 组件");
+  QVERIFY2(fpsLabel->isVisible(), "打开工程后 FPS 组件被隐藏");
+  QVERIFY2(fpsLabel->x() < view->width() / 4 && fpsLabel->y() < view->height() / 4,
+           "FPS 组件不在左上角");
+
   // 点选前清掉当前项，确保后续断言确实来自点选
   tree->setCurrentIndex(QModelIndex());
   QVERIFY2(!tree->currentIndex().isValid(), "清空后当前项仍有效");
