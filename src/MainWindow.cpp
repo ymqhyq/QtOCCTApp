@@ -50,8 +50,10 @@ namespace {
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QIcon>
+#include <QKeySequence>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QNetworkAccessManager>
@@ -65,12 +67,15 @@ namespace {
 #include <QStatusBar>
 #include <QTextEdit>
 #include <QTimer>
+#include <QToolButton>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QWidgetAction>
 #include <QDirIterator>
 #include <QProcess>
 #include <QProgressDialog>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <BinXCAFDrivers.hxx>
 #include <TDocStd_Application.hxx>
 #include <TDocStd_Document.hxx>
@@ -254,6 +259,9 @@ MainWindow::MainWindow(QWidget *parent)
   m_tempProjDir = nullptr;
   m_loadedMasterPath = "";
 
+  // 方案 A：使用 SARibbon 的单行紧凑样式，优先保留三维视图高度。
+  ribbonBar()->setRibbonStyle(SARibbonBar::RibbonStyleCompactSingleRow);
+
   // SARibbon 在构造阶段可能已按系统暗色模式自动切换主题，这里先取一次实际主题，
   // 以便随后创建的按钮图标和自有控件配色与之保持一致。
   m_uiScheme = uiSchemeForRibbonTheme(ribbonTheme());
@@ -271,6 +279,7 @@ MainWindow::MainWindow(QWidget *parent)
 
   setupCadQueryUi();
   createRibbon();
+  m_componentLibraryDock->setParametricActions(m_componentActions);
   createScriptsCategory();
   createTestCategory();
   initializeCqNetwork();
@@ -362,6 +371,7 @@ void MainWindow::closeEvent(QCloseEvent *event) {
 
 void MainWindow::createRibbon() {
   SARibbonBar *ribbon = ribbonBar();
+  m_componentActions.clear();
   // 1. 隐藏最左侧的应用按钮 (删除 qtocctapp 面板入口)
   ribbon->applicationButton()->setVisible(false);
 
@@ -373,11 +383,13 @@ void MainWindow::createRibbon() {
 
   // 打开 (原 Load ASI 移至第一位)
   QAction *loadAsiAction = makeIconAction(":/resources/icons/open.svg", "打开");
+  loadAsiAction->setShortcut(QKeySequence::Open);
   connect(loadAsiAction, &QAction::triggered, this, &MainWindow::onLoadAsiModel);
   panelProject->addLargeAction(loadAsiAction);
 
   // 关闭 (新按钮)
   QAction *closeAction = makeIconAction(":/resources/icons/close.svg", "关闭");
+  closeAction->setShortcut(QKeySequence::Close);
   connect(closeAction, &QAction::triggered, this, &MainWindow::onCloseModel);
   panelProject->addLargeAction(closeAction);
 
@@ -386,41 +398,51 @@ void MainWindow::createRibbon() {
       makeIconAction(":/resources/icons/import.svg", "升级工程包");
   connect(upgradePackageAction, &QAction::triggered, this,
           &MainWindow::onUpgradeLegacyPackage);
-  panelProject->addSmallAction(upgradePackageAction);
 
   QAction *normalizeGuidAction =
       makeIconAction(":/resources/icons/check.svg", "统一 GUID");
   connect(normalizeGuidAction, &QAction::triggered, this,
           &MainWindow::onNormalizeGuids);
-  panelProject->addSmallAction(normalizeGuidAction);
 
-  // 增加 "导入" 分组并归类
-  SARibbonPanel *panelImport = categoryMain->addPanel("导入");
+  // 导入/导出属于中低频命令，收进“文件操作”菜单，避免横向占满 Ribbon。
   QAction *importBrepAction = makeIconAction(":/resources/icons/import.svg", "导入 BREP");
   connect(importBrepAction, &QAction::triggered, this, &MainWindow::onImportBrep);
-  panelImport->addLargeAction(importBrepAction);
 
   QAction *importIfcAction = makeIconAction(":/resources/icons/import.svg", "导入 IFC");
   connect(importIfcAction, &QAction::triggered, this, &MainWindow::onImportIfc);
-  panelImport->addLargeAction(importIfcAction);
 
-  // 增加 "导出" 分组并归类
-  SARibbonPanel *panelExport = categoryMain->addPanel("导出");
   QAction *exportIfcAction = makeIconAction(":/resources/icons/export.svg", "导出 IFC");
   connect(exportIfcAction, &QAction::triggered, this, &MainWindow::onExportIfcClicked);
-  panelExport->addLargeAction(exportIfcAction);
 
   QAction *exportStepAction = makeIconAction(":/resources/icons/export.svg", "导出 STEP");
   connect(exportStepAction, &QAction::triggered, this, &MainWindow::onExportStepClicked);
-  panelExport->addLargeAction(exportStepAction);
 
   QAction *exportGltfAction = makeIconAction(":/resources/icons/export.svg", "导出 GLTF");
   connect(exportGltfAction, &QAction::triggered, this, &MainWindow::onExportGltfClicked);
-  panelExport->addLargeAction(exportGltfAction);
 
   QAction *exportRdeAction = makeIconAction(":/resources/icons/export.svg", "导出 RDE");
   connect(exportRdeAction, &QAction::triggered, this, &MainWindow::onExportRdeClicked);
-  panelExport->addLargeAction(exportRdeAction);
+
+  QMenu *fileMenu = new QMenu("文件操作", this);
+  fileMenu->addAction(importBrepAction);
+  fileMenu->addAction(importIfcAction);
+  fileMenu->addSeparator();
+  fileMenu->addAction(exportIfcAction);
+  fileMenu->addAction(exportStepAction);
+  fileMenu->addAction(exportGltfAction);
+  fileMenu->addAction(exportRdeAction);
+  fileMenu->addSeparator();
+  fileMenu->addAction(upgradePackageAction);
+  fileMenu->addAction(normalizeGuidAction);
+
+  QAction *fileMenuAction = new QAction("文件操作", this);
+  fileMenuAction->setMenu(fileMenu);
+  panelProject->addSmallAction(fileMenuAction, QToolButton::InstantPopup);
+
+  m_developerMenu = new QMenu("开发", this);
+  QAction *developerMenuAction = new QAction("开发", this);
+  developerMenuAction->setMenu(m_developerMenu);
+  panelProject->addSmallAction(developerMenuAction, QToolButton::InstantPopup);
 
   // View 修改为 "视图"
   SARibbonPanel *panelView = categoryMain->addPanel("视图");
@@ -436,28 +458,31 @@ void MainWindow::createRibbon() {
   });
   panelView->addWidget(m_pbrCheckbox, SARibbonPanelItem::Small);
 
-  panelView->addSeparator();
-
   QAction* toggleExplorer = m_modelExplorerDock->toggleViewAction();
   toggleExplorer->setText("模型结构");
-  panelView->addSmallAction(toggleExplorer);
 
   QAction* toggleComponent = m_componentLibraryDock->toggleViewAction();
   toggleComponent->setText("构件库");
-  panelView->addSmallAction(toggleComponent);
 
   QAction* toggleProperty = m_propertyDock->toggleViewAction();
   toggleProperty->setText("属性面板");
-  panelView->addSmallAction(toggleProperty);
 
   QAction* toggleScript = m_dockCq->toggleViewAction();
   toggleScript->setText("脚本控制台");
-  panelView->addSmallAction(toggleScript);
 
-  // 主题面板：切换 Ribbon 主题；按钮图标与自有面板配色会随之同步刷新
-  SARibbonPanel *panelTheme = categoryMain->addPanel("主题");
-  QLabel *themeLabel = new QLabel("界面主题:", this);
-  panelTheme->addWidget(themeLabel, SARibbonPanelItem::Small);
+  // 主题与 Dock 显隐都是低频操作，收进同一个弹出菜单。
+  QMenu *viewMenu = new QMenu("面板与主题", this);
+  viewMenu->addAction(toggleExplorer);
+  viewMenu->addAction(toggleComponent);
+  viewMenu->addAction(toggleProperty);
+  viewMenu->addAction(toggleScript);
+  viewMenu->addSeparator();
+
+  QWidget *themeContainer = new QWidget(viewMenu);
+  QHBoxLayout *themeLayout = new QHBoxLayout(themeContainer);
+  themeLayout->setContentsMargins(8, 4, 8, 4);
+  QLabel *themeLabel = new QLabel("界面主题:", themeContainer);
+  themeLayout->addWidget(themeLabel);
 
   m_themeComboBox = new QComboBox(this);
   for (int i = 0; i < kThemeEntryCount; ++i) {
@@ -476,7 +501,15 @@ void MainWindow::createRibbon() {
             // 设置主题会触发 ribbonThemeChanged，图标与配色统一在该信号里刷新
             setRibbonTheme(kThemeEntries[index].theme);
           });
-  panelTheme->addWidget(m_themeComboBox, SARibbonPanelItem::Small);
+  m_themeComboBox->setMinimumWidth(170);
+  themeLayout->addWidget(m_themeComboBox);
+  QWidgetAction *themeWidgetAction = new QWidgetAction(viewMenu);
+  themeWidgetAction->setDefaultWidget(themeContainer);
+  viewMenu->addAction(themeWidgetAction);
+
+  QAction *viewMenuAction = new QAction("面板与主题", this);
+  viewMenuAction->setMenu(viewMenu);
+  panelView->addSmallAction(viewMenuAction, QToolButton::InstantPopup);
 
   // 4. "Bridge Tools" 修改为 "桥梁"
   SARibbonCategory *categoryBridge = ribbon->addCategoryPage("桥梁");
@@ -489,14 +522,16 @@ void MainWindow::createRibbon() {
   panelBridge->addWidget(heightLabel, SARibbonPanelItem::Small);
   panelBridge->addWidget(m_pierHeightSpinBox, SARibbonPanelItem::Small);
 
-  QAction *bridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "绘制桥墩");
+  QAction *bridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "桥墩");
+  bridgePierAction->setToolTip("绘制单个桥墩");
   connect(bridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawBridgePier();
   });
   panelBridge->addLargeAction(bridgePierAction);
 
-  QAction *fullBridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "绘制完整桥墩");
+  QAction *fullBridgePierAction = makeIconAction(":/resources/icons/bridge_pier.svg", "完整墩");
+  fullBridgePierAction->setToolTip("绘制完整桥墩");
   connect(fullBridgePierAction, &QAction::triggered, [this]() {
     m_currentModelType = "BridgePier2";
     onDrawFullBridgePier();
@@ -504,10 +539,12 @@ void MainWindow::createRibbon() {
   panelBridge->addLargeAction(fullBridgePierAction);
 
   QAction *annotatePierAction = makeIconAction(":/resources/icons/dimension.svg", "标注承台");
+  annotatePierAction->setToolTip("标注桥墩承台尺寸");
   connect(annotatePierAction, &QAction::triggered, this, &MainWindow::onAnnotateBridgePierFooting);
   panelBridge->addLargeAction(annotatePierAction);
 
-  QAction *fullBridgeAction = makeIconAction(":/resources/icons/full_bridge.svg", "完整桥梁 (100桥墩)");
+  QAction *fullBridgeAction = makeIconAction(":/resources/icons/full_bridge.svg", "全桥");
+  fullBridgeAction->setToolTip("生成完整桥梁（100 个桥墩）");
   connect(fullBridgeAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isBatchProcessing = true;
@@ -532,7 +569,8 @@ void MainWindow::createRibbon() {
   });
   panelBridge->addLargeAction(fullBridgeAction);
 
-  QAction *fastAssemAction = makeIconAction(":/resources/icons/fast_assembly.svg", "快速装配 (300桥墩)");
+  QAction *fastAssemAction = makeIconAction(":/resources/icons/fast_assembly.svg", "快速装配");
+  fastAssemAction->setToolTip("快速装配（300 个桥墩）");
   connect(fastAssemAction, &QAction::triggered, [this]() {
     m_occtWidget->clearAll();
     m_isAssembling = true;
@@ -556,15 +594,13 @@ void MainWindow::createRibbon() {
   });
   panelBridge->addLargeAction(fastAssemAction);
 
-  SARibbonPanel *panelSubCrops = categoryBridge->addPanel("子构件");
-
   QAction *tuopanAction = makeIconAction(":/resources/icons/tuopan.svg", "顶帽与托盘");
   connect(tuopanAction, &QAction::triggered, [this]() {
     m_currentModelType = "PierTray";
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
-  panelSubCrops->addSmallAction(tuopanAction);
+  m_componentActions.append(tuopanAction);
 
   QAction *dunshenAction = makeIconAction(":/resources/icons/dunshen.svg", "墩身");
   connect(dunshenAction, &QAction::triggered, [this]() {
@@ -572,7 +608,7 @@ void MainWindow::createRibbon() {
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
-  panelSubCrops->addSmallAction(dunshenAction);
+  m_componentActions.append(dunshenAction);
 
   QAction *chengtaiAction = makeIconAction(":/resources/icons/chengtai.svg", "承台");
   connect(chengtaiAction, &QAction::triggered, [this]() {
@@ -580,7 +616,7 @@ void MainWindow::createRibbon() {
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
-  panelSubCrops->addSmallAction(chengtaiAction);
+  m_componentActions.append(chengtaiAction);
 
   QAction *pileAction = makeIconAction(":/resources/icons/pile.svg", "桩基础");
   connect(pileAction, &QAction::triggered, [this]() {
@@ -588,7 +624,7 @@ void MainWindow::createRibbon() {
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
-  panelSubCrops->addSmallAction(pileAction);
+  m_componentActions.append(pileAction);
 
   QAction *girderAction = makeIconAction(":/resources/icons/girder.svg", "箱梁");
   connect(girderAction, &QAction::triggered, [this]() {
@@ -596,19 +632,19 @@ void MainWindow::createRibbon() {
     m_cqScriptEditor->setText(readScript(m_currentModelType));
     onRunCqScript();
   });
-  panelSubCrops->addSmallAction(girderAction);
+  m_componentActions.append(girderAction);
 
   QAction *foundationAction = makeIconAction(":/resources/icons/foundation.svg", "避雷针基础");
   connect(foundationAction, &QAction::triggered, this, &MainWindow::onDrawFoundation);
-  panelSubCrops->addSmallAction(foundationAction);
+  m_componentActions.append(foundationAction);
 
   QAction *bedStoneAction = makeIconAction(":/resources/icons/bed_stone.svg", "垫石");
   connect(bedStoneAction, &QAction::triggered, this, &MainWindow::onDrawBedStone);
-  panelSubCrops->addSmallAction(bedStoneAction);
+  m_componentActions.append(bedStoneAction);
 
   QAction *bearingAction = makeIconAction(":/resources/icons/bearing.svg", "支座");
   connect(bearingAction, &QAction::triggered, this, &MainWindow::onDrawBearing);
-  panelSubCrops->addSmallAction(bearingAction);
+  m_componentActions.append(bearingAction);
 
 }
 
@@ -719,22 +755,21 @@ void MainWindow::rebuildModelTree() {
 }
 
 void MainWindow::createTestCategory() {
-  SARibbonBar *ribbon = ribbonBar();
-  // 3. 增加“测试”面板
-  SARibbonCategory *categoryTest = ribbon->addCategoryPage("测试");
-  SARibbonPanel *panelTest = categoryTest->addPanel("测试功能");
+  if (m_developerMenu == nullptr) {
+    return;
+  }
 
   QAction *drawAction = makeIconAction(":/resources/icons/draw_line.svg", "绘制线段");
   connect(drawAction, &QAction::triggered, this, &MainWindow::onDrawLineClicked);
-  panelTest->addLargeAction(drawAction);
+  m_developerMenu->addAction(drawAction);
 
   QAction *randLineAction = makeIconAction(":/resources/icons/random.svg", "生成万条线");
   connect(randLineAction, &QAction::triggered, [this]() { m_occtWidget->generateRandomLines(10000); });
-  panelTest->addLargeAction(randLineAction);
+  m_developerMenu->addAction(randLineAction);
 
   QAction *shxTextAction = makeIconAction(":/resources/icons/text_shx.svg", "添加 SHX 文本");
   connect(shxTextAction, &QAction::triggered, this, &MainWindow::onAddShxText);
-  panelTest->addLargeAction(shxTextAction);
+  m_developerMenu->addAction(shxTextAction);
 
   m_solidTextCheckbox = new QCheckBox("测试实体文本", this);
   m_solidTextCheckbox->setStyleSheet(CHECKBOX_STYLE);
@@ -742,11 +777,14 @@ void MainWindow::createTestCategory() {
   connect(m_solidTextCheckbox, &QCheckBox::stateChanged, [this](int state) {
     m_occtWidget->setTextsSolid(state == Qt::Checked);
   });
-  panelTest->addWidget(m_solidTextCheckbox, SARibbonPanelItem::Small);
+  QWidgetAction *solidTextAction = new QWidgetAction(m_developerMenu);
+  solidTextAction->setDefaultWidget(m_solidTextCheckbox);
+  m_developerMenu->addAction(solidTextAction);
 
+  m_developerMenu->addSeparator();
   QAction *loadMasterAction = makeIconAction(":/resources/icons/open.svg", "加载 Master CBF");
   connect(loadMasterAction, &QAction::triggered, this, &MainWindow::onLoadMasterCbf);
-  panelTest->addLargeAction(loadMasterAction);
+  m_developerMenu->addAction(loadMasterAction);
 }
 
 void MainWindow::setupCadQueryUi() {
@@ -790,6 +828,9 @@ void MainWindow::setupCadQueryUi() {
   m_componentLibraryDock = new ComponentLibraryPanel(this);
   addDockWidget(Qt::LeftDockWidgetArea, m_componentLibraryDock);
   connect(m_componentLibraryDock, &ComponentLibraryPanel::componentSelected, this, &MainWindow::onComponentSelected);
+  // 模型树与构件库共用左侧区域，避免同时占用建模视图宽度。
+  tabifyDockWidget(m_modelExplorerDock, m_componentLibraryDock);
+  m_modelExplorerDock->raise();
 
   // Set initial dock widths for a balanced look
   QList<QDockWidget*> docks;
@@ -798,9 +839,8 @@ void MainWindow::setupCadQueryUi() {
   sizes << 300 << 300;
   resizeDocks(docks, sizes, Qt::Horizontal);
   
-  // 默认不启动脚本窗口与构件库面板
+  // 默认只显示模型树；构件库作为同一区域的页签，随用随切。
   m_dockCq->hide();
-  m_componentLibraryDock->hide();
 
   connect(m_modelExplorerDock, &ModelExplorerPanel::nodeSelected, this, &MainWindow::onExplorerNodeSelected);
 
@@ -813,6 +853,7 @@ void MainWindow::createScriptsCategory() {
   SARibbonBar *ribbon = ribbonBar();
   SARibbonCategory *categoryScripts = ribbon->addCategoryPage("脚本 (Scripts)");
   SARibbonPanel *panelScripts = categoryScripts->addPanel("示例代码");
+  QMenu *samplesMenu = new QMenu("示例代码", this);
 
   QAction *runBtn = makeIconAction(":/resources/icons/random.svg", "切角立方体");
   connect(runBtn, &QAction::triggered, [this]() {
@@ -824,7 +865,7 @@ void MainWindow::createScriptsCategory() {
         "material = 'plastic'\n");
     onRunCqScript();
   });
-  panelScripts->addLargeAction(runBtn);
+  samplesMenu->addAction(runBtn);
 
   QAction *holedPlateBtn = makeIconAction(":/resources/icons/random.svg", "带孔板");
   connect(holedPlateBtn, &QAction::triggered, [this]() {
@@ -845,7 +886,7 @@ void MainWindow::createScriptsCategory() {
                               "material = 'gold'\n");
     onRunCqScript();
   });
-  panelScripts->addLargeAction(holedPlateBtn);
+  samplesMenu->addAction(holedPlateBtn);
 
   QAction *bridgePierCqBtn = makeIconAction(":/resources/icons/bridge_pier.svg", "桥墩示例");
   connect(bridgePierCqBtn, &QAction::triggered, [this]() {
@@ -853,7 +894,7 @@ void MainWindow::createScriptsCategory() {
     m_cqScriptEditor->setText(readScript("bridge_pier_cq1"));
     onRunCqScript();
   });
-  panelScripts->addLargeAction(bridgePierCqBtn);
+  samplesMenu->addAction(bridgePierCqBtn);
 
   QAction *bridgePier2Btn = makeIconAction(":/resources/icons/bridge_pier.svg", "桥墩示例2");
   connect(bridgePier2Btn, &QAction::triggered, [this]() {
@@ -861,10 +902,15 @@ void MainWindow::createScriptsCategory() {
     m_cqScriptEditor->setText(readScript("bridge_pier_cq2"));
     onRunCqScript();
   });
-  panelScripts->addLargeAction(bridgePier2Btn);
+  samplesMenu->addAction(bridgePier2Btn);
+
+  QAction *samplesAction = new QAction("示例代码", this);
+  samplesAction->setMenu(samplesMenu);
+  panelScripts->addSmallAction(samplesAction, QToolButton::InstantPopup);
 
   SARibbonPanel *panelRun = categoryScripts->addPanel("运行");
   QAction *runScriptBtn = makeIconAction(":/resources/icons/random.svg", "运行当前脚本");
+  runScriptBtn->setShortcut(Qt::Key_F5);
   connect(runScriptBtn, &QAction::triggered, this, &MainWindow::onRunCqScript);
   panelRun->addLargeAction(runScriptBtn);
 }

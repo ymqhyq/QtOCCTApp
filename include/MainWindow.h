@@ -31,6 +31,7 @@
 
 class ShxTextGenerator;
 class QLabel;
+class QMenu;
 class QTextEdit;
 class QComboBox;
 class PythonSyntaxHighlighter;
@@ -165,6 +166,8 @@ private:
   QVector<QPair<QAction *, QString>> m_themedActions; // 动作 -> SVG 资源路径
   UiColorScheme m_uiScheme = UiColorScheme::Light;
   QComboBox *m_themeComboBox = nullptr;
+  QList<QAction *> m_componentActions;
+  QMenu *m_developerMenu = nullptr;
   bool m_applyingTheme = false;
   QVariantMap m_lastPropertyMeta; // 主题变化后据此重绘属性面板
 
