@@ -14,6 +14,7 @@
 
 #include <AIS_Point.hxx>
 #include <AIS_Shape.hxx>
+#include <AIS_TextLabel.hxx>
 #include <Geom_CartesianPoint.hxx>
 #include <Geom_Line.hxx>
 #include <Graphic3d_NameOfMaterial.hxx>
@@ -132,6 +133,10 @@ public:
 
   /// 右上角导航组件（视图立方体）是否已显示（供诊断/测试使用）
   bool isViewCubeVisible() const;
+  /// 左上角 FPS 文本是否已显示（供诊断/测试使用）
+  bool isFpsOverlayVisible() const;
+  /// 当前 FPS 叠加文本内容
+  QString fpsOverlayText() const { return m_fpsTextContent; }
 
   // 边坡长度拉伸交互接口
   void showLengthHandle(const gp_Pnt& startPos, const gp_Pnt& endPos, double currentLength, const QString& nodeId, const gp_Trsf& trsf, double height = 8000.0, double slopeRatio = 1.5);
@@ -177,6 +182,10 @@ private:
   void updateViewCubePlacement();
   /// 确保导航立方体处于显示状态（清空视图/切换文档后恢复）
   void ensureViewCubeDisplayed();
+  /// 初始化左上角 FPS 文本（OCCT 渲染、透明底、屏幕固定大小）
+  void initFpsOverlay();
+  /// 确保 FPS 文本处于显示状态（清空视图/切换文档后恢复）
+  void ensureFpsOverlayDisplayed();
   void updateView();
   void updateOverlayInfo(bool forceShapeCount = false);
   // 按固定节奏结算帧率（与 Qt 的重绘时机解耦，空闲时自然归零）
@@ -211,7 +220,9 @@ private:
   int m_shapeCount;
   bool m_shapeCountDirty;
   bool m_textsSolid; // 文本对象当前的实体/空心状态，供新加入的文本沿用
-  QLabel *m_infoLabel;
+  // 左上角 FPS 叠加：直接由 OCCT 渲染（透明底、屏幕固定大小）
+  Handle(AIS_TextLabel) m_fpsText;
+  QString m_fpsTextContent;
 
   Handle(AIS_ViewCube) m_viewCube;
   QSize m_lastSize; // 用于检测 widget 大小变化

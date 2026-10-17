@@ -72,22 +72,6 @@ OCCTWidget::OCCTWidget(QWidget *parent)
       m_isDraggingLength(false), m_dragOriginalLength(0.0) {
   setFocusPolicy(Qt::StrongFocus);
 
-  // 初始化信息叠加标签
-  m_infoLabel = new QLabel(this);
-  m_infoLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
-  // 该标签是叠在 WA_PaintOnScreen（OCCT 直接渲染）表面上的原生子窗口，Qt 的
-  // backing store 中并不存在父窗口的 OpenGL 内容。若标签自身带透明度（半透明
-  // 背景或圆角），文字刷新时会与残留像素混合，出现"重影"。故改为不透明背景
-  // 并整块自绘（WA_OpaquePaintEvent），保证每次重绘都覆盖自身全部像素。
-  m_infoLabel->setAttribute(Qt::WA_OpaquePaintEvent);
-  m_infoLabel
-      ->winId(); // 强制创建原生窗口，以确保在 WA_PaintOnScreen 表面上可见
-  m_infoLabel->setStyleSheet(
-      "QLabel { background-color: #0b0f14; color: cyan; "
-      "font-weight: bold; padding: 5px; }");
-  m_infoLabel->move(10, 10);
-  m_infoLabel->show();
-
   // Set required attributes for OCCT integration
   setAttribute(Qt::WA_PaintOnScreen);
   setAttribute(Qt::WA_NoSystemBackground);
@@ -104,11 +88,16 @@ OCCTWidget::OCCTWidget(QWidget *parent)
   connect(m_fpsUpdateTimer, &QTimer::timeout, this,
           &OCCTWidget::sampleFrameRate);
   m_fpsUpdateTimer->start();
+
+  // 左上角 FPS 叠加：由 OCCT 直接渲染（透明底，不占原生子窗口）
+  initFpsOverlay();
   
   // 延迟再次强制调整大小，确保初始 showMaximized 状态被正确捕获
   QTimer::singleShot(100, this, [this]() {
     if (!m_view.IsNull()) {
       m_view->MustBeResized();
+      ensureViewCubeDisplayed();
+      ensureFpsOverlayDisplayed();
       m_view->Redraw();
       updateOverlayInfo(true);
     }
@@ -189,6 +178,63 @@ bool OCCTWidget::isViewCubeVisible() const {
 }
 
 /**
+ * @brief 初始化左上角 FPS 文本
+ *
+ * 用 AIS_TextLabel 直接画在 OCCT 视图内：无背景（透明底）、
+ * SetZoomable(false) 使字号不随相机缩放变化，位置用 TMF_2d 固定在屏幕左上角。
+ */
+void OCCTWidget::initFpsOverlay() {
+  if (m_context.IsNull() || !m_fpsText.IsNull()) {
+    return;
+  }
+  try {
+    const qreal dpr = devicePixelRatio();
+    m_fpsText = new AIS_TextLabel();
+    m_fpsText->SetText("FPS: 0.0");
+    m_fpsText->SetFont("Arial");
+    m_fpsText->SetFontAspect(Font_FA_Bold);
+    // TMF_2d 的偏移和字号都按设备像素解释；Qt 的 width()/height() 是逻辑像素，
+    // 因此这里统一乘 devicePixelRatio()，保证高 DPI 下字号和边距不缩水。
+    m_fpsText->SetHeight(15.0 * dpr);
+    m_fpsText->SetZoomable(false);
+    m_fpsText->SetColor(Quantity_Color(0.0, 1.0, 1.0, Quantity_TOC_RGB));
+    m_fpsText->SetHJustification(Graphic3d_HTA_LEFT);
+    m_fpsText->SetVJustification(Graphic3d_VTA_TOPFIRSTLINE);
+    m_fpsText->SetZLayer(Graphic3d_ZLayerId_TopOSD);
+    m_fpsText->SetTransformPersistence(new Graphic3d_TransformPers(
+        Graphic3d_TMF_2d, Aspect_TOTP_LEFT_UPPER,
+        Graphic3d_Vec2i(qRound(14.0 * dpr), qRound(12.0 * dpr))));
+    m_context->SetDisplayMode(m_fpsText, 0, Standard_False);
+    m_context->Display(m_fpsText, 0, 0, Standard_False, Standard_True);
+  } catch (...) {
+    m_fpsText.Nullify();
+  }
+}
+
+bool OCCTWidget::isFpsOverlayVisible() const {
+  if (m_context.IsNull() || m_fpsText.IsNull()) {
+    return false;
+  }
+  return m_context->IsDisplayed(m_fpsText);
+}
+
+void OCCTWidget::ensureFpsOverlayDisplayed() {
+  if (m_context.IsNull()) {
+    return;
+  }
+  if (m_fpsText.IsNull()) {
+    initFpsOverlay();
+    return;
+  }
+  if (m_context->IsDisplayed(m_fpsText)) {
+    return;
+  }
+  m_context->SetDisplayMode(m_fpsText, 0, Standard_False);
+  m_context->Display(m_fpsText, 0, 0, Standard_False, Standard_True);
+  m_context->Activate(m_fpsText, 0);
+}
+
+/**
  * @brief 确保导航立方体处于显示状态
  *
  * clearAll()/EraseAll() 会把立方体一并移除。这里统一恢复，并始终使用
@@ -222,27 +268,35 @@ void OCCTWidget::updateViewCubePlacement() {
   if (m_viewCube.IsNull()) {
     return;
   }
+  // TriedronPers 的尺寸和偏移均按设备像素解释，而 Qt 的 width()/height()
+  // 是逻辑像素，因此这里统一换算到设备像素。
   const qreal dpr = devicePixelRatio();
-  const int cubeSize = qRound(60.0 * dpr);
-  const int margin = qRound(20.0 * dpr);
+  const int cubeSize = qRound(36.0 * dpr);
+  const int margin = qRound(12.0 * dpr);
   const int viewWidthPx = qRound(width() * dpr);
   const int viewHeightPx = qRound(height() * dpr);
   if (viewWidthPx <= 0 || viewHeightPx <= 0) {
     return;
   }
 
-  // 立方体中心距右边缘 margin + 半个立方体、距上边缘 margin + 半个立方体，
-  // 保证整块完整落在视图右上角内（RIGHT_UPPER 的偏移方向在此 OCCT 构建中不可靠，
-  // 因此统一用 LEFT_UPPER + 计算出的偏移定位）。
+  // SetSize() 只定义立方体边长；坐标轴和面标签还会向外延伸约 0.8~0.9 倍边长。
+  // 用整体外接范围定位，避免立方体在右上角被裁掉。
+  // RIGHT_UPPER 的偏移方向在此 OCCT 构建中不可靠，统一用 LEFT_UPPER + 计算偏移。
+  const int cubeExtent = qRound(cubeSize * 0.95);
   const int pivotX =
-      qMax(cubeSize / 2 + margin, viewWidthPx - margin - cubeSize / 2);
-  const int pivotY = margin + cubeSize / 2;
+      qMax(cubeExtent + margin, viewWidthPx - margin - cubeExtent);
+  const int pivotY = margin + cubeExtent;
 
   m_viewCube->SetSize(cubeSize);
-  m_viewCube->SetFontHeight(10.0 * dpr);
+  m_viewCube->SetFontHeight(9.0 * dpr);
   m_viewCube->SetTransformPersistence(new Graphic3d_TransformPers(
       Graphic3d_TMF_TriedronPers, Aspect_TOTP_LEFT_UPPER,
       Graphic3d_Vec2i(pivotX, pivotY)));
+  // 只改 TransformPersistence 不会让已生成的演示对象自动重建；
+  // 空工程首次布局时若不 Redisplay，立方体会停留在旧位置甚至不可见。
+  if (!m_context.IsNull() && m_context->IsDisplayed(m_viewCube)) {
+    m_context->Redisplay(m_viewCube, Standard_False);
+  }
 }
 
 void OCCTWidget::initViewCube() {
@@ -256,13 +310,19 @@ void OCCTWidget::initViewCube() {
     m_viewCube->SetTextColor(Quantity_Color(Quantity_NOC_BLACK));
     m_viewCube->SetInnerColor(Quantity_Color(Quantity_NOC_GRAY50));
     
+    // 先设置尺寸和屏幕固定位置，再 Display，避免首次显示时使用默认位置/尺寸。
+    updateViewCubePlacement();
+
     // 注意：AIS_ViewCube 只接受显示模式 0（AcceptDisplayMode 返回 mode==0），
     // 而上下文默认显示模式已被 SetDisplayMode(AIS_Shaded) 设为 1。
     // 必须显式指定模式 0，否则得到的是空演示对象、立方体不可见。
     m_context->SetDisplayMode(m_viewCube, 0, Standard_False);
     m_context->Display(m_viewCube, 0, 0, Standard_False, Standard_True);
     m_context->Activate(m_viewCube, 0);
-    updateViewCubePlacement();
+    m_context->UpdateCurrentViewer();
+    if (!m_view.IsNull()) {
+      m_view->RedrawImmediate();
+    }
     m_shapeCountDirty = true;
   } catch (...) {
     // 忽略异常
@@ -275,6 +335,7 @@ void OCCTWidget::cleanup() {
   m_dimensions.clear();
   m_objectMetadata.clear();
   m_viewCube.Nullify();
+  m_fpsText.Nullify();
   m_startHandle.Nullify();
   m_lengthHandle.Nullify();
   m_dynamicPreview.Nullify();
@@ -307,7 +368,7 @@ OCCTWidget::~OCCTWidget() {
 }
 
 void OCCTWidget::updateOverlayInfo(bool forceShapeCount) {
-  if (m_infoLabel == nullptr) {
+  if (m_context.IsNull()) {
     return;
   }
 
@@ -327,9 +388,18 @@ void OCCTWidget::updateOverlayInfo(bool forceShapeCount) {
   // 左上角信息组件：FPS 为主，对象数量为辅
   const QString info =
       QString("FPS: %1 | Shapes: %2").arg(m_fps, 0, 'f', 1).arg(m_shapeCount);
-  if (m_infoLabel->text() != info) {
-    m_infoLabel->setText(info);
-    m_infoLabel->adjustSize();
+  if (m_fpsText.IsNull()) {
+    initFpsOverlay();
+  }
+  if (!m_fpsText.IsNull() && m_fpsTextContent != info) {
+    m_fpsTextContent = info;
+    try {
+      m_fpsText->SetText(
+          TCollection_ExtendedString(info.toUtf8().constData(), Standard_True));
+      m_context->Redisplay(m_fpsText, Standard_False);
+    } catch (...) {
+      // 忽略刷新异常
+    }
   }
 }
 
@@ -346,13 +416,10 @@ void OCCTWidget::paintEvent(QPaintEvent *event) {
 
     // 导航立方体可能被 clearAll()/EraseAll() 清掉，这里兜底恢复
     ensureViewCubeDisplayed();
+    ensureFpsOverlayDisplayed();
     m_view->Redraw();
   }
 
-  if (m_infoLabel) {
-    // 每次重绘后抬升一次即可；原先在每次鼠标事件里都 raise() 属于额外开销
-    m_infoLabel->raise();
-  }
   updateOverlayInfo(false);
 }
 
@@ -1397,6 +1464,7 @@ void OCCTWidget::clearAll() {
   qDebug() << "[OCCTWidget] clearAll: handling viewCube";
   // RemoveAll 会移除 ViewCube；统一用 ensure 恢复（显示模式必须为 0）
   ensureViewCubeDisplayed();
+  ensureFpsOverlayDisplayed();
 
   qDebug() << "[OCCTWidget] clearAll: UpdateCurrentViewer";
   m_context->UpdateCurrentViewer();
@@ -2492,6 +2560,7 @@ void OCCTWidget::loadXcafDocument(const Handle(TDocStd_Document)& doc) {
   // 1. 清除视口当前显示的普通对象和元数据映射
   m_context->EraseAll(Standard_True);
   ensureViewCubeDisplayed(); // EraseAll 会连导航立方体一起清掉
+  ensureFpsOverlayDisplayed();
   m_objectMetadata.clear();
   m_shapeCountDirty = true;
 

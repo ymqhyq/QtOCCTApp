@@ -443,22 +443,17 @@ void SelectionLinkageTest::viewportPickReportsLinkedNode() {
   QCOMPARE(emitted.value(QStringLiteral("Pset_UnitTest.Marker")).toString(),
            QStringLiteral("1"));
 
-  // 左上角信息组件（FPS）与右上角导航组件（视图立方体）
-  QLabel *overlay = nullptr;
-  for (QLabel *label : widget.findChildren<QLabel *>()) {
-    if (label->text().startsWith(QStringLiteral("FPS:"))) {
-      overlay = label;
-      break;
-    }
-  }
-  QVERIFY2(overlay != nullptr, "左上角没有 FPS 信息组件");
-  QVERIFY2(overlay->x() < widget.width() / 4, "FPS 组件不在左侧");
+  // 左上角 FPS 叠加（OCCT 内渲染）与右上角导航组件（视图立方体）
+  QVERIFY2(widget.isFpsOverlayVisible(), "左上角没有 FPS 叠加文本");
+  QVERIFY2(widget.fpsOverlayText().startsWith(QStringLiteral("FPS:")),
+           "FPS 叠加内容不正确");
   QVERIFY2(widget.isViewCubeVisible(), "右上角导航组件（视图立方体）未显示");
 
   // 清空视图（打开工程时会走这里）之后，导航立方体必须仍然可用
   widget.clearAll();
   QTest::qWait(150);
   QVERIFY2(widget.isViewCubeVisible(), "clearAll 之后导航组件消失");
+  QVERIFY2(widget.isFpsOverlayVisible(), "clearAll 之后 FPS 叠加消失");
 }
 
 /**
@@ -618,10 +613,10 @@ void SelectionLinkageTest::mainWindowLinksViewportPickToModelTree() {
     qInfo() << "--- 模型树结构结束 ---";
   }
 
-  // 视口里必须真的有几何对象才能点选；叠加标签里的 "Shapes: N" 可以据此判断
+  // 视口里必须真的有几何对象才能点选；FPS 叠加里的 "Shapes: N" 可以据此判断
   int shapeCount = 0;
-  if (QLabel *info = view->findChild<QLabel *>()) {
-    const QString text = info->text();
+  {
+    const QString text = view->fpsOverlayText();
     const QRegularExpression re(QStringLiteral("Shapes:\\s*(\\d+)"));
     const QRegularExpressionMatch match = re.match(text);
     if (match.hasMatch()) {
@@ -632,18 +627,10 @@ void SelectionLinkageTest::mainWindowLinksViewportPickToModelTree() {
     QSKIP("视口里没有已显示的几何对象（仅有视口立方体），跳过点选联动断言");
   }
 
-  // 打开工程后，左上角 FPS 组件必须仍然存在且位于左上区域
-  QLabel *fpsLabel = nullptr;
-  for (QLabel *label : view->findChildren<QLabel *>()) {
-    if (label->text().startsWith(QStringLiteral("FPS:"))) {
-      fpsLabel = label;
-      break;
-    }
-  }
-  QVERIFY2(fpsLabel != nullptr, "打开工程后左上角没有 FPS 组件");
-  QVERIFY2(fpsLabel->isVisible(), "打开工程后 FPS 组件被隐藏");
-  QVERIFY2(fpsLabel->x() < view->width() / 4 && fpsLabel->y() < view->height() / 4,
-           "FPS 组件不在左上角");
+  // 打开工程后，左上角 FPS 叠加必须仍然显示
+  QVERIFY2(view->isFpsOverlayVisible(), "打开工程后左上角 FPS 叠加消失");
+  QVERIFY2(view->fpsOverlayText().startsWith(QStringLiteral("FPS:")),
+           "打开工程后 FPS 叠加内容不正确");
 
   // 点选前清掉当前项，确保后续断言确实来自点选
   tree->setCurrentIndex(QModelIndex());
