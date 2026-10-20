@@ -24,21 +24,39 @@ const selectedFamily = ref('');
 const detail = ref<ComponentDetail | null>(null);
 const formats = ref<FormatRow[]>([]);
 const search = ref('');
+const categoryFilter = ref('all');
+const statusFilter = ref<'all' | 'published' | 'draft' | 'reviewing' | 'archived'>('all');
 const exportOpen = ref(false);
 const exportFormat = ref('cbfc');
 const loading = ref(true);
 const history = ref<{ id: string; familyId: string; name: string; action: string; format?: string; at: string; detail?: string }[]>([]);
 const ifcBusy = ref(false);
 
+const categories = computed(() =>
+  [...new Set(components.value.map((component) => component.category))].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')),
+);
 const filteredComponents = computed(() => {
   const term = search.value.trim().toLowerCase();
-  if (!term) return components.value;
-  return components.value.filter(
-    (c) =>
-      c.name.toLowerCase().includes(term) ||
-      c.familyId.toLowerCase().includes(term) ||
-      c.drawingCode.toLowerCase().includes(term),
-  );
+  return components.value.filter((component) => {
+    if (categoryFilter.value !== 'all' && component.category !== categoryFilter.value) return false;
+    if (statusFilter.value !== 'all' && component.status !== statusFilter.value) return false;
+    if (!term) return true;
+    return (
+      component.name.toLowerCase().includes(term) ||
+      component.familyId.toLowerCase().includes(term) ||
+      component.drawingCode.toLowerCase().includes(term) ||
+      component.taxonomy.crbim.toLowerCase().includes(term)
+    );
+  });
+});
+const groupedComponents = computed(() => {
+  const groups = new Map<string, ComponentSummary[]>();
+  for (const component of filteredComponents.value) {
+    const list = groups.get(component.category) ?? [];
+    list.push(component);
+    groups.set(component.category, list);
+  }
+  return [...groups.entries()].map(([category, items]) => ({ category, items }));
 });
 const exportHistory = computed(() =>
   history.value.filter((h) => ['download', 'export', 'handoff'].includes(h.action)).slice(0, 10),
@@ -53,8 +71,13 @@ function isFormatAvailable(id: string) {
   return formats.value.find((format) => format.id === id)?.available ?? true;
 }
 
-async function selectComponent(familyId: string) {
-  selectedFamily.value = familyId;
+function clearComponentFilters() {
+  search.value = '';
+  categoryFilter.value = 'all';
+  statusFilter.value = 'all';
+}
+
+async function selectComponent(familyId: string) {  selectedFamily.value = familyId;
   try {
     const [component, formatResponse] = await Promise.all([
       api.component(familyId),
@@ -138,31 +161,66 @@ onMounted(async () => {
         <!-- 构件选择 -->
         <aside class="panel flex max-h-[560px] flex-col overflow-hidden">
           <div class="border-b border-line p-2.5">
-            <p class="eyebrow mb-1.5">选择构件</p>
+            <div class="mb-1.5 flex items-center justify-between">
+              <p class="eyebrow">选择构件</p>
+              <button
+                v-if="search || categoryFilter !== 'all' || statusFilter !== 'all'"
+                class="text-[9px] text-primary hover:text-primary-hover"
+                @click="clearComponentFilters"
+              >清空筛选</button>
+            </div>
             <div class="flex items-center gap-1.5 rounded border border-line bg-[#FAFBFC] px-2 py-1">
               <AppIcon name="search" :size="12" class="text-[#9CA3AF]" />
-              <input v-model="search" class="min-w-0 flex-1 border-0 bg-transparent text-[11px] focus:outline-none" placeholder="检索名称 / 图号…" />
+              <input
+                v-model="search"
+                class="min-w-0 flex-1 border-0 bg-transparent text-[11px] focus:outline-none"
+                placeholder="名称 / 图号 / familyId / CRBIM"
+              />
             </div>
+            <div class="mt-1.5 grid grid-cols-2 gap-1.5">
+              <select v-model="categoryFilter" class="select !w-full !py-1 !text-[10.5px]" aria-label="按分类筛选">
+                <option value="all">全部分类</option>
+                <option v-for="category in categories" :key="category" :value="category">{{ category }}</option>
+              </select>
+              <select v-model="statusFilter" class="select !w-full !py-1 !text-[10.5px]" aria-label="按状态筛选">
+                <option value="all">全部状态</option>
+                <option value="published">已发布</option>
+                <option value="reviewing">审核中</option>
+                <option value="draft">草稿</option>
+                <option value="archived">已归档</option>
+              </select>
+            </div>
+            <p class="mt-1.5 text-[9px] text-muted">{{ filteredComponents.length }} 个构件 · 按分类分组</p>
           </div>
           <div class="min-h-0 flex-1 overflow-y-auto scroll-thin">
-            <button
-              v-for="item in filteredComponents"
-              :key="item.familyId"
-              class="flex w-full items-center gap-2 border-b border-[#F0F2F5] px-2.5 py-2 text-left transition-colors"
-              :class="selectedFamily === item.familyId ? 'bg-[#EDF4F8]' : 'hover:bg-[#FAFBFC]'"
-              @click="selectComponent(item.familyId)"
-            >
-              <span class="h-9 w-12 shrink-0 overflow-hidden rounded border border-[#EDF0F3] bg-[#F7F9FB]">
-                <img :src="api.previewUrl(item.familyId, 96, 72)" alt="" class="h-full w-full object-contain" loading="lazy" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block truncate text-[11px] font-medium" :class="selectedFamily === item.familyId ? 'text-primary' : 'text-ink'">
-                  {{ item.name }}
+            <template v-for="group in groupedComponents" :key="group.category">
+              <p class="sticky top-0 z-10 flex items-center justify-between border-b border-[#E8EDF2] bg-[#F7F9FB] px-2.5 py-1.5 text-[9.5px] font-semibold text-[#6B7280]">
+                <span>{{ group.category }}</span>
+                <span class="mono text-[8.5px] text-[#9CA3AF]">{{ group.items.length }}</span>
+              </p>
+              <button
+                v-for="item in group.items"
+                :key="item.familyId"
+                class="flex w-full items-center gap-2 border-b border-[#F0F2F5] px-2.5 py-2 text-left transition-colors"
+                :class="selectedFamily === item.familyId ? 'bg-[#EDF4F8]' : 'hover:bg-[#FAFBFC]'"
+                @click="selectComponent(item.familyId)"
+              >
+                <span class="h-9 w-12 shrink-0 overflow-hidden rounded border border-[#EDF0F3] bg-[#F7F9FB]">
+                  <img :src="api.previewUrl(item.familyId, 96, 72)" alt="" class="h-full w-full object-contain" loading="lazy" />
                 </span>
-                <span class="mono block truncate text-[8.5px] text-muted">{{ item.drawingCode }}</span>
-              </span>
-              <StatusBadge :tone="sourceModeMeta(item.sourceMode).tone" :label="sourceModeMeta(item.sourceMode).label" :dot="false" />
-            </button>
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[11px] font-medium" :class="selectedFamily === item.familyId ? 'text-primary' : 'text-ink'">
+                    {{ item.name }}
+                  </span>
+                  <span class="mono block truncate text-[8.5px] text-muted">{{ item.drawingCode }}</span>
+                </span>
+                <StatusBadge :tone="sourceModeMeta(item.sourceMode).tone" :label="sourceModeMeta(item.sourceMode).label" :dot="false" />
+              </button>
+            </template>
+            <div v-if="!groupedComponents.length" class="px-3 py-8 text-center">
+              <p class="text-[11px] text-muted">当前筛选无匹配构件</p>
+              <button class="mt-2 text-[10px] text-primary" @click="clearComponentFilters">清空筛选</button>
+            </div>
           </div>
         </aside>
 
