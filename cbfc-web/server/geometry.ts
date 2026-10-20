@@ -792,11 +792,17 @@ export function renderPreviewSvg(
   const scale = Math.min((width - pad * 2) / (maxX - minX || 1), (height - pad * 2) / (maxY - minY || 1));
   const ox = width / 2 - ((minX + maxX) / 2) * scale;
   const oy = height / 2 - ((minY + maxY) / 2) * scale;
-  const tx = (i: number) => (projected[i * 2] * scale + ox).toFixed(2);
-  const ty = (i: number) => (projected[i * 2 + 1] * scale + oy).toFixed(2);
+  const sx = (i: number) => projected[i * 2] * scale + ox;
+  const sy = (i: number) => projected[i * 2 + 1] * scale + oy;
+  const tx = (i: number) => sx(i).toFixed(2);
+  const ty = (i: number) => sy(i).toFixed(2);
 
   // 画家算法：按平均深度排序三角形；先做背面剔除，控制 SVG 体积
   const tris: { idx: [number, number, number]; depth: number; light: number }[] = [];
+  const frontTris: {
+    ax: number; ay: number; bx: number; by: number; cx: number; cy: number;
+    da: number; db: number; dc: number;
+  }[] = [];
   const inv = 1 / Math.sqrt(3);
   for (let t = 0; t < mesh.triangles; t += 1) {
     const ia = mesh.indices[t * 3];
@@ -806,12 +812,15 @@ export function renderPreviewSvg(
     const ny = mesh.normals[ia * 3 + 1];
     const nz = mesh.normals[ia * 3 + 2];
     if (nx * inv + ny * inv + nz * inv <= 0.001) continue;
-    const dz =
-      mesh.positions[ia * 3 + 2] + mesh.positions[ib * 3 + 2] + mesh.positions[ic * 3 + 2];
-    const dx = mesh.positions[ia * 3] + mesh.positions[ib * 3] + mesh.positions[ic * 3];
-    const dy = mesh.positions[ia * 3 + 1] + mesh.positions[ib * 3 + 1] + mesh.positions[ic * 3 + 1];
+    const da = mesh.positions[ia * 3] + mesh.positions[ia * 3 + 1] + mesh.positions[ia * 3 + 2];
+    const db = mesh.positions[ib * 3] + mesh.positions[ib * 3 + 1] + mesh.positions[ib * 3 + 2];
+    const dc = mesh.positions[ic * 3] + mesh.positions[ic * 3 + 1] + mesh.positions[ic * 3 + 2];
     const light = Math.max(0.25, Math.min(1, nx * 0.3 + ny * 0.42 + nz * 0.86));
-    tris.push({ idx: [ia, ib, ic], depth: dx + dy + dz, light });
+    tris.push({ idx: [ia, ib, ic], depth: da + db + dc, light });
+    frontTris.push({
+      ax: sx(ia), ay: sy(ia), bx: sx(ib), by: sy(ib), cx: sx(ic), cy: sy(ic),
+      da, db, dc,
+    });
   }
   tris.sort((a, b) => a.depth - b.depth);
   const palette = ['#c7d0da', '#b9c4d1', '#aeb9c7', '#d3dae2'];
@@ -822,21 +831,69 @@ export function renderPreviewSvg(
     })
     .join('');
 
-  // 特征边线：edges 是独立顶点流，不能直接复用 mesh.positions 的投影索引
+  // 特征边线：edges 是独立顶点流；按前向三角面做近似深度消隐
   let edgesSvg = '';
-  for (let e = 0; e < mesh.edgeLines.length; e += 1) {
-    const line = mesh.edgeLines[e];
-    const pts: string[] = [];
-    for (let v = line.vertexStart; v < line.vertexStart + line.vertexCount; v += 1) {
-      const [px, py] = project([
-        mesh.edges[v * 3],
-        mesh.edges[v * 3 + 1],
-        mesh.edges[v * 3 + 2],
-      ]);
-      pts.push(`${(px * scale + ox).toFixed(2)},${(py * scale + oy).toFixed(2)}`);
+  const depthEps = 2;
+  const occluded = (px: number, py: number, depth: number) => {
+    for (const tri of frontTris) {
+      const denom = (tri.by - tri.cy) * (tri.ax - tri.cx) + (tri.cx - tri.bx) * (tri.ay - tri.cy);
+      if (Math.abs(denom) < 1e-9) continue;
+      const wa = ((tri.by - tri.cy) * (px - tri.cx) + (tri.cx - tri.bx) * (py - tri.cy)) / denom;
+      const wb = ((tri.cy - tri.ay) * (px - tri.cx) + (tri.ax - tri.cx) * (py - tri.cy)) / denom;
+      const wc = 1 - wa - wb;
+      if (wa < -1e-7 || wb < -1e-7 || wc < -1e-7) continue;
+      const triDepth = wa * tri.da + wb * tri.db + wc * tri.dc;
+      if (triDepth > depth + depthEps) return true;
     }
-    if (line.closed && pts.length) pts.push(pts[0]);
-    edgesSvg += `<polyline points="${pts.join(' ')}" fill="none" stroke="#0f172a" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+    return false;
+  };
+  const edgeSubdivisions = 8;
+  for (const line of mesh.edgeLines) {
+    if (line.vertexCount < 2) continue;
+    const points = Array.from({ length: line.vertexCount }, (_, index) => {
+      const v = line.vertexStart + index;
+      const x = mesh.edges[v * 3];
+      const y = mesh.edges[v * 3 + 1];
+      const z = mesh.edges[v * 3 + 2];
+      return { x, y, z, depth: x + y + z };
+    });
+    const segments = points.length - 1 + (line.closed ? 1 : 0);
+    let run: string[] = [];
+    const flush = () => {
+      if (run.length > 1) {
+        edgesSvg += `<polyline points="${run.join(' ')}" fill="none" stroke="#0f172a" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+      }
+      run = [];
+    };
+    const lerp = (a: typeof points[number], b: typeof points[number], t: number) => ({
+      x: a.x + (b.x - a.x) * t,
+      y: a.y + (b.y - a.y) * t,
+      z: a.z + (b.z - a.z) * t,
+      depth: a.depth + (b.depth - a.depth) * t,
+    });
+    const screen = (point: typeof points[number]) => {
+      const [px, py] = project([point.x, point.y, point.z]);
+      return { px: px * scale + ox, py: py * scale + oy, text: `${(px * scale + ox).toFixed(2)},${(py * scale + oy).toFixed(2)}` };
+    };
+    for (let segment = 0; segment < segments; segment += 1) {
+      const a = points[segment];
+      const b = points[(segment + 1) % points.length];
+      for (let step = 0; step < edgeSubdivisions; step += 1) {
+        const p0 = lerp(a, b, step / edgeSubdivisions);
+        const p1 = lerp(a, b, (step + 1) / edgeSubdivisions);
+        const mid = lerp(a, b, (step + 0.5) / edgeSubdivisions);
+        const midScreen = screen(mid);
+        const s0 = screen(p0);
+        const s1 = screen(p1);
+        if (!occluded(midScreen.px, midScreen.py, mid.depth)) {
+          if (!run.length) run.push(s0.text);
+          run.push(s1.text);
+        } else {
+          flush();
+        }
+      }
+    }
+    flush();
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="构件等轴测预览">
 <defs><radialGradient id="bg" cx="50%" cy="38%" r="72%"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#eef2f6"/></radialGradient></defs>
