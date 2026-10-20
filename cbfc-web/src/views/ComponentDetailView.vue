@@ -423,7 +423,7 @@ onMounted(async () => {
             <div class="flex items-start justify-between gap-2">
               <div>
                 <p class="eyebrow">核心操作</p>
-                <p class="mt-0.5 text-[12px] font-semibold text-ink">构件获取与跨端协同</p>
+                <p class="mt-0.5 text-[12px] font-semibold text-ink">构件获取与格式导出</p>
               </div>
               <span class="rounded-full border border-[#BBF7D0] bg-[#ECFDF3] px-2 py-[2px] text-[9.5px] font-medium text-success">
                 6/6 门禁通过
@@ -460,6 +460,27 @@ onMounted(async () => {
                 导出 IFC 4.3
                 <span v-if="!detail.geometry.exactBrep" class="text-[9.5px] text-warning">（mesh-only）</span>
               </button>
+              <div class="grid grid-cols-3 gap-1.5">
+                <button class="btn btn-outline !px-2 text-[11px]" title="导出 GLB 可视化网格" @click="openExport('glb')">
+                  <AppIcon name="cube" :size="13" />GLB
+                </button>
+                <button
+                  class="btn btn-outline !px-2 text-[11px]"
+                  :disabled="!detail.geometry.exactBrep"
+                  title="导出 STEP AP242 精确几何"
+                  @click="openExport('step')"
+                >
+                  <AppIcon name="layers" :size="13" />STEP
+                </button>
+                <button
+                  class="btn btn-outline !px-2 text-[11px]"
+                  :disabled="!detail.geometry.exactBrep"
+                  title="导出 CBF 精确几何容器"
+                  @click="openExport('cbf')"
+                >
+                  <AppIcon name="box" :size="13" />CBF
+                </button>
+              </div>
             </div>
 
             <p
