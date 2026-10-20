@@ -26,7 +26,7 @@ export const FORMATS = [
     mime: 'application/zip',
     sizeMB: 1.8,
     description: 'OCCT 原生彩色拓扑流，供桌面 CAD 极速无损加载',
-    scenario: 'QtOCCTApp / OCCT 生态',
+    scenario: 'OCCT 生态',
     scriptIncluded: false,
     priority: 'P0' as const,
   },
