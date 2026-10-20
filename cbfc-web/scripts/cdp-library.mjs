@@ -61,7 +61,8 @@ await sleep(1200);
 body = await text();
 check('点击型号不进入详情', (await evaluate('location.pathname')) === '/library');
 check('型号定位高亮', Boolean(await evaluate(`(() => { const el=document.querySelector('[data-preset-model="STD-PIER-12M"]'); return el && el.className.includes('ring-2'); })()`)));
-check('型号列表仍包含同级型号', body.includes('STD-PIER-8M') && body.includes('STD-PIER-16M'));
+const visiblePresetCards = await evaluate(`[...document.querySelectorAll('main [data-preset-model]')].map((el) => el.getAttribute('data-preset-model'))`);
+check('型号列表仅显示当前型号', visiblePresetCards.length === 1 && visiblePresetCards[0] === 'STD-PIER-12M');
 
 await clickText('返回资产目录');
 await sleep(1200);

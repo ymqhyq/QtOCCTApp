@@ -71,6 +71,8 @@ const familyDetail = ref<ComponentDetail | null>(null);
 const familyLoading = ref(false);
 const familyCache = new Map<string, ComponentDetail>();
 const focusTaxonomy = ref('');
+const taxonomyFilter = ref('');
+const taxonomyFilterLabel = ref('');
 
 const items = computed(() => data.value?.items ?? []);
 const total = computed(() => data.value?.total ?? 0);
@@ -108,10 +110,14 @@ const catalogPresetCount = computed(() => catalog.value.reduce((sum, item) => su
 const catalogParametricCount = computed(() => catalog.value.filter((item) => item.sourceMode === 'parametric').length);
 const resultHeading = computed(() => {
   if (familyFilter.value && selectedFamily.value) return selectedFamily.value.name;
+  if (taxonomyFilter.value) return taxonomyFilterLabel.value || '分类节点构件';
   if (similarTo.value) return `与「${similarReference.value?.name ?? similarTo.value}」几何相似的构件`;
   return '全部构件资产';
 });
-const presetList = computed<Preset[]>(() => familyDetail.value?.parameters.presets ?? []);
+const presetList = computed<Preset[]>(() => {
+  const presets = familyDetail.value?.parameters.presets ?? [];
+  return selectedModel.value ? presets.filter((preset) => preset.modelNumber === selectedModel.value) : presets;
+});
 const familyInputs = computed(() =>
   (familyDetail.value?.parameters.schema ?? []).filter(
     (field) => field.access !== 'out' && field.name !== 'ModelNumber' && field.name !== 'NetVolume',
@@ -215,6 +221,9 @@ const treeRows = computed<TreeRow[]>(() => {
 const activeChips = computed(() => {
   const chips: { key: string; label: string; clear: () => void }[] = [];
   if (q.value) chips.push({ key: 'q', label: `名称/编码 “${q.value}”`, clear: () => { searchInput.value = ''; q.value = ''; page.value = 1; reload(); } });
+  if (taxonomyFilter.value) {
+    chips.push({ key: 'taxonomy', label: `分类：${taxonomyFilterLabel.value || taxonomyFilter.value}`, clear: () => { taxonomyFilter.value = ''; taxonomyFilterLabel.value = ''; page.value = 1; reload(); } });
+  }
   if (similarTo.value) chips.push({ key: 'similar', label: `几何相似：${similarReference.value?.name ?? similarTo.value}`, clear: () => { similarTo.value = ''; page.value = 1; reload(); } });
   if (discipline.value !== 'all') chips.push({ key: 'discipline', label: `专业：${discipline.value}`, clear: () => { discipline.value = 'all'; page.value = 1; reload(); } });
   if (sourceMode.value !== 'all') chips.push({ key: 'source', label: sourceModeMeta(sourceMode.value).label, clear: () => { sourceMode.value = 'all'; page.value = 1; reload(); } });
@@ -230,6 +239,7 @@ let fetchSeq = 0;
 function queryFromState() {
   const query: Record<string, string> = {};
   if (searchMode.value === 'text' && searchInput.value.trim()) query.q = searchInput.value.trim();
+  if (taxonomyFilter.value) query.taxonomy = taxonomyFilter.value;
   if (similarTo.value) query.similarTo = similarTo.value;
   if (discipline.value !== 'all') query.discipline = discipline.value;
   if (sourceMode.value !== 'all') query.sourceMode = sourceMode.value;
@@ -251,6 +261,8 @@ function parseRoute() {
     scheme.value = schemeQuery;
   }
   focusTaxonomy.value = String(query.taxonomy ?? '');
+  taxonomyFilter.value = String(query.taxonomy ?? '');
+  taxonomyFilterLabel.value = '';
   discipline.value = String(query.discipline ?? 'all');
   sourceMode.value = (String(query.sourceMode ?? 'all') as SourceMode | 'all') ?? 'all';
   status.value = query.status
@@ -270,6 +282,8 @@ async function fetchData() {
   try {
     const response = await api.search({
       q: searchMode.value === 'text' ? q.value || undefined : undefined,
+      scheme: scheme.value,
+      taxonomy: taxonomyFilter.value || undefined,
       similarTo: similarTo.value || undefined,
       discipline: discipline.value !== 'all' ? discipline.value : undefined,
       sourceMode: sourceMode.value,
@@ -366,11 +380,16 @@ function collapseTree() {
   expandedTree.value = new Set();
 }
 
-function toggleTree(code: string) {
+function selectTaxonomy(code: string, label: string) {
+  taxonomyFilter.value = code;
+  taxonomyFilterLabel.value = label;
+  familyFilter.value = '';
+  selectedModel.value = '';
   const next = new Set(expandedTree.value);
-  if (next.has(code)) next.delete(code);
-  else next.add(code);
+  next.add(code);
   expandedTree.value = next;
+  page.value = 1;
+  reload();
 }
 
 function toggleFamilyExpand(familyId: string) {
@@ -381,8 +400,14 @@ function toggleFamilyExpand(familyId: string) {
 }
 
 function onSchemeChange() {
+  taxonomyFilter.value = '';
+  taxonomyFilterLabel.value = '';
+  familyFilter.value = '';
+  selectedModel.value = '';
   expandedTree.value = new Set();
+  page.value = 1;
   void nextTick().then(expandTreeAll);
+  reload();
 }
 
 function findTreePath(nodes: AssetTreeNode[], code: string, path: string[] = []): string[] | null {
@@ -390,6 +415,15 @@ function findTreePath(nodes: AssetTreeNode[], code: string, path: string[] = [])
     const next = [...path, node.code];
     if (node.code === code) return next;
     const found = findTreePath(node.children, code, next);
+    if (found) return found;
+  }
+  return null;
+}
+
+function findTreeLabel(nodes: AssetTreeNode[], code: string): string | null {
+  for (const node of nodes) {
+    if (node.code === code) return node.label;
+    const found = findTreeLabel(node.children, code);
     if (found) return found;
   }
   return null;
@@ -426,16 +460,29 @@ async function loadFamilyDetail(familyId: string) {
   }
 }
 
+function syncRouteQuery() {
+  const target = queryFromState();
+  if (JSON.stringify(route.query) !== JSON.stringify(target)) {
+    void router.replace({ query: target });
+  }
+}
+
 async function selectFamily(family: CatalogFamily) {
   familyFilter.value = family.familyId;
+  taxonomyFilter.value = '';
+  taxonomyFilterLabel.value = '';
   selectedModel.value = '';
+  syncRouteQuery();
   expandTreeAll();
   await loadFamilyDetail(family.familyId);
 }
 
 async function selectPreset(family: CatalogFamily, preset: { modelNumber: string }) {
   familyFilter.value = family.familyId;
+  taxonomyFilter.value = '';
+  taxonomyFilterLabel.value = '';
   selectedModel.value = preset.modelNumber;
+  syncRouteQuery();
   expandTreeAll();
   await loadFamilyDetail(family.familyId);
   await nextTick();
@@ -448,6 +495,10 @@ function clearFamilyFilter() {
   familyFilter.value = '';
   selectedModel.value = '';
   familyDetail.value = null;
+  taxonomyFilter.value = '';
+  taxonomyFilterLabel.value = '';
+  page.value = 1;
+  reload();
 }
 
 function openPresetPage(family: CatalogFamily, preset: Preset) {
@@ -535,6 +586,11 @@ function clearAll() {
   discipline.value = 'all';
   sourceMode.value = 'all';
   status.value = defaultStatus.value;
+  taxonomyFilter.value = '';
+  taxonomyFilterLabel.value = '';
+  familyFilter.value = '';
+  selectedModel.value = '';
+  familyDetail.value = null;
   page.value = 1;
   reload();
 }
@@ -561,6 +617,9 @@ onMounted(async () => {
     catalog.value = cat.items;
     expandedFamilies.value = new Set(cat.items.map((family) => family.familyId));
     expandTreeAll();
+    if (taxonomyFilter.value && !taxonomyFilterLabel.value) {
+      taxonomyFilterLabel.value = findTreeLabel(assetTree.value, taxonomyFilter.value) ?? '';
+    }
     if (focusTaxonomy.value) {
       await nextTick();
       focusTreeCode(focusTaxonomy.value);
@@ -609,7 +668,7 @@ onBeforeUnmount(() => {
         <div class="min-h-0 flex-1 overflow-y-auto p-1.5 scroll-thin">
           <button
             class="flex w-full items-center gap-2 rounded-[4px] px-2 py-2 text-left transition-colors"
-            :class="!familyFilter ? 'bg-[#E8EFF4] text-primary' : 'text-[#374151] hover:bg-[#F3F6F8]'"
+            :class="!familyFilter && !taxonomyFilter ? 'bg-[#E8EFF4] text-primary' : 'text-[#374151] hover:bg-[#F3F6F8]'"
             @click="clearFamilyFilter"
           >
             <AppIcon name="layers" :size="13" />
@@ -622,8 +681,9 @@ onBeforeUnmount(() => {
               v-if="row.type === 'category'"
               :data-taxonomy-code="row.code"
               class="flex w-full items-center gap-1 rounded-[4px] px-1 py-1.5 text-left transition-colors hover:bg-[#F3F6F8]"
+              :class="taxonomyFilter === row.code ? 'bg-[#EDF4F8] font-semibold text-primary' : 'text-[#4B5563]'"
               :style="{ paddingLeft: `${6 + row.depth * 12}px` }"
-              @click="toggleTree(row.code)"
+              @click="selectTaxonomy(row.code, row.label)"
             >
               <span class="flex h-4 w-4 shrink-0 items-center justify-center text-[#9CA3AF]">
                 <AppIcon :name="expandedTree.has(row.code) ? 'chevronDown' : 'chevronRight'" :size="10" />
