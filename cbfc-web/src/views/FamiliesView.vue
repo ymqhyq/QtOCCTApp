@@ -496,7 +496,7 @@ function presetSummary(family: FamilyAdminView, preset: Preset) {
       </div>
       <template #footer>
         <div class="flex items-center justify-between gap-2">
-          <span class="text-[9.5px] text-[#9CA3AF]">保存时服务端重新构建几何、体积与权威缓存键</span>
+          <span class="text-[9.5px] text-[#9CA3AF]">保存时重新计算几何、体积与缓存键</span>
           <div class="flex gap-2">
             <button class="btn btn-outline btn-sm" @click="presetOpen = false">取消</button>
             <button class="btn btn-primary btn-sm" :disabled="busy" @click="savePreset">

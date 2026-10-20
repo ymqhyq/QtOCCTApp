@@ -27,7 +27,7 @@ const stats = [
   { value: '24', label: '纳管构件' },
   { value: '6/6', label: '门禁通过' },
   { value: '≤ 300ms', label: '检索 P95' },
-  { value: '100%', label: '零拷贝解码' },
+  { value: '100%', label: '模型解码成功' },
 ];
 
 async function enter(role: string) {
@@ -141,7 +141,7 @@ const currentYear = computed(() => new Date().getFullYear());
           </p>
           <ul class="mt-1.5 space-y-1 text-[9.5px] leading-relaxed text-muted">
             <li>· 无需密码，身份仅用于演示 RBAC 权限边界与差异化工作台。</li>
-            <li>· 构件几何、体积与 cacheKey 均由服务端实时计算，非静态截图。</li>
+            <li>· 构件几何、体积与模型数据均为运行时真实计算，非静态截图。</li>
             <li>· 可在顶栏头像菜单中随时切换身份。</li>
           </ul>
         </div>

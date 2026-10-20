@@ -652,7 +652,7 @@ onBeforeUnmount(() => {
               <span v-if="decoded" class="tag mono">{{ decoded.header.protocolVersion }}</span>
             </div>
             <p class="mt-1.5 text-[9px] leading-relaxed text-[#9CA3AF]">
-              服务端为算键唯一权威源；客户端仅提交业务参数，不参与 cacheKey 计算。
+              参数提交后自动刷新缓存键。
             </p>
           </div>
         </div>

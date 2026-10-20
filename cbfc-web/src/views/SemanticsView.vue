@@ -96,7 +96,7 @@ async function runSandbox() {
     sandboxProfile.value = result.profile;
     sandboxAt.value = result.resolvedAt;
   } catch (error) {
-    ui.notify({ type: 'error', title: '服务端推演失败', message: String(error) });
+    ui.notify({ type: 'error', title: '推演失败', message: String(error) });
   } finally {
     sandboxLoading.value = false;
   }
@@ -118,7 +118,7 @@ async function previewComponent() {
       ui.notify({
         type: 'info',
         title: '权威推演完成',
-        message: `${result.mappings.length} 个部位，${result.unmapped.length} 项 unmapped（由服务端 Resolver 执行）。`,
+        message: `${result.mappings.length} 个部位，${result.unmapped.length} 项 unmapped（由标准解析引擎执行）。`,
       });
     }
   } catch (error) {
@@ -161,7 +161,7 @@ async function commitRules(rules: SemanticProfileRule[]) {
     editing.value = null;
     systemConfirmOpen.value = false;
     await runSandbox();
-    ui.notify({ type: 'success', title: '映射规则已保存', message: `服务端 Resolver 已刷新，当前存在 ${profile.value.unmappedCount} 项 unmapped。` });
+    ui.notify({ type: 'success', title: '映射规则已保存', message: `解析规则已刷新，当前存在 ${profile.value.unmappedCount} 项 unmapped。` });
   } catch (error) {
     ui.notify({ type: 'error', title: '保存失败', message: String(error) });
   } finally {
@@ -399,7 +399,7 @@ watch(
                 </div>
                 <button class="btn btn-primary btn-sm" :disabled="sandboxLoading" @click="previewComponent">
                   <span v-if="sandboxLoading" class="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <AppIcon v-else name="play" :size="12" />执行服务端推演
+                  <AppIcon v-else name="play" :size="12" />执行语义推演
                 </button>
                 <button class="btn btn-outline btn-sm" :disabled="sandboxLoading" @click="runSandbox">
                   <AppIcon name="refresh" :size="12" />全量语义码扫描
@@ -533,7 +533,7 @@ watch(
       </div>
       <template #footer>
         <div class="flex items-center justify-between">
-          <p class="text-[9.5px] text-muted">保存后由服务端 Resolver 立即生效</p>
+          <p class="text-[9.5px] text-muted">保存后立即生效</p>
           <div class="flex items-center gap-2">
             <button class="btn btn-ghost btn-sm" @click="editing = null">取消</button>
             <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveRule">

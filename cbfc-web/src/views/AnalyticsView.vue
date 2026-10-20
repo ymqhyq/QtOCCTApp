@@ -204,7 +204,7 @@ onMounted(load);
         <div class="panel p-3.5">
           <div class="flex items-center justify-between">
             <div>
-              <p class="section-title">几何 Worker 求解时延分布</p>
+              <p class="section-title">几何求解时延分布</p>
               <p class="mt-0.5 text-[10.5px] text-muted">条形长度按调用次数 · 标签显示各区间 P95 耗时</p>
             </div>
             <StatusBadge tone="info" label="876 次任务" :dot="false" />

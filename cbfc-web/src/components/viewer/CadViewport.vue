@@ -331,7 +331,7 @@ defineExpose({
             <div class="h-full rounded-full bg-hl transition-all duration-500" :style="{ width: `${Math.max(6, progress)}%` }" />
           </div>
           <div class="mt-1.5 flex items-center justify-between font-mono text-[9.5px] text-[#64748B]">
-            <span>{{ status === 'detached_computing' ? '后台脱机计算' : 'JHB STREAM' }}</span>
+            <span>{{ status === 'detached_computing' ? '后台计算' : '几何求解' }}</span>
             <span>{{ progress }}%</span>
           </div>
         </div>

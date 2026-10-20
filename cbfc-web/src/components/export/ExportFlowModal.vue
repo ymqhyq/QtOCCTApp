@@ -434,7 +434,7 @@ async function copyChecksum() {
             <button class="btn btn-outline" @click="createTicket">
               <AppIcon name="refresh" :size="13" />重新签发凭据
             </button>
-            <span class="text-[10px] text-muted">直传 TTFB &lt; 500ms · 凭据 15 分钟有效</span>
+            <span class="text-[10px] text-muted">下载凭据 15 分钟有效</span>
           </div>
 
           <div class="rounded-md border border-line bg-[#FAFBFC] p-3">

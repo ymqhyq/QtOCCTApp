@@ -576,7 +576,7 @@ function onDrop(event: DragEvent) {
   ui.notify({
     type: 'info',
     title: '已接收几何文件',
-    message: `${file.name}（${(file.size / 1024 / 1024).toFixed(2)} MB）\n外部文件特征提取需 OCCT Worker；当前请选择参考构件执行几何相似检索。`,
+    message: `${file.name}（${(file.size / 1024 / 1024).toFixed(2)} MB）\n外部文件解析暂未开放；当前请选择参考构件执行几何相似检索。`,
   });
 }
 
@@ -932,7 +932,7 @@ onBeforeUnmount(() => {
               @dragleave="dragOver = false"
               @drop.prevent="onDrop"
             >
-              <AppIcon name="upload" :size="11" />拖入 .step/.cbf 需 OCCT Worker
+              <AppIcon name="upload" :size="11" />外部文件解析暂未开放
             </div>
           </div>
 

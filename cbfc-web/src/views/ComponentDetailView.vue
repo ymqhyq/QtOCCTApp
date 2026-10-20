@@ -637,11 +637,6 @@ onMounted(async () => {
             >{{ tab.count }}</span>
             <span v-if="activeTab === tab.id" class="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-primary" />
           </button>
-          <div class="flex-1" />
-          <span class="hidden items-center gap-1 pr-2 text-[9px] text-[#9CA3AF] sm:flex">
-            <AppIcon name="info" :size="10" />
-            全部数据由服务端权威接口返回
-          </span>
         </div>
 
         <!-- Tab 1 -->
@@ -874,7 +869,7 @@ onMounted(async () => {
         <div v-else-if="activeTab === 'projection'" class="p-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-[11px] text-muted">
-              服务端网格 HLR 消隐投影 · 第一角法 · 主/俯/左视图与轴测图
+              第一角法 · 主/俯/左视图与轴测图
             </p>
             <div class="flex flex-wrap items-center gap-1.5">
               <button
@@ -916,13 +911,6 @@ onMounted(async () => {
               loading="lazy"
             />
           </div>
-          <p class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9.5px] text-[#9CA3AF]">
-            <span>实线 = 可见轮廓</span>
-            <span>虚线 = 消隐轮廓</span>
-            <span>尺寸单位 mm</span>
-            <span>图像上方 = 模型 +Z</span>
-            <span class="mono">生成端点 /projection.svg</span>
-          </p>
         </div>
 
         <!-- Tab 5 -->
