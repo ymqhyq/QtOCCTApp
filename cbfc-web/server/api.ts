@@ -22,7 +22,7 @@ import type {
   UserSession,
 } from '../shared/types';
 import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
-import { buildMesh } from './geometry';
+import { buildMesh, type MeshData } from './geometry';
 import { renderProjectionSvg, type ProjectionView } from './projection';
 import {
   addPreset,
@@ -412,6 +412,48 @@ function jobView(job: InternalJob) {
 
 function findComponent(state: AppState, id: string): InternalComponent | undefined {
   return state.components.find((c) => c.familyId === id || c.componentId === id);
+}
+
+/** 演示：按版本序号生成可区分的几何快照（生产环境应读取真实历史 JHB） */
+function versionMesh(mesh: MeshData, factor: number): MeshData {
+  if (factor === 1) return mesh;
+  const center = [
+    (mesh.bounds.min[0] + mesh.bounds.max[0]) / 2,
+    (mesh.bounds.min[1] + mesh.bounds.max[1]) / 2,
+    (mesh.bounds.min[2] + mesh.bounds.max[2]) / 2,
+  ];
+  const positions = new Float32Array(mesh.positions.length);
+  for (let i = 0; i < mesh.positions.length; i += 3) {
+    positions[i] = (mesh.positions[i] - center[0]) * factor + center[0];
+    positions[i + 1] = (mesh.positions[i + 1] - center[1]) * factor + center[1];
+    positions[i + 2] = (mesh.positions[i + 2] - center[2]) * factor + center[2];
+  }
+  const edges = new Float32Array(mesh.edges.length);
+  for (let i = 0; i < mesh.edges.length; i += 3) {
+    edges[i] = (mesh.edges[i] - center[0]) * factor + center[0];
+    edges[i + 1] = (mesh.edges[i + 1] - center[1]) * factor + center[1];
+    edges[i + 2] = (mesh.edges[i + 2] - center[2]) * factor + center[2];
+  }
+  return {
+    ...mesh,
+    positions,
+    edges,
+    bounds: {
+      min: [
+        (mesh.bounds.min[0] - center[0]) * factor + center[0],
+        (mesh.bounds.min[1] - center[1]) * factor + center[1],
+        (mesh.bounds.min[2] - center[2]) * factor + center[2],
+      ],
+      max: [
+        (mesh.bounds.max[0] - center[0]) * factor + center[0],
+        (mesh.bounds.max[1] - center[1]) * factor + center[1],
+        (mesh.bounds.max[2] - center[2]) * factor + center[2],
+      ],
+    },
+    volumeMm3: mesh.volumeMm3 * factor ** 3,
+    areaMm2: mesh.areaMm2 * factor ** 2,
+    faceGroups: mesh.faceGroups.map((group) => ({ ...group, areaMm2: group.areaMm2 * factor ** 2 })),
+  };
 }
 
 function accessible(user: UserSession, component: InternalComponent): boolean {
@@ -1178,6 +1220,28 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         };
       });
       json(res, 200, { familyId: component.familyId, formats });
+      return true;
+    }
+
+    // ---------------- 版本几何快照 ----------------
+    const versionGeometryMatch = /^\/api\/v1\/components\/([^/]+)\/versions\/([^/]+)\/geometry$/.exec(path);
+    if (versionGeometryMatch && method === 'GET') {
+      const component = findComponent(state, decodeURIComponent(versionGeometryMatch[1]));
+      if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权访问该构件版本几何'), true;
+      const version = decodeURIComponent(versionGeometryMatch[2]);
+      const versionIndex = component.changelog.findIndex((entry) => entry.version === version);
+      if (versionIndex < 0) return fail(res, 404, 'VERSION_NOT_FOUND', '版本记录不存在'), true;
+      const entry = component.changelog[versionIndex];
+      const factor = versionIndex === 0 ? 1 : Math.min(1.24, 1 + versionIndex * 0.08);
+      const mesh = versionMesh(component.mesh, factor);
+      const jhb = makeJhb(component, {}, entry.cacheKey, mesh);
+      binary(res, 200, new Uint8Array(jhb.buffer), 'application/x-cbf-jhb', undefined, {
+        'X-Cache-Key': entry.cacheKey,
+        'X-Version': version,
+        'X-Json-Len': String(jhb.jsonLen),
+        'X-Payload-Start': String(jhb.payloadStart),
+      });
       return true;
     }
 

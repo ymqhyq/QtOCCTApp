@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -8,6 +8,7 @@ import ExportFlowModal from '@/components/export/ExportFlowModal.vue';
 import { api } from '@/api/client';
 import type { ComponentDetail, SemanticMapping, SemanticProfile } from '@/api/types';
 import { useEvaluation } from '@/composables/useEvaluation';
+import { decodeJhb, type DecodedJhb } from '@/jhb/decode';
 import { useCompareStore } from '@/stores/compare';
 import { useSessionStore } from '@/stores/session';
 import { useUiStore } from '@/stores/ui';
@@ -77,6 +78,10 @@ const exportOpen = ref(false);
 const exportFormat = ref('cbfc');
 const ifcBusy = ref(false);
 const selectedVersion = ref<string | null>(null);
+const versionCompareActive = ref(false);
+const versionCompareLoading = ref(false);
+const versionCompareOld = ref<DecodedJhb | null>(null);
+const versionCompareNew = ref<DecodedJhb | null>(null);
 const selectedModel = ref('');
 
 const evaluation = useEvaluation();
@@ -162,6 +167,13 @@ const currentVersionEntry = computed(() => detail.value?.changelog[0] ?? null);
 const comparedVersion = computed(
   () => detail.value?.changelog.find((c) => c.version === selectedVersion.value) ?? null,
 );
+const canCompareVersion = computed(
+  () => Boolean(comparedVersion.value && currentVersionEntry.value && comparedVersion.value.version !== currentVersionEntry.value.version),
+);
+const viewportDecoded = computed(() =>
+  versionCompareActive.value ? versionCompareNew.value ?? decoded.value : decoded.value,
+);
+const viewportCompareDecoded = computed(() => (versionCompareActive.value ? versionCompareOld.value : null));
 const cacheKey = computed(() => decoded.value?.header.cache_key ?? detail.value?.geometry.defaultCacheKey ?? '');
 const activeDecoded = computed(() => decoded.value);
 
@@ -269,17 +281,30 @@ function addCompare() {
   }
 }
 
-function startGeometryDiff() {
-  if (!detail.value) return;
-  if (session.canReview) {
-    router.push({ path: '/reviews', query: { familyId: detail.value.familyId } });
-  } else {
-    ui.notify({
-      type: 'info',
-      title: '已创建版本对比申请',
-      message: '几何重叠对比由标准化审查专家在审核工作台执行，已通知复核人。',
-    });
+async function startGeometryDiff() {
+  if (!detail.value || !comparedVersion.value || !currentVersionEntry.value || !canCompareVersion.value) return;
+  versionCompareLoading.value = true;
+  try {
+    const [oldBuffer, newBuffer] = await Promise.all([
+      api.versionGeometry(detail.value.familyId, comparedVersion.value.version),
+      api.versionGeometry(detail.value.familyId, currentVersionEntry.value.version),
+    ]);
+    versionCompareOld.value = decodeJhb(oldBuffer);
+    versionCompareNew.value = decodeJhb(newBuffer);
+    versionCompareActive.value = true;
+    await nextTick();
+    document.getElementById('detail-viewport')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (error) {
+    ui.notify({ type: 'error', title: '版本几何加载失败', message: String(error) });
+  } finally {
+    versionCompareLoading.value = false;
   }
+}
+
+function exitGeometryDiff() {
+  versionCompareActive.value = false;
+  versionCompareOld.value = null;
+  versionCompareNew.value = null;
 }
 
 watch(selectedProfile, () => void loadSemantics());
@@ -386,17 +411,33 @@ onMounted(async () => {
       <!-- 首屏：视口 + Sticky 动作栏 -->
       <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div class="min-w-0">
-          <div class="panel relative h-[420px] overflow-hidden lg:h-[540px]">
+          <div id="detail-viewport" class="panel relative h-[420px] overflow-hidden lg:h-[540px]">
             <CadViewport
-              :decoded="decoded"
-              :status="status"
-              :progress="progress"
+              :decoded="viewportDecoded"
+              :compare-decoded="viewportCompareDecoded"
+              :status="versionCompareActive ? 'succeeded' : status"
+              :progress="versionCompareActive ? 100 : progress"
               :error="evalError"
               :highlight-shape="selectedShape?.index ?? null"
               :shape-labels="shapeLabels"
-              :hud="canSeeGovernance"
+              :hud="canSeeGovernance && !versionCompareActive"
               @pick="(info) => (selectedShapeKey = info?.shapeKey ?? null)"
             />
+            <div
+              v-if="versionCompareActive"
+              class="pointer-events-auto absolute left-3 top-14 z-20 max-w-[300px] rounded-md border border-hl/30 bg-[#0F1A2B]/95 px-3 py-2 shadow-lift"
+            >
+              <p class="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wider text-hl">
+                <AppIcon name="gitCompare" :size="11" />版本几何对比中
+              </p>
+              <p class="mt-1 text-[11px] text-white">
+                v{{ comparedVersion?.version }} <span class="text-[#64748B]">→</span> v{{ currentVersionEntry?.version }}
+              </p>
+              <p class="mt-0.5 text-[9px] leading-relaxed text-[#94A3B8]">旧版半透明 · 新版实体叠加</p>
+              <button class="mt-2 rounded border border-white/15 px-2 py-1 text-[10px] text-[#CBD5E1] hover:border-white/30 hover:text-white" @click="exitGeometryDiff">
+                退出对比
+              </button>
+            </div>
           </div>
 
           <div v-if="selectedShape" class="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-[#C9DCE6] bg-[#F3F8FB] px-3 py-2">
@@ -886,12 +927,7 @@ onMounted(async () => {
 
         <!-- Tab 5 -->
         <div v-else class="p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-[11px] text-muted">SemVer 版本演进与权威缓存键变更审计</p>
-            <button class="btn btn-outline btn-sm" @click="startGeometryDiff">
-              <AppIcon name="gitCompare" :size="12" />发起 3D 几何重叠对比
-            </button>
-          </div>
+          <p class="text-[11px] text-muted">SemVer 版本演进与权威缓存键变更审计</p>
 
           <div class="mt-3 grid gap-3 lg:grid-cols-[1.3fr_1fr]">
             <div class="relative space-y-0">
@@ -955,12 +991,18 @@ onMounted(async () => {
                   <div><dt class="text-muted">旧缓存键</dt><dd class="mono mt-0.5 break-all text-[8.5px]">{{ comparedVersion.cacheKey }}</dd></div>
                   <div><dt class="text-muted">新缓存键</dt><dd class="mono mt-0.5 break-all text-[8.5px]">{{ currentVersionEntry?.cacheKey }}</dd></div>
                 </dl>
-                <button class="btn btn-primary btn-sm w-full" @click="startGeometryDiff">
-                  <AppIcon name="gitCompare" :size="12" />在审核工作台发起几何差异对比
+                <button
+                  class="btn btn-primary btn-sm w-full"
+                  :disabled="!canCompareVersion || versionCompareLoading"
+                  @click="startGeometryDiff"
+                >
+                  <span v-if="versionCompareLoading" class="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  <AppIcon v-else name="gitCompare" :size="12" />
+                  {{ versionCompareLoading ? '正在加载版本几何…' : '几何对比' }}
                 </button>
               </div>
               <p v-else class="mt-2 text-[10.5px] leading-relaxed text-muted">
-                选择左侧任意历史版本，查看缓存键与变更摘要，并可发起 3D 几何重叠对比。
+                选择左侧任意历史版本，查看缓存键与变更摘要；点击“几何对比”进入 3D 视图比较该版本与当前版本。
               </p>
             </div>
           </div>

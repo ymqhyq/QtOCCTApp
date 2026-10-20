@@ -165,6 +165,14 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, 'JOB_RESULT_FAILED', '任务结果获取失败');
     return response.arrayBuffer();
   },
+  async versionGeometry(familyId: string, version: string): Promise<ArrayBuffer> {
+    const response = await fetch(
+      `/api/v1/components/${encodeURIComponent(familyId)}/versions/${encodeURIComponent(version)}/geometry`,
+      { headers: authHeaders() },
+    );
+    if (!response.ok) throw new ApiError(response.status, 'VERSION_GEOMETRY_FAILED', '版本几何加载失败');
+    return response.arrayBuffer();
+  },
   reviews() {
     return request<{ items: ReviewQueueItem[]; total: number }>('/api/v1/reviews');
   },
