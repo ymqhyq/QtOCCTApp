@@ -418,9 +418,9 @@ onBeforeUnmount(() => {
 
           <div v-if="current.paramDiff.length" class="border-b border-line p-3">
             <p class="eyebrow">参数默认值 Diff</p>
-            <table class="mt-1.5 w-full text-[10.5px]">
+            <table class="mt-1.5 w-full text-[12px]">
               <thead>
-                <tr class="text-[8.5px] uppercase tracking-wider text-[#9CA3AF]">
+                <tr class="text-[11px] uppercase tracking-wider text-[#9CA3AF]">
                   <th class="pb-1 text-left font-medium">参数</th>
                   <th class="pb-1 text-right font-medium">旧版</th>
                   <th class="pb-1 text-right font-medium">新版</th>
@@ -434,13 +434,13 @@ onBeforeUnmount(() => {
                   :class="param.changed ? 'bg-[#FFFBEB]' : ''"
                 >
                   <td class="py-1">
-                    <p class="text-[#374151]">{{ param.label }}</p>
-                    <p class="font-mono text-[8px] text-[#9CA3AF]">{{ param.name }}</p>
+                    <p class="text-[12px] text-[#374151]">{{ param.label }}</p>
+                    <p class="font-mono text-[11px] text-[#9CA3AF]">{{ param.name }}</p>
                   </td>
-                  <td class="py-1 text-right font-mono" :class="param.changed ? 'text-[#92400E] line-through' : 'text-muted'">
+                  <td class="py-1 text-right font-mono text-[12px]" :class="param.changed ? 'text-[#92400E] line-through' : 'text-muted'">
                     {{ param.from }}
                   </td>
-                  <td class="py-1 text-right font-mono font-medium" :class="param.changed ? 'text-warning' : 'text-ink'">
+                  <td class="py-1 text-right font-mono text-[12px] font-medium" :class="param.changed ? 'text-warning' : 'text-ink'">
                     {{ param.to }}
                   </td>
                 </tr>

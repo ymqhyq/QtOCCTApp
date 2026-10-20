@@ -359,13 +359,13 @@ watch(
                 </thead>
                 <tbody>
                   <tr v-for="rule in filteredRules" :key="rule.code">
-                    <td class="mono whitespace-nowrap text-[10px] font-medium text-ink">{{ rule.code }}</td>
-                    <td class="min-w-[130px] text-[10.5px] text-[#374151]">{{ rule.name }}</td>
-                    <td class="whitespace-nowrap text-[10px] text-[#374151]">{{ rule.crbim }}</td>
-                    <td class="whitespace-nowrap text-[10px] text-[#374151]">{{ rule.gb51269 ?? '—' }}</td>
-                    <td class="mono whitespace-nowrap text-[10px] text-[#1D4ED8]">{{ rule.ifc.entity }}</td>
-                    <td class="mono whitespace-nowrap text-[9.5px] text-[#374151]">{{ rule.ifc.shapeAspect }}</td>
-                    <td class="mono whitespace-nowrap text-[9px] text-muted">{{ rule.qto ?? '—' }}</td>
+                    <td class="mono whitespace-nowrap text-[12px] font-medium text-ink">{{ rule.code }}</td>
+                    <td class="min-w-[130px] text-[12px] text-[#374151]">{{ rule.name }}</td>
+                    <td class="whitespace-nowrap text-[11.5px] text-[#374151]">{{ rule.crbim }}</td>
+                    <td class="whitespace-nowrap text-[11.5px] text-[#374151]">{{ rule.gb51269 ?? '—' }}</td>
+                    <td class="mono whitespace-nowrap text-[11.5px] font-medium text-[#1D4ED8]">{{ rule.ifc.entity }}</td>
+                    <td class="mono whitespace-nowrap text-[11px] text-[#374151]">{{ rule.ifc.shapeAspect }}</td>
+                    <td class="mono whitespace-nowrap text-[11px] text-muted">{{ rule.qto ?? '—' }}</td>
                     <td class="text-right">
                       <button
                         class="btn btn-ghost btn-sm"
@@ -378,7 +378,7 @@ watch(
                     </td>
                   </tr>
                   <tr v-if="!filteredRules.length">
-                    <td colspan="8" class="py-8 text-center text-[11px] text-muted">未找到匹配规则</td>
+                    <td colspan="8" class="py-8 text-center text-[12px] text-muted">未找到匹配规则</td>
                   </tr>
                 </tbody>
               </table>
@@ -442,11 +442,11 @@ watch(
                     <tbody>
                       <tr v-for="mapping in displaySandboxMappings" :key="mapping.shapeKey" :class="mapping.status === 'unmapped' ? 'bg-[#FFFBEB]' : ''">
                         <td>
-                          <p class="mono text-[10px] font-medium text-ink">{{ mapping.shapeKey }}</p>
-                          <p class="mono text-[8.5px] text-[#9CA3AF]">{{ mapping.code }}</p>
+                          <p class="mono text-[12px] font-medium text-ink">{{ mapping.shapeKey }}</p>
+                          <p class="mono text-[11px] text-[#9CA3AF]">{{ mapping.code }}</p>
                         </td>
-                        <td class="mono text-[9.5px] text-[#374151]">{{ mapping.ifc?.entity ?? '—' }}</td>
-                        <td class="text-[9.5px] text-[#374151]">{{ mapping.crbim ?? '—' }}</td>
+                        <td class="mono text-[11.5px] text-[#374151]">{{ mapping.ifc?.entity ?? '—' }}</td>
+                        <td class="text-[11.5px] text-[#374151]">{{ mapping.crbim ?? '—' }}</td>
                         <td>
                           <StatusBadge
                             :tone="mapping.status === 'unmapped' ? 'warning' : 'success'"
@@ -455,7 +455,7 @@ watch(
                         </td>
                       </tr>
                       <tr v-if="!displaySandboxMappings.length">
-                        <td colspan="4" class="py-6 text-center text-[10.5px] text-muted">当前筛选无映射记录</td>
+                        <td colspan="4" class="py-6 text-center text-[12px] text-muted">当前筛选无映射记录</td>
                       </tr>
                     </tbody>
                   </table>
@@ -501,7 +501,7 @@ watch(
       <div v-if="editing" class="grid gap-3 p-4 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label class="label">语义码 (code)</label>
-          <input v-model="editing.code" class="input mono !text-[11px]" readonly />
+          <input v-model="editing.code" class="input mono !text-[12.5px]" readonly />
         </div>
         <div>
           <label class="label">部位名称</label>
@@ -517,23 +517,23 @@ watch(
         </div>
         <div>
           <label class="label">IFC 实体</label>
-          <input v-model="editing.ifc.entity" class="input mono !text-[11px]" placeholder="IfcColumn" />
+          <input v-model="editing.ifc.entity" class="input mono !text-[12.5px]" placeholder="IfcColumn" />
         </div>
         <div>
           <label class="label">IfcShapeAspect</label>
-          <input v-model="editing.ifc.shapeAspect" class="input mono !text-[11px]" placeholder="IfcColumnBody#PierBodySolid" />
+          <input v-model="editing.ifc.shapeAspect" class="input mono !text-[12.5px]" placeholder="IfcColumnBody#PierBodySolid" />
         </div>
         <div>
           <label class="label">算量集 (Qto)</label>
-          <input v-model="editing.qto" class="input mono !text-[11px]" placeholder="Qto_ColumnBaseQuantities" />
+          <input v-model="editing.qto" class="input mono !text-[12.5px]" placeholder="Qto_ColumnBaseQuantities" />
         </div>
-        <p class="sm:col-span-2 rounded border border-[#FDE68A] bg-[#FFFBEB] px-2 py-1.5 text-[9.5px] leading-relaxed text-[#92400E]">
+        <p class="sm:col-span-2 rounded border border-[#FDE68A] bg-[#FFFBEB] px-2 py-1.5 text-[11px] leading-relaxed text-[#92400E]">
           修改将立即影响该模板下所有构件的语义呈现与 IFC 导出，不要求构件工程师重新打包 .cbfc。
         </p>
       </div>
       <template #footer>
         <div class="flex items-center justify-between">
-          <p class="text-[9.5px] text-muted">保存后立即生效</p>
+          <p class="text-[11px] text-muted">保存后立即生效</p>
           <div class="flex items-center gap-2">
             <button class="btn btn-ghost btn-sm" @click="editing = null">取消</button>
             <button class="btn btn-primary btn-sm" :disabled="saving" @click="saveRule">

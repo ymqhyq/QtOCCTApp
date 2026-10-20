@@ -62,7 +62,7 @@ function openDetail(familyId: string) {
         <table class="w-full border-collapse text-[12px]">
           <thead>
             <tr>
-              <th class="w-[150px] border-b border-line px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
+              <th class="w-[150px] border-b border-line px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
                 对比维度
               </th>
               <th
@@ -78,7 +78,7 @@ function openDetail(familyId: string) {
                     <button class="block truncate text-left text-[12.5px] font-semibold text-ink hover:text-primary" @click="openDetail(item.familyId)">
                       {{ item.name }}
                     </button>
-                    <span class="mt-0.5 block font-mono text-[10px] text-muted">{{ item.drawingCode }}</span>
+                    <span class="mt-0.5 block font-mono text-[11px] text-muted">{{ item.drawingCode }}</span>
                     <StatusBadge
                       class="mt-1"
                       :tone="componentStatusMeta(item.status).tone"
@@ -93,15 +93,15 @@ function openDetail(familyId: string) {
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">分类 / 编码</td>
               <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2">
-                <p class="text-[11.5px] text-ink">{{ item.taxonomy.crbim }} · {{ item.category }}</p>
-                <p class="mt-0.5 font-mono text-[10px] text-muted">{{ item.semanticCode }}</p>
+                <p class="text-[12px] text-ink">{{ item.taxonomy.crbim }} · {{ item.category }}</p>
+                <p class="mt-0.5 font-mono text-[11px] text-muted">{{ item.semanticCode }}</p>
               </td>
             </tr>
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">构件能力</td>
               <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2">
                 <StatusBadge :tone="sourceModeMeta(item.sourceMode).tone" :label="sourceModeMeta(item.sourceMode).label" :dot="false" />
-                <span class="ml-1.5 text-[10.5px] text-muted">{{ item.engine }}</span>
+                <span class="ml-1.5 text-[11.5px] text-muted">{{ item.engine }}</span>
               </td>
             </tr>
             <tr>
@@ -118,7 +118,7 @@ function openDetail(familyId: string) {
             </tr>
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">包围盒 高 / 长 / 宽</td>
-              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[11px] text-[#374151]">
+              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[12px] text-[#374151]">
                 {{ formatNumber(item.dims.height / 1000, 2) }} / {{ formatNumber(item.dims.length / 1000, 2) }} /
                 {{ formatNumber(item.dims.width / 1000, 2) }} m
               </td>
@@ -126,32 +126,32 @@ function openDetail(familyId: string) {
             <tr v-for="key in paramKeys" :key="key">
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">
                 {{ labelFor(key) }}
-                <span class="ml-1 font-mono text-[9.5px] text-[#B0B8C1]">{{ key }}</span>
+                <span class="ml-1 font-mono text-[11px] text-[#B0B8C1]">{{ key }}</span>
               </td>
-              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[11.5px] text-ink">
+              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[12px] text-ink">
                 {{ item.keyParams[key] ?? '—' }}
               </td>
             </tr>
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">拓扑规模</td>
-              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[11px] text-[#374151]">
+              <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2 font-mono text-[12px] text-[#374151]">
                 {{ formatNumber(item.geometry.vertices) }} 顶点 / {{ formatNumber(item.geometry.triangles) }} 面片
               </td>
             </tr>
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">质检 / 命中</td>
               <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2">
-                <span class="inline-flex items-center gap-1 text-[11.5px]" :class="item.qa.passed ? 'text-success' : 'text-danger'">
+                <span class="inline-flex items-center gap-1 text-[12px]" :class="item.qa.passed ? 'text-success' : 'text-danger'">
                   <AppIcon :name="item.qa.passed ? 'checkCircle' : 'xCircle'" :size="13" />
                   {{ item.qa.passed ? '6/6 门禁通过' : '门禁未通过' }}
                 </span>
-                <span class="ml-2 mono text-[10.5px] text-muted">{{ item.qa.score }} 分</span>
+                <span class="ml-2 mono text-[11px] text-muted">{{ item.qa.score }} 分</span>
               </td>
             </tr>
             <tr>
               <td class="border-b border-[#F0F2F5] px-3 py-2 text-muted">权威 cacheKey</td>
               <td v-for="item in items" :key="item.familyId" class="border-b border-l border-[#F0F2F5] px-3 py-2">
-                <span class="mono text-[10px] text-[#4B5563]" :title="item.geometry.defaultCacheKey">
+                <span class="mono text-[11.5px] text-[#4B5563]" :title="item.geometry.defaultCacheKey">
                   {{ maskKey(item.geometry.defaultCacheKey, 12, 6) }}
                 </span>
               </td>

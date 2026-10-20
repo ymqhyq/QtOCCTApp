@@ -1075,26 +1075,26 @@ onBeforeUnmount(() => {
                       </button>
                     </td>
                     <td>
-                      <RouterLink :to="`/components/${item.familyId}`" class="font-medium text-ink hover:text-primary">{{ cleanDisplayName(item.name) }}</RouterLink>
-                      <p class="mono text-[10px] text-muted">{{ item.drawingCode }} · v{{ item.revision }}</p>
+                      <RouterLink :to="`/components/${item.familyId}`" class="text-[13px] font-medium text-ink hover:text-primary">{{ cleanDisplayName(item.name) }}</RouterLink>
+                      <p class="mono text-[11px] text-muted">{{ item.drawingCode }} · v{{ item.revision }}</p>
                     </td>
                     <td>
-                      <p class="font-mono text-[10.5px] text-[#374151]">{{ item.taxonomy.crbim }}</p>
-                      <p class="text-[10px] text-muted">{{ item.category }}</p>
+                      <p class="font-mono text-[12px] text-[#374151]">{{ item.taxonomy.crbim }}</p>
+                      <p class="text-[11px] text-muted">{{ item.category }}</p>
                     </td>
-                    <td class="text-[10.5px]">{{ item.discipline ?? '—' }}</td>
+                    <td class="text-[12px]">{{ item.discipline ?? '—' }}</td>
                     <td>
                       <StatusBadge :tone="sourceModeMeta(item.sourceMode).tone" :label="sourceModeMeta(item.sourceMode).label" :dot="false" />
                     </td>
                     <td v-if="similarTo" class="text-right">
-                      <span class="mono rounded bg-[#EDF4F8] px-1.5 py-[1px] text-[10px] font-semibold text-primary">{{ item.similarity ?? 0 }}%</span>
+                      <span class="mono rounded bg-[#EDF4F8] px-1.5 py-[1px] text-[11px] font-semibold text-primary">{{ item.similarity ?? 0 }}%</span>
                     </td>
-                    <td class="text-right font-mono text-[11px]">{{ formatNumber(item.geometry.volumeM3, 2) }} m³</td>
-                    <td class="text-right font-mono text-[11px]">{{ formatNumber(item.dims.height / 1000, 2) }} m</td>
+                    <td class="text-right font-mono text-[12px]">{{ formatNumber(item.geometry.volumeM3, 2) }} m³</td>
+                    <td class="text-right font-mono text-[12px]">{{ formatNumber(item.dims.height / 1000, 2) }} m</td>
                     <td>
                       <StatusBadge :tone="componentStatusMeta(item.status).tone" :label="componentStatusMeta(item.status).label" />
                     </td>
-                    <td class="font-mono text-[10px] text-muted">{{ formatDate(item.updatedAt) }}</td>
+                    <td class="font-mono text-[11.5px] text-muted">{{ formatDate(item.updatedAt) }}</td>
                     <td>
                       <div class="flex items-center justify-end gap-1">
                         <button class="btn btn-ghost btn-sm w-7 justify-center !px-0" title="加入对比" @click="compare.toggle(item)">

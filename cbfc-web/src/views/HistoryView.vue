@@ -80,22 +80,22 @@ onMounted(load);
         </thead>
         <tbody>
           <tr v-for="entry in filtered" :key="entry.id">
-            <td class="whitespace-nowrap font-mono text-[9.5px] text-muted">{{ formatDateTime(entry.at) }}</td>
+            <td class="whitespace-nowrap font-mono text-[12px] text-muted">{{ formatDateTime(entry.at) }}</td>
             <td>
-              <span class="inline-flex items-center gap-1 text-[10.5px]" :class="actionMeta[entry.action]?.tone">
-                <AppIcon :name="actionMeta[entry.action]?.icon ?? 'history'" :size="12" />
+              <span class="inline-flex items-center gap-1.5 text-[12px]" :class="actionMeta[entry.action]?.tone">
+                <AppIcon :name="actionMeta[entry.action]?.icon ?? 'history'" :size="13" />
                 {{ actionMeta[entry.action]?.label ?? entry.action }}
               </span>
             </td>
             <td>
-              <RouterLink :to="`/components/${entry.familyId}`" class="text-[11.5px] font-medium text-ink hover:text-primary">
+              <RouterLink :to="`/components/${entry.familyId}`" class="text-[13px] font-medium text-ink hover:text-primary">
                 {{ entry.name }}
               </RouterLink>
-              <p class="mono text-[8.5px] text-[#9CA3AF]">{{ entry.familyId }}</p>
+              <p class="mono text-[11px] text-[#9CA3AF]">{{ entry.familyId }}</p>
             </td>
             <td>
-              <span v-if="entry.format" class="mono rounded bg-[#F1F4F7] px-1 py-[1px] text-[9px] text-[#4B5563]">{{ entry.format }}</span>
-              <span class="ml-1.5 text-[10px] text-muted">{{ entry.detail }}</span>
+              <span v-if="entry.format" class="mono rounded bg-[#F1F4F7] px-1.5 py-0.5 text-[11.5px] font-medium text-[#4B5563]">{{ entry.format }}</span>
+              <span class="ml-1.5 text-[12px] text-muted">{{ entry.detail }}</span>
             </td>
             <td class="text-right">
               <RouterLink :to="`/components/${entry.familyId}`" class="btn btn-outline btn-sm">查看构件</RouterLink>
@@ -109,7 +109,7 @@ onMounted(load);
       <EmptyState v-else class="m-3" icon="history" title="暂无历史记录" description="检索并下载构件后，操作记录将出现在此处。" compact />
     </div>
 
-    <p class="mt-2 text-[9.5px] text-[#9CA3AF]">
+    <p class="mt-2 text-[11px] text-[#9CA3AF]">
       演示环境历史记录按会话内存保存；生产环境将通过 PostgreSQL RLS 按租户隔离并保留完整审计链路。
     </p>
   </div>

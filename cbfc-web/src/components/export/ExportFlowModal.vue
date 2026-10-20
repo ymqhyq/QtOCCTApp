@@ -332,7 +332,7 @@ async function copyChecksum() {
           >
             <div class="flex items-start justify-between gap-2">
               <div class="flex items-center gap-1.5">
-                <span class="rounded bg-[#F1F4F7] px-1.5 py-[1px] font-mono text-[9.5px] font-semibold uppercase text-[#4B5563]">
+                <span class="rounded bg-[#F1F4F7] px-1.5 py-[1px] font-mono text-[11px] font-semibold uppercase text-[#4B5563]">
                   .{{ format.ext }}
                 </span>
               </div>
@@ -344,12 +344,12 @@ async function copyChecksum() {
               </span>
             </div>
             <p class="mt-1.5 text-[12.5px] font-semibold text-ink">{{ format.title }}</p>
-            <p class="mt-0.5 text-[10.5px] leading-relaxed text-muted">{{ format.description }}</p>
-            <p class="mt-1 flex items-center gap-1.5 text-[9.5px] text-[#9CA3AF]">
+            <p class="mt-0.5 text-[12px] leading-relaxed text-muted">{{ format.description }}</p>
+            <p class="mt-1 flex items-center gap-1.5 text-[11px] text-[#9CA3AF]">
               约 {{ format.sizeMB.toFixed(1) }} MB · {{ format.scenario }}
               <span v-if="format.scriptIncluded" class="rounded bg-[#EFF6FF] px-1 text-[#1D4ED8]">含脚本</span>
             </p>
-            <p v-if="!format.available" class="mt-1 text-[9.5px] text-warning">{{ format.reason }}</p>
+            <p v-if="!format.available" class="mt-1 text-[11px] text-warning">{{ format.reason }}</p>
           </button>
         </div>
       </div>
@@ -362,9 +362,9 @@ async function copyChecksum() {
             <dt class="text-muted">构件</dt>
             <dd class="text-ink">{{ component?.name }}</dd>
             <dt class="text-muted">格式</dt>
-            <dd class="font-mono text-[11px] text-ink">.{{ selectedFormat?.ext }} · {{ selectedFormat?.title }}</dd>
+            <dd class="font-mono text-[11.5px] text-ink">.{{ selectedFormat?.ext }} · {{ selectedFormat?.title }}</dd>
             <dt class="text-muted">权威缓存键</dt>
-            <dd class="font-mono text-[10px] text-[#374151]">{{ maskKey(component?.geometry.defaultCacheKey, 16, 8) }}</dd>
+            <dd class="font-mono text-[11.5px] text-[#374151]">{{ maskKey(component?.geometry.defaultCacheKey, 16, 8) }}</dd>
             <dt class="text-muted">当前租户</dt>
             <dd class="text-ink">{{ session.user?.tenantName }}</dd>
             <dt class="text-muted">下载身份</dt>
@@ -414,13 +414,13 @@ async function copyChecksum() {
                 <p class="flex items-center gap-1.5 text-[12.5px] font-semibold text-success">
                   <AppIcon name="checkCircle" :size="14" />下载凭据签发成功
                 </p>
-                <p class="mt-0.5 font-mono text-[10.5px] text-[#166534]">{{ ticket.fileName }} · {{ formatBytes(ticket.sizeBytes) }}</p>
+                <p class="mt-0.5 font-mono text-[12px] text-[#166534]">{{ ticket.fileName }} · {{ formatBytes(ticket.sizeBytes) }}</p>
               </div>
               <StatusBadge tone="success" :label="`${ticketCountdown} 有效`" :dot="false" mono />
             </div>
             <div class="mt-2 flex items-center gap-1.5 rounded border border-[#BBF7D0] bg-white/70 px-2 py-1.5">
-              <span class="shrink-0 text-[9.5px] text-[#166534]">SHA-256</span>
-              <span class="mono min-w-0 flex-1 truncate text-[9.5px] text-[#166534]">{{ checksum }}</span>
+              <span class="shrink-0 text-[11px] text-[#166534]">SHA-256</span>
+              <span class="mono min-w-0 flex-1 truncate text-[11.5px] text-[#166534]">{{ checksum }}</span>
               <button class="shrink-0 text-[#166534] hover:text-success" title="复制摘要" @click="copyChecksum">
                 <AppIcon name="copy" :size="12" />
               </button>
@@ -434,7 +434,7 @@ async function copyChecksum() {
             <button class="btn btn-outline" @click="createTicket">
               <AppIcon name="refresh" :size="13" />重新签发凭据
             </button>
-            <span class="text-[10px] text-muted">下载凭据 15 分钟有效</span>
+            <span class="text-[11.5px] text-muted">下载凭据 15 分钟有效</span>
           </div>
 
           <div class="rounded-md border border-line bg-[#FAFBFC] p-3">

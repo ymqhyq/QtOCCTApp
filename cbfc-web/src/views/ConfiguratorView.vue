@@ -551,15 +551,15 @@ onBeforeUnmount(() => {
 
             <div v-for="param in inoutParams" :key="param.name" class="mt-3">
               <div class="flex items-baseline justify-between gap-2">
-                <label class="text-[11px] font-medium text-[#374151]" :for="`p-${param.name}`">
+                <label class="text-[12px] font-medium text-[#374151]" :for="`p-${param.name}`">
                   {{ param.label }}
-                  <span class="mono ml-0.5 text-[8.5px] font-normal text-[#9CA3AF]">{{ param.name }}</span>
+                  <span class="mono ml-0.5 text-[11px] font-normal text-[#9CA3AF]">{{ param.name }}</span>
                 </label>
                 <div class="flex items-center gap-1">
                   <input
                     :id="`p-${param.name}`"
                     type="number"
-                    class="input mono !w-[78px] !px-1.5 !py-0.5 !text-right !text-[10.5px]"
+                    class="input mono !w-[84px] !px-2 !py-0.5 !text-right !text-[12px]"
                     :min="param.min"
                     :max="param.max"
                     :step="param.step ?? 1"
@@ -567,7 +567,7 @@ onBeforeUnmount(() => {
                     :disabled="!isParametric"
                     @change="onParamInput(param.name, Number(($event.target as HTMLInputElement).value))"
                   />
-                  <span class="w-[24px] text-[9px] text-muted">{{ param.unit }}</span>
+                  <span class="w-[28px] text-[11px] text-muted">{{ param.unit }}</span>
                 </div>
               </div>
               <input
@@ -580,16 +580,16 @@ onBeforeUnmount(() => {
                 :disabled="!isParametric"
                 @input="onParamInput(param.name, Number(($event.target as HTMLInputElement).value))"
               />
-              <div class="mt-0.5 flex justify-between font-mono text-[8.5px] text-[#9CA3AF]">
+              <div class="mt-0.5 flex justify-between font-mono text-[10.5px] text-[#9CA3AF]">
                 <span>{{ param.min }}</span>
                 <span>{{ param.max }}</span>
               </div>
             </div>
 
             <div v-for="param in enumParams" :key="param.name" class="mt-3">
-              <label class="text-[11px] font-medium text-[#374151]">{{ param.label }}</label>
+              <label class="text-[12px] font-medium text-[#374151]">{{ param.label }}</label>
               <select
-                class="select mt-1 !py-1 !text-[11px]"
+                class="select mt-1 !py-1.5 !text-[12px]"
                 :value="String(values[param.name] ?? param.default)"
                 :disabled="!isParametric"
                 @change="onEnumChange(param.name, ($event.target as HTMLSelectElement).value)"

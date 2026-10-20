@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
           <div class="mt-2 grid gap-2 sm:grid-cols-[1fr_110px_auto]">
             <div>
               <label class="label">目标族模板</label>
-              <select v-model="familyId" class="select !py-1.5 !text-[11.5px]">
+              <select v-model="familyId" class="select !py-1.5 !text-[12.5px]">
                 <option v-for="item in components" :key="item.familyId" :value="item.familyId">
                   {{ item.name }} · {{ item.familyId }}
                 </option>
@@ -295,7 +295,7 @@ onBeforeUnmount(() => {
             </div>
             <div>
               <label class="label">送审版本</label>
-              <input v-model="revision" class="input mono !py-1.5 !text-[11px]" />
+              <input v-model="revision" class="input mono !py-1.5 !text-[12.5px]" />
             </div>
             <div class="flex items-end">
               <button class="btn btn-primary w-full" :disabled="running || !file" @click="runGates">
@@ -514,9 +514,9 @@ onBeforeUnmount(() => {
         <div class="panel p-3.5">
           <div class="flex items-center justify-between">
             <p class="section-title">门禁检验数据诊断</p>
-            <span class="mono text-[9px] text-muted">{{ result ? `${result.durationMs}ms` : '—' }}</span>
+            <span class="mono text-[11px] text-muted">{{ result ? `${result.durationMs}ms` : '—' }}</span>
           </div>
-          <dl class="mt-2 grid grid-cols-[104px_1fr] gap-y-1.5 text-[10.5px]">
+          <dl class="mt-2 grid grid-cols-[104px_1fr] gap-y-1.5 text-[11.5px]">
             <dt class="text-muted">几何流形状态</dt>
             <dd class="text-[#374151]">{{ result?.report.bRepCheck ?? '—' }}</dd>
             <dt class="text-muted">顶点 / 面片</dt>
@@ -533,7 +533,7 @@ onBeforeUnmount(() => {
               {{ (result?.report.volumeDivergence ?? 0).toFixed(2) }}% (&lt; 1.0%)
             </dd>
             <dt class="text-muted">脚本 SHA-256</dt>
-            <dd class="mono break-all text-[9px] text-[#4B5563]">{{ maskKey(result?.report.scriptDigest, 24, 8) }}</dd>
+            <dd class="mono break-all text-[11px] text-[#4B5563]">{{ maskKey(result?.report.scriptDigest, 24, 8) }}</dd>
             <dt class="text-muted">实体净体积</dt>
             <dd class="mono text-[#374151]">{{ formatVolume(target?.geometry.volumeM3 ?? 0) }}</dd>
             <dt class="text-muted">检测引擎</dt>

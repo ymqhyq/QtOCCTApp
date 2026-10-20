@@ -545,37 +545,37 @@ onMounted(async () => {
               <p class="eyebrow">关键技术规格</p>
               <button v-if="canSeeGovernance" class="text-[10px] text-primary hover:text-primary-hover" @click="activeTab = 'cache'">缓存详情 →</button>
             </div>
-            <table class="mt-2 w-full text-[11.5px]">
+            <table class="mt-2 w-full text-[12.5px]">
               <tbody>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">外包尺寸 H×L×W</td>
-                  <td class="py-1.5 text-right font-mono text-[12px] text-ink">
+                  <td class="py-1.5 text-right font-mono text-[12.5px] text-ink">
                     {{ formatNumber(displayDims.height / 1000, 2) }} × {{ formatNumber(displayDims.length / 1000, 2) }} ×
                     {{ formatNumber(displayDims.width / 1000, 2) }} m
                   </td>
                 </tr>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">实体净体积</td>
-                  <td class="py-1.5 text-right font-mono text-[12px] font-semibold text-ink">{{ formatVolume(displayVolume) }}</td>
+                  <td class="py-1.5 text-right font-mono text-[12.5px] font-semibold text-ink">{{ formatVolume(displayVolume) }}</td>
                 </tr>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">表面积</td>
-                  <td class="py-1.5 text-right font-mono text-[12px] text-ink">{{ formatArea(detail.geometry.surfaceM2) }}</td>
+                  <td class="py-1.5 text-right font-mono text-[12.5px] text-ink">{{ formatArea(detail.geometry.surfaceM2) }}</td>
                 </tr>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">混凝土强度等级</td>
-                  <td class="py-1.5 text-right font-mono text-[12px] text-ink">
+                  <td class="py-1.5 text-right font-mono text-[12.5px] text-ink">
                     {{ displayStrength }}
                   </td>
                 </tr>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">建模引擎</td>
-                  <td class="py-1.5 text-right font-mono text-[12px] text-ink">{{ detail.engine }}</td>
+                  <td class="py-1.5 text-right font-mono text-[12.5px] text-ink">{{ detail.engine }}</td>
                 </tr>
                 <tr class="border-b border-[#F0F2F5]">
                   <td class="py-1.5 text-muted">精确实体</td>
                   <td class="py-1.5 text-right">
-                    <span class="font-mono text-[12px]" :class="detail.geometry.exactBrep ? 'text-success' : 'text-warning'">
+                    <span class="font-mono text-[12.5px]" :class="detail.geometry.exactBrep ? 'text-success' : 'text-warning'">
                       {{ detail.geometry.exactBrep ? '是' : '否' }}
                     </span>
                   </td>
@@ -647,7 +647,7 @@ onMounted(async () => {
               <span class="font-medium text-ink">{{ detail.geometry.facesCount }}</span> 个拓扑面 ·
               <span class="font-medium text-ink">{{ detail.geometry.edgesCount }}</span> 条特征边
             </p>
-            <p class="font-mono text-[9.5px] text-[#9CA3AF]">点击部位在视口中高亮对应几何面与特征线</p>
+            <p class="font-mono text-[11px] text-[#9CA3AF]">点击部位在视口中高亮对应几何面与特征线</p>
           </div>
           <div class="overflow-x-auto">
             <table class="table-dense">
@@ -678,18 +678,18 @@ onMounted(async () => {
                       >
                         <AppIcon :name="entry.geomType === 'solid' ? 'cube' : entry.geomType === 'face' ? 'box' : 'route'" :size="9" />
                       </span>
-                      <span class="mono text-[11px] font-medium text-ink">{{ entry.key }}</span>
+                      <span class="mono text-[12px] font-medium text-ink">{{ entry.key }}</span>
                     </div>
-                    <p class="mt-0.5 text-[9.5px] text-muted" :style="{ paddingLeft: `${entry.depth * 16 + 22}px` }">{{ entry.label }}</p>
+                    <p class="mt-0.5 text-[11px] text-muted" :style="{ paddingLeft: `${entry.depth * 16 + 22}px` }">{{ entry.label }}</p>
                   </td>
-                  <td class="mono text-[10px] text-[#374151]">{{ entry.code }}</td>
+                  <td class="mono text-[11.5px] text-[#374151]">{{ entry.code }}</td>
                   <td><span class="chip mono">{{ entry.geomType }}</span></td>
-                  <td class="mono text-[10px] text-muted">{{ entry.parent ?? '—' }}</td>
-                  <td class="text-right font-mono text-[10px] text-[#374151]">
+                  <td class="mono text-[11px] text-muted">{{ entry.parent ?? '—' }}</td>
+                  <td class="text-right font-mono text-[11.5px] text-[#374151]">
                     {{ shapeStat(entry.key, 'volume') ?? shapeStat(entry.key, 'area') ?? '—' }}
                   </td>
                   <td>
-                    <span class="mono text-[9.5px] text-muted">
+                    <span class="mono text-[11px] text-muted">
                       {{ entry.geomType === 'wire' ? '边映射' : '面映射' }}
                     </span>
                   </td>
@@ -743,13 +743,13 @@ onMounted(async () => {
               </thead>
               <tbody>
                 <tr v-for="mapping in semantics" :key="mapping.shapeKey" :class="mapping.status === 'unmapped' ? 'bg-[#FFFBEB]' : ''">
-                  <td class="mono text-[10.5px] font-medium text-ink">{{ mapping.shapeKey }}</td>
-                  <td class="mono text-[9.5px] text-[#374151]">{{ mapping.code }}</td>
-                  <td class="text-[10px] text-[#374151]">{{ mapping.crbim ?? '—' }}</td>
-                  <td class="text-[10px] text-[#374151]">{{ mapping.gb51269 ?? '—' }}</td>
-                  <td class="mono text-[10px] text-[#1D4ED8]">{{ mapping.ifc?.entity ?? '—' }}</td>
-                  <td class="mono text-[9.5px] text-[#374151]">{{ mapping.ifc?.shapeAspect ?? '—' }}</td>
-                  <td class="mono text-[9px] text-muted">{{ mapping.qto ?? mapping.ifc?.qto ?? '—' }}</td>
+                  <td class="mono text-[12px] font-medium text-ink">{{ mapping.shapeKey }}</td>
+                  <td class="mono text-[11.5px] text-[#374151]">{{ mapping.code }}</td>
+                  <td class="text-[11.5px] text-[#374151]">{{ mapping.crbim ?? '—' }}</td>
+                  <td class="text-[11.5px] text-[#374151]">{{ mapping.gb51269 ?? '—' }}</td>
+                  <td class="mono text-[11.5px] font-medium text-[#1D4ED8]">{{ mapping.ifc?.entity ?? '—' }}</td>
+                  <td class="mono text-[11px] text-[#374151]">{{ mapping.ifc?.shapeAspect ?? '—' }}</td>
+                  <td class="mono text-[11px] text-muted">{{ mapping.qto ?? mapping.ifc?.qto ?? '—' }}</td>
                   <td>
                     <StatusBadge
                       :tone="mapping.status === 'unmapped' ? 'warning' : 'success'"
@@ -760,7 +760,7 @@ onMounted(async () => {
               </tbody>
             </table>
           </div>
-          <p class="mt-2 rounded bg-[#FAFBFC] px-2 py-1.5 text-[9.5px] leading-relaxed text-muted">
+          <p class="mt-2 rounded bg-[#FAFBFC] px-2 py-1.5 text-[11px] leading-relaxed text-muted">
             映射优先级：构件专项覆盖 → 项目/租户激活规则 → 标准语义提示 → 未映射兜底；最终结果由工程标准服务统一计算。
           </p>
         </div>

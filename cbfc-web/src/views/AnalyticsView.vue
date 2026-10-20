@@ -296,7 +296,7 @@ onMounted(load);
       <div v-if="showAdvanced" class="panel mt-3 overflow-hidden">
         <div class="flex items-center justify-between border-b border-line px-3 py-2">
           <p class="section-title">全链路审计日志（最近 8 条）</p>
-          <span class="font-mono text-[9px] text-muted">不可篡改 · 仅资产/标准管理员可见</span>
+          <span class="font-mono text-[11px] text-muted">不可篡改 · 仅资产/标准管理员可见</span>
         </div>
         <table class="table-dense">
           <thead>
@@ -311,12 +311,12 @@ onMounted(load);
           </thead>
           <tbody>
             <tr v-for="entry in audit" :key="entry.id">
-              <td class="font-mono text-[9.5px] text-muted">{{ entry.at.slice(0, 19).replace('T', ' ') }}</td>
-              <td class="text-[10.5px] text-ink">{{ entry.actor }}</td>
+              <td class="font-mono text-[12px] text-muted">{{ entry.at.slice(0, 19).replace('T', ' ') }}</td>
+              <td class="text-[12.5px] font-medium text-ink">{{ entry.actor }}</td>
               <td><span class="chip mono">{{ entry.action }}</span></td>
-              <td class="mono text-[9.5px] text-[#374151]">{{ entry.resource }}</td>
-              <td class="max-w-[520px] truncate text-[10px] text-muted" :title="entry.detail">{{ entry.detail }}</td>
-              <td class="mono text-[9px] text-[#9CA3AF]">{{ entry.ip }}</td>
+              <td class="mono text-[12px] text-[#374151]">{{ entry.resource }}</td>
+              <td class="max-w-[520px] truncate text-[12px] text-muted" :title="entry.detail">{{ entry.detail }}</td>
+              <td class="mono text-[11.5px] text-[#9CA3AF]">{{ entry.ip }}</td>
             </tr>
           </tbody>
         </table>
