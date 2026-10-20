@@ -75,7 +75,6 @@ const selectedProfile = ref('');
 const semanticsLoading = ref(false);
 const exportOpen = ref(false);
 const exportFormat = ref('cbfc');
-const autoHandoff = ref(false);
 const ifcBusy = ref(false);
 const selectedVersion = ref<string | null>(null);
 const selectedModel = ref('');
@@ -181,9 +180,8 @@ function selectShape(key: string) {
   if (!isParametric.value) return;
 }
 
-function openExport(format = 'cbfc', handoff = false) {
+function openExport(format = 'cbfc') {
   exportFormat.value = format;
-  autoHandoff.value = handoff;
   exportOpen.value = true;
 }
 
@@ -455,9 +453,6 @@ onMounted(async () => {
                 @click="isParametric && router.push(`/components/${detail.familyId}/configurator`)"
               >
                 <AppIcon name="sliders" :size="14" />配置参数
-              </button>
-              <button class="btn btn-outline" @click="openExport('cbfc', true)">
-                <AppIcon name="desktop" :size="14" />在 QtOCCTApp 中打开
               </button>
               <button class="btn btn-outline" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
                 <span v-if="ifcBusy" class="h-3 w-3 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-primary" />
@@ -956,7 +951,6 @@ onMounted(async () => {
       :open="exportOpen"
       :component="detail"
       :initial-format="exportFormat"
-      :auto-handoff="autoHandoff"
       :model-number="selectedModel"
       @close="exportOpen = false"
     />

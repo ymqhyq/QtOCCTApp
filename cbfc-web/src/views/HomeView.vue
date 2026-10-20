@@ -3,9 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
-import ExportFlowModal from '@/components/export/ExportFlowModal.vue';
 import { api } from '@/api/client';
-import type { ComponentDetail, ComponentSummary, SemanticProfile } from '@/api/types';
+import type { ComponentSummary, SemanticProfile } from '@/api/types';
 import { useSessionStore } from '@/stores/session';
 import { useUiStore } from '@/stores/ui';
 import {
@@ -28,10 +27,6 @@ const publishedCount = ref(0);
 const profile = ref<SemanticProfile | null>(null);
 const loading = ref(true);
 const recentTab = ref<'history' | 'favorites'>('history');
-const exportOpen = ref(false);
-const exportComponent = ref<ComponentDetail | null>(null);
-const autoHandoff = ref(false);
-const loadingComponent = ref(false);
 
 const quickCards = computed(() => {
   const cards = [
@@ -172,20 +167,6 @@ function openRecent(item: { familyId: string }) {
   router.push(`/components/${item.familyId}`);
 }
 
-async function openDesktop(item: { familyId: string }) {
-  loadingComponent.value = true;
-  try {
-    const detail = await api.component(item.familyId);
-    exportComponent.value = detail;
-    autoHandoff.value = true;
-    exportOpen.value = true;
-  } catch (error) {
-    ui.notify({ type: 'error', title: '构件加载失败', message: String(error) });
-  } finally {
-    loadingComponent.value = false;
-  }
-}
-
 onMounted(load);
 </script>
 
@@ -315,14 +296,6 @@ onMounted(load);
                 <span class="text-[8.5px] text-[#9CA3AF]">{{ formatDate(item.at) }}</span>
               </p>
             </div>
-            <button
-              class="btn btn-ghost btn-icon h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-              title="在桌面端打开"
-              :disabled="loadingComponent"
-              @click="openDesktop(item)"
-            >
-              <AppIcon name="desktop" :size="13" />
-            </button>
           </div>
         </div>
         <div v-else class="px-4 py-10 text-center">
@@ -401,12 +374,5 @@ onMounted(load);
       <p class="font-mono">CBF-C Component Foundation · 规范 CBF-C v1.4.2</p>
     </div>
 
-    <ExportFlowModal
-      :open="exportOpen"
-      :component="exportComponent"
-      initial-format="cbfc"
-      :auto-handoff="autoHandoff"
-      @close="exportOpen = false"
-    />
   </div>
 </template>

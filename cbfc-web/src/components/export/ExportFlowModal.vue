@@ -30,6 +30,7 @@ const session = useSessionStore();
 const ui = useUiStore();
 
 type FormatOption = DownloadFormat & { available: boolean; reason: string | null };
+const FORMAT_ORDER = ['cbfc', 'ifc', 'glb', 'step', 'cbf'];
 const formats = ref<FormatOption[]>([]);
 const formatsLoading = ref(false);
 const selected = ref<string>('cbfc');
@@ -62,8 +63,11 @@ async function loadFormats() {
   formatsLoading.value = true;
   try {
     const data = await api.formats(props.component.familyId);
-    formats.value = data.formats;
-    const firstAvailable = data.formats.find((f) => f.available);
+    const available = data.formats.filter((format) => FORMAT_ORDER.includes(format.id));
+    formats.value = FORMAT_ORDER.map((id) => available.find((format) => format.id === id)).filter(
+      (format): format is FormatOption => Boolean(format),
+    );
+    const firstAvailable = formats.value.find((f) => f.available);
     if (firstAvailable) selected.value = firstAvailable.id;
   } catch (loadError) {
     error.value = loadError instanceof Error ? loadError.message : '格式清单加载失败';
@@ -172,7 +176,7 @@ function downloadNow() {
   ui.notify({
     type: 'success',
     title: '下载已开始',
-    message: `${ticket.value.fileName} · ${formatBytes(ticket.value.sizeBytes)}\n可在 QtOCCTApp 桌面端通过【文件 → 导入】直接打开。`,
+    message: `${ticket.value.fileName} · ${formatBytes(ticket.value.sizeBytes)}`,
   });
 }
 
@@ -274,7 +278,7 @@ async function copyChecksum() {
 <template>
   <ModalShell
     :open="open"
-    title="构件导出与跨端协同"
+    title="构件导出"
     :subtitle="component ? `${component.name} · ${component.drawingCode} · v${component.revision}` : ''"
     icon="download"
     width="lg"
@@ -284,7 +288,7 @@ async function copyChecksum() {
       <!-- 步骤 -->
       <ol class="mb-5 flex items-center gap-2">
         <li
-          v-for="(label, index) in ['格式与版本', '权限与许可', '生成与协同']"
+          v-for="(label, index) in ['格式与版本', '权限与许可', '生成与下载']"
           :key="label"
           class="flex flex-1 items-center gap-2"
         >
@@ -434,53 +438,9 @@ async function copyChecksum() {
           </div>
 
           <div class="rounded-md border border-line bg-[#FAFBFC] p-3">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="flex items-center gap-1.5 text-[12px] font-semibold text-ink">
-                  <AppIcon name="desktop" :size="14" class="text-primary" />在 QtOCCTApp 桌面端打开
-                </p>
-                <p class="mt-0.5 text-[10.5px] leading-relaxed text-muted">
-                  一次性 Handoff Token（TTL 45s，用后即焚）；2.0s 内未检测到桌面端自动回退文件下载。
-                </p>
-              </div>
-              <button class="btn btn-outline btn-sm" :disabled="busy" @click="startHandoff">
-                <AppIcon name="external" :size="12" />唤起桌面端
-              </button>
-            </div>
-
-            <div v-if="handoff" class="mt-2 space-y-1.5">
-              <div class="flex items-center gap-1.5 rounded border border-line bg-white px-2 py-1">
-                <span class="shrink-0 text-[9.5px] text-muted">DEEP LINK</span>
-                <span class="mono min-w-0 flex-1 truncate text-[9.5px] text-[#374151]">{{ handoff.deepLink }}</span>
-                <button class="shrink-0 text-[#6B7280] hover:text-primary" title="复制定位短链" @click="copyLink">
-                  <AppIcon name="copy" :size="12" />
-                </button>
-              </div>
-              <div class="flex flex-wrap items-center gap-1.5">
-                <StatusBadge
-                  :tone="handoffStatus === 'success' ? 'success' : handoffStatus === 'fallback' ? 'warning' : handoffStatus === 'error' ? 'danger' : 'info'"
-                  :label="
-                    handoffStatus === 'success'
-                      ? '桌面端票据已核销'
-                      : handoffStatus === 'fallback'
-                        ? '未检测到桌面端 · 已回退下载'
-                        : handoffStatus === 'error'
-                          ? '票据异常'
-                          : handoffStatus === 'probing'
-                            ? '等待桌面端握手（2.0s）'
-                            : '票据已签发'
-                  "
-                />
-                <span class="mono text-[9px] text-[#9CA3AF]">{{ maskKey(handoff.handoffToken, 14, 4) }} · TTL {{ handoff.expiresIn }}s</span>
-                <button class="btn btn-outline btn-sm" :disabled="busy" @click="simulateDesktopConsume">
-                  模拟桌面端核销
-                </button>
-              </div>
-              <div v-if="consumed" class="rounded border border-[#BBF7D0] bg-[#F0FDF4] px-2 py-1.5">
-                <p class="text-[10px] text-success">核销成功 · 桌面端已获得临时下载授权</p>
-                <p class="mono mt-0.5 truncate text-[9px] text-[#166534]">{{ consumed.downloadUrl }}</p>
-              </div>
-            </div>
+            <p class="text-[10.5px] leading-relaxed text-muted">
+              下载凭据 15 分钟内有效；制品由服务端按当前标准型号生成。
+            </p>
           </div>
         </template>
 
@@ -491,7 +451,7 @@ async function copyChecksum() {
         <div class="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2">
           <AppIcon name="info" :size="13" class="text-[#9CA3AF]" />
           <p class="text-[10px] leading-relaxed text-muted">
-            优先使用已预烘焙的标准型号制品；也可通过 cbfc:// 深链在桌面端打开。下载凭据 15 分钟内有效。
+            优先使用已预烘焙的标准型号制品；下载凭据 15 分钟内有效。
           </p>
         </div>
       </div>
@@ -502,7 +462,7 @@ async function copyChecksum() {
         <button v-if="step > 1" class="btn btn-ghost btn-sm" @click="prevStep">
           <AppIcon name="arrowLeft" :size="13" />上一步
         </button>
-        <span v-else class="text-[10px] text-muted">共 6 类标准格式 · 依据 CBF-C v1.4.2 §5.2 内容协商</span>
+        <span v-else class="text-[10px] text-muted">支持 5 种交付格式 · 依据 CBF-C v1.4.2 §5.2 内容协商</span>
         <div class="flex items-center gap-2">
           <button class="btn btn-ghost btn-sm" @click="emit('close')">关闭</button>
           <button v-if="step === 1" class="btn btn-primary btn-sm" :disabled="!selectedFormat?.available" @click="nextStep">

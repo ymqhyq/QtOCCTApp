@@ -26,7 +26,6 @@ const formats = ref<FormatRow[]>([]);
 const search = ref('');
 const exportOpen = ref(false);
 const exportFormat = ref('cbfc');
-const autoHandoff = ref(false);
 const loading = ref(true);
 const history = ref<{ id: string; familyId: string; name: string; action: string; format?: string; at: string; detail?: string }[]>([]);
 const ifcBusy = ref(false);
@@ -44,6 +43,15 @@ const filteredComponents = computed(() => {
 const exportHistory = computed(() =>
   history.value.filter((h) => ['download', 'export', 'handoff'].includes(h.action)).slice(0, 10),
 );
+const FORMAT_ORDER = ['cbfc', 'ifc', 'glb', 'step', 'cbf'];
+const visibleFormats = computed(() =>
+  FORMAT_ORDER.map((id) => formats.value.find((format) => format.id === id)).filter(
+    (format): format is FormatRow => Boolean(format),
+  ),
+);
+function isFormatAvailable(id: string) {
+  return formats.value.find((format) => format.id === id)?.available ?? true;
+}
 
 async function selectComponent(familyId: string) {
   selectedFamily.value = familyId;
@@ -59,9 +67,8 @@ async function selectComponent(familyId: string) {
   }
 }
 
-function openExport(format = 'cbfc', handoff = false) {
+function openExport(format = 'cbfc') {
   exportFormat.value = format;
-  autoHandoff.value = handoff;
   exportOpen.value = true;
 }
 
@@ -85,7 +92,7 @@ async function exportIfc() {
 
 async function reExport(familyId: string) {
   await selectComponent(familyId);
-  openExport('cbfc', false);
+  openExport('cbfc');
 }
 
 onMounted(async () => {
@@ -188,14 +195,17 @@ onMounted(async () => {
                 <button class="btn btn-primary btn-sm" @click="openExport('cbfc')">
                   <AppIcon name="package" :size="13" />下载 .cbfc
                 </button>
-                <button class="btn btn-outline btn-sm" @click="openExport('jhb')">
-                  <AppIcon name="zap" :size="13" />导出 .jhb
-                </button>
                 <button class="btn btn-outline btn-sm" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
                   <AppIcon name="globe" :size="13" />IFC 4.3
                 </button>
-                <button class="btn btn-outline btn-sm" @click="openExport('cbfc', true)">
-                  <AppIcon name="desktop" :size="13" />桌面端打开
+                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
+                  <AppIcon name="cube" :size="13" />GLB
+                </button>
+                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('step')" @click="openExport('step')">
+                  <AppIcon name="layers" :size="13" />STEP
+                </button>
+                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('cbf')" @click="openExport('cbf')">
+                  <AppIcon name="box" :size="13" />CBF
                 </button>
               </div>
             </div>
@@ -203,12 +213,12 @@ onMounted(async () => {
 
           <div class="border-t border-line">
             <div class="flex items-center justify-between px-3 py-2">
-              <p class="text-[11px] font-semibold text-ink">6 类标准格式矩阵</p>
-              <span class="text-[9px] text-muted">依据 CBF-C v1.4.2 §5.2 内容协商</span>
+              <p class="text-[11px] font-semibold text-ink">支持格式</p>
+              <span class="text-[9px] text-muted">按常用交付顺序排列</span>
             </div>
             <div class="grid gap-2 px-3 pb-3 sm:grid-cols-2 xl:grid-cols-3">
               <div
-                v-for="format in formats"
+                v-for="format in visibleFormats"
                 :key="format.id"
                 class="rounded border px-2.5 py-2"
                 :class="format.available ? 'border-line bg-white' : 'border-line bg-[#FAFBFC] opacity-60'"
@@ -263,7 +273,6 @@ onMounted(async () => {
       :open="exportOpen"
       :component="detail"
       :initial-format="exportFormat"
-      :auto-handoff="autoHandoff"
       @close="exportOpen = false"
     />
   </div>
