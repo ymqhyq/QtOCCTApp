@@ -822,14 +822,20 @@ export function renderPreviewSvg(
     })
     .join('');
 
-  // 特征边线
+  // 特征边线：edges 是独立顶点流，不能直接复用 mesh.positions 的投影索引
   let edgesSvg = '';
-  for (let e = 0; e < mesh.edgeOffsets.length - 1; e += 1) {
-    const start = mesh.edgeOffsets[e];
-    const end = mesh.edgeOffsets[e + 1];
+  for (let e = 0; e < mesh.edgeLines.length; e += 1) {
+    const line = mesh.edgeLines[e];
     const pts: string[] = [];
-    for (let v = start; v < end; v += 1) pts.push(`${tx(v)},${ty(v)}`);
-    if (mesh.edgeLines[e]?.closed) pts.push(`${tx(start)},${ty(start)}`);
+    for (let v = line.vertexStart; v < line.vertexStart + line.vertexCount; v += 1) {
+      const [px, py] = project([
+        mesh.edges[v * 3],
+        mesh.edges[v * 3 + 1],
+        mesh.edges[v * 3 + 2],
+      ]);
+      pts.push(`${(px * scale + ox).toFixed(2)},${(py * scale + oy).toFixed(2)}`);
+    }
+    if (line.closed && pts.length) pts.push(pts[0]);
     edgesSvg += `<polyline points="${pts.join(' ')}" fill="none" stroke="#0f172a" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="构件等轴测预览">
