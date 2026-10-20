@@ -1,0 +1,281 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   工业钛金 (Industrial Titanium) 设计令牌
+   ============================================================ */
+:root {
+  --bg-app: #f6f7f9;
+  --bg-surface: #ffffff;
+  --bg-viewer: #0b1220;
+  --bg-inset: #fafbfc;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-default: #e5e7eb;
+  --border-strong: #d1d5db;
+  --border-focus: #1f5a7a;
+  --primary-engineer: #1f5a7a;
+  --primary-hover: #164a66;
+  --cad-line-black: #000000;
+  --cad-highlight: #38bdf8;
+  --status-success: #15803d;
+  --status-warning: #b45309;
+  --status-danger: #b91c1c;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --header-h: 56px;
+  --sidebar-w: 240px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border-default);
+  }
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-app text-ink font-sans antialiased;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold text-ink;
+    letter-spacing: -0.01em;
+  }
+  a {
+    color: var(--primary-engineer);
+  }
+  a:hover {
+    color: var(--primary-hover);
+  }
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 1px;
+  }
+  ::selection {
+    background: rgba(31, 90, 122, 0.16);
+  }
+  input[type='range'] {
+    accent-color: var(--primary-engineer);
+  }
+}
+
+@layer components {
+  .mono {
+    font-family: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .panel {
+    @apply rounded-md border border-line bg-surface shadow-panel;
+  }
+  .panel-flat {
+    @apply rounded-md border border-line bg-surface;
+  }
+  .panel-inset {
+    @apply rounded-md border border-line bg-[#FAFBFC];
+  }
+  .section-title {
+    @apply text-[15px] font-semibold tracking-tight text-ink;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-muted;
+  }
+  .card-hover {
+    @apply transition-all duration-200 ease-industrial hover:-translate-y-0.5 hover:border-[#C7D2DA] hover:shadow-lift;
+  }
+
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[5px] border px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+    line-height: 1.35;
+  }
+  .btn-primary {
+    @apply border-primary bg-primary text-white hover:border-primary-hover hover:bg-primary-hover;
+  }
+  .btn-outline {
+    @apply border-line bg-surface text-ink hover:border-[#C7D2DA] hover:bg-app;
+  }
+  .btn-ghost {
+    @apply border-transparent bg-transparent text-muted hover:bg-[#EEF1F4] hover:text-ink;
+  }
+  .btn-danger {
+    @apply border-danger bg-danger text-white hover:bg-[#991B1B];
+  }
+  .btn-sm {
+    @apply px-2 py-1 text-[12px];
+  }
+  .btn-lg {
+    @apply px-4 py-2 text-[14px];
+  }
+  .btn-icon {
+    @apply h-8 w-8 p-0;
+  }
+
+  .input {
+    @apply w-full rounded-[5px] border border-line bg-surface px-2.5 py-1.5 text-[13px] text-ink placeholder:text-[#9CA3AF] focus:border-focus focus:outline-none focus:ring-2 focus:ring-[#1F5A7A]/10;
+  }
+  .select {
+    @apply input appearance-none pr-7;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.4'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px;
+  }
+  .label {
+    @apply mb-1 block text-[12px] font-medium text-[#374151];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2 py-0.5 text-[11px] text-[#374151];
+  }
+  .tag {
+    @apply inline-flex items-center gap-1 rounded-[3px] bg-[#F1F4F7] px-1.5 py-0.5 text-[11px] text-[#4B5563];
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-[#F9FAFB] px-1 font-mono text-[10px] text-muted shadow-[0_1px_0_#E5E7EB];
+  }
+  .nav-link {
+    @apply flex items-center gap-2.5 rounded-[5px] px-2.5 py-2 text-[13px] font-medium text-[#374151] transition-colors hover:bg-[#EEF1F4] hover:text-ink;
+  }
+  .nav-link-active {
+    @apply bg-[#E8EFF4] text-primary hover:bg-[#E8EFF4] hover:text-primary;
+  }
+  .table-dense {
+    @apply w-full border-collapse text-left text-[12.5px];
+  }
+  .table-dense thead th {
+    @apply border-b border-line bg-[#FAFBFC] px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted;
+  }
+  .table-dense tbody td {
+    @apply border-b border-[#F0F2F5] px-3 py-2 align-middle;
+  }
+  .table-dense tbody tr:hover {
+    @apply bg-[#FAFBFC];
+  }
+  .skeleton {
+    @apply rounded bg-[linear-gradient(90deg,#EEF1F4_25%,#F7F9FA_37%,#EEF1F4_63%)] bg-[length:200%_100%] animate-shimmer;
+  }
+  .toolbar-btn {
+    @apply inline-flex h-7 items-center gap-1 rounded-[4px] px-2 text-[11.5px] font-medium text-[#CBD5E1] transition-colors hover:bg-white/10 hover:text-white;
+  }
+  .toolbar-btn-active {
+    @apply bg-hl/15 text-hl hover:bg-hl/20 hover:text-hl;
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+  .scroll-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .hairline {
+    @apply h-px w-full bg-line;
+  }
+  /* 双滑块参数区间 */
+  .range-dual {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+  .range-dual::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    pointer-events: auto;
+    height: 13px;
+    width: 13px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: var(--primary-engineer);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+    cursor: grab;
+  }
+  .range-dual::-moz-range-thumb {
+    pointer-events: auto;
+    height: 13px;
+    width: 13px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: var(--primary-engineer);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+    cursor: grab;
+  }
+  .range-dual:focus {
+    outline: none;
+  }
+}
+
+@layer utilities {
+  .text-tertiary {
+    color: var(--text-tertiary);
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* 全局细滚动条 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d5dbe2;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #aeb8c4;
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+
+/* 视口内的工具栏：深色环境统一字体平滑 */
+.viewer-dark {
+  color-scheme: dark;
+}
+.viewer-dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+  background-clip: content-box;
+  border: 3px solid transparent;
+}

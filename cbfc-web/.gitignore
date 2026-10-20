@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.npm-cache/
+.chrome-*/
+shots/unzip/
+shots/*.zip
+*.log
+*.jhb
+headers.txt

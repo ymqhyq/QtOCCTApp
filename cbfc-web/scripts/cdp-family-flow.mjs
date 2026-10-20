@@ -1,0 +1,82 @@
+/* 族库管理 UI 闭环：新建族 → 新增型号 → 卡片更新 */
+const BASE = process.env.CBF_BASE || 'http://127.0.0.1:5178';
+const DEBUG = process.env.CDP_URL || 'http://127.0.0.1:9222';
+const fs = await import('node:fs/promises');
+const targets = await (await fetch(`${DEBUG}/json/list`)).json();
+const page = targets.find((t) => t.type === 'page');
+const ws = new WebSocket(page.webSocketDebuggerUrl);
+await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
+let id = 1;
+const pending = new Map();
+ws.onmessage = (event) => {
+  const m = JSON.parse(event.data);
+  if (!m.id) return;
+  const w = pending.get(m.id);
+  if (!w) return;
+  pending.delete(m.id);
+  m.error ? w.reject(new Error(JSON.stringify(m.error))) : w.resolve(m.result);
+};
+const send = (method, params = {}) => new Promise((resolve, reject) => {
+  const i = id++;
+  pending.set(i, { resolve, reject });
+  ws.send(JSON.stringify({ id: i, method, params }));
+});
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const evaluate = async (expr) => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, userGesture: true })).result.value;
+const text = () => evaluate('document.body.innerText');
+const clickText = (t, sel = 'button') => evaluate(`(() => { const el=[...document.querySelectorAll(${JSON.stringify(sel)})].find(e=>e.textContent && e.textContent.trim().includes(${JSON.stringify(t)})); if(!el) return false; el.click(); return true; })()`);
+const setField = (labelText, value) => evaluate(`(() => {
+  const label=[...document.querySelectorAll('label')].find(l=>l.textContent && l.textContent.includes(${JSON.stringify(labelText)}));
+  if(!label) return false;
+  const input=label.querySelector('input,select');
+  if(!input) return false;
+  const proto = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto,'value').set.call(input,${JSON.stringify(value)});
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+  input.dispatchEvent(new Event('change',{bubbles:true}));
+  return true;
+})()`);
+const check = (name, condition, detail = '') => {
+  console.log(`${condition ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`);
+  if (!condition) process.exitCode = 2;
+};
+await send('Runtime.enable');
+await send('Page.enable');
+await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
+const familyId = `UiPier${String(Date.now()).slice(-6)}`;
+const familyName = 'UI 演示族';
+await send('Page.navigate', { url: `${BASE}/families?role=asset-admin&_=${Date.now()}` });
+await sleep(1200);
+await send('Page.reload', { ignoreCache: true });
+await sleep(7000);
+await clickText('基于模板新建族');
+await sleep(900);
+await setField('新族 ID', familyId);
+await setField('族名称', familyName);
+await sleep(200);
+await clickText('创建族');
+await sleep(2500);
+let body = await text();
+check('新建族后卡片出现', body.includes(familyId) && body.includes(familyName), familyId);
+
+const opened = await evaluate(`(() => {
+  const card=[...document.querySelectorAll('article')].find(a=>a.textContent.includes(${JSON.stringify(familyName)}));
+  if(!card) return 'no-card';
+  const btn=[...card.querySelectorAll('button')].find(b=>b.textContent.includes('新增型号'));
+  if(!btn) return 'no-btn';
+  if(btn.disabled) return 'disabled';
+  btn.click();
+  return 'clicked';
+})()`);
+await sleep(900);
+check('打开新增型号弹窗', opened === 'clicked', opened);
+await setField('型号编号', 'UI-20M');
+await setField('型号名称', '20m UI 演示墩');
+await sleep(200);
+await clickText('保存型号');
+await sleep(2500);
+body = await text();
+check('新增型号后卡片更新', body.includes('UI-20M') && body.includes('20m UI 演示墩'), 'UI-20M');
+const { data } = await send('Page.captureScreenshot', { format: 'png' });
+await fs.writeFile('shots/family_flow.png', Buffer.from(data, 'base64'));
+ws.close();
