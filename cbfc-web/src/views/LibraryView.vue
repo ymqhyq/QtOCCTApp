@@ -222,7 +222,13 @@ const activeChips = computed(() => {
   const chips: { key: string; label: string; clear: () => void }[] = [];
   if (q.value) chips.push({ key: 'q', label: `名称/编码 “${q.value}”`, clear: () => { searchInput.value = ''; q.value = ''; page.value = 1; reload(); } });
   if (taxonomyFilter.value) {
-    chips.push({ key: 'taxonomy', label: `分类：${taxonomyFilterLabel.value || taxonomyFilter.value}`, clear: () => { taxonomyFilter.value = ''; taxonomyFilterLabel.value = ''; page.value = 1; reload(); } });
+    chips.push({ key: 'taxonomy', label: `分类：${taxonomyFilterLabel.value || taxonomyFilter.value}`, clear: () => {
+      taxonomyFilter.value = '';
+      taxonomyFilterLabel.value = '';
+      status.value = defaultStatus.value;
+      page.value = 1;
+      reload();
+    } });
   }
   if (similarTo.value) chips.push({ key: 'similar', label: `几何相似：${similarReference.value?.name ?? similarTo.value}`, clear: () => { similarTo.value = ''; page.value = 1; reload(); } });
   if (discipline.value !== 'all') chips.push({ key: 'discipline', label: `专业：${discipline.value}`, clear: () => { discipline.value = 'all'; page.value = 1; reload(); } });
@@ -267,7 +273,9 @@ function parseRoute() {
   sourceMode.value = (String(query.sourceMode ?? 'all') as SourceMode | 'all') ?? 'all';
   status.value = query.status
     ? (String(query.status) as ComponentStatus | 'all')
-    : defaultStatus.value;
+    : query.taxonomy
+      ? 'all'
+      : defaultStatus.value;
   sort.value = (['latest', 'name', 'volume', 'popular'].includes(String(query.sort))
     ? String(query.sort)
     : 'latest') as typeof sort.value;
@@ -385,6 +393,7 @@ function selectTaxonomy(code: string, label: string) {
   taxonomyFilterLabel.value = label;
   familyFilter.value = '';
   selectedModel.value = '';
+  status.value = 'all';
   const next = new Set(expandedTree.value);
   next.add(code);
   expandedTree.value = next;
@@ -497,6 +506,7 @@ function clearFamilyFilter() {
   familyDetail.value = null;
   taxonomyFilter.value = '';
   taxonomyFilterLabel.value = '';
+  status.value = defaultStatus.value;
   page.value = 1;
   reload();
 }
