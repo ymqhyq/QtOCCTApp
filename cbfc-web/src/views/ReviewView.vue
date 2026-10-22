@@ -23,6 +23,8 @@ const reviews = ref<ReviewQueueItem[]>([]);
 const selectedId = ref<string | null>(null);
 const oldDecoded = ref<DecodedJhb | null>(null);
 const newDecoded = ref<DecodedJhb | null>(null);
+const reviewParts = ref<{ key: string; label: string }[]>([]);
+const selectedReviewPart = ref<string | null>(null);
 const reviewViewMode = ref<'old' | 'new' | 'overlay'>('overlay');
 const displayedDecoded = computed(() => (reviewViewMode.value === 'old' ? oldDecoded.value : newDecoded.value));
 const displayedCompare = computed(() => (reviewViewMode.value === 'overlay' ? oldDecoded.value : null));
@@ -75,16 +77,28 @@ async function selectReview(reviewId: string) {
   reviewViewMode.value = 'overlay';
   oldDecoded.value = null;
   newDecoded.value = null;
+  reviewParts.value = [];
+  selectedReviewPart.value = null;
   geometryError.value = '';
   geometryLoading.value = true;
   try {
-    const [oldGeom, newGeom] = await Promise.all([
+    const item = reviews.value.find((r) => r.reviewId === reviewId);
+    const [oldGeom, newGeom, detail] = await Promise.all([
       fetchGeometry(reviewId, 'old'),
       fetchGeometry(reviewId, 'new'),
+      item ? api.component(item.familyId).catch(() => null) : Promise.resolve(null),
     ]);
     if (selectedId.value !== reviewId) return;
     oldDecoded.value = oldGeom;
     newDecoded.value = newGeom;
+    if (detail) {
+      reviewParts.value = Object.entries(detail.shapes).map(([key, shape]) => ({
+        key,
+        label: shape.label || key,
+      }));
+    } else {
+      reviewParts.value = newGeom.header.shapeKeys.map((key) => ({ key, label: key }));
+    }
   } catch (error) {
     geometryError.value = error instanceof Error ? error.message : '几何快照加载失败';
   } finally {
@@ -313,6 +327,9 @@ onBeforeUnmount(() => {
             :progress="100"
             :hud="false"
             :shape-labels="{}"
+            :named-parts="reviewParts"
+            :selected-part="selectedReviewPart"
+            @select-part="selectedReviewPart = $event"
           >
             <template #bottom-tools>
               <div class="pointer-events-auto flex gap-1 rounded-md border border-white/10 bg-[#0F1A2B]/90 p-1 backdrop-blur">
@@ -332,7 +349,7 @@ onBeforeUnmount(() => {
               </div>
             </template>
           </CadViewport>
-          <div class="pointer-events-none absolute left-3 top-14 z-10 rounded border border-white/10 bg-[#0F1A2B]/85 px-2.5 py-1.5 backdrop-blur">
+          <div class="pointer-events-none absolute bottom-20 left-3 z-10 rounded border border-white/10 bg-[#0F1A2B]/85 px-2.5 py-1.5 backdrop-blur">
             <p class="text-[8.5px] font-semibold uppercase tracking-wider text-[#94A3B8]">双模型重叠对比</p>
             <p class="mt-0.5 text-[10px] text-[#CBD5E1]">
               新版 v{{ current.toRevision }} · 旧版 v{{ current.fromRevision }} 半透明灰度
