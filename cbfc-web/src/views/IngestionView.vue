@@ -40,6 +40,12 @@ const result = ref<UploadGateResponse | null>(null);
 const revealed = ref(0);
 const revealTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const submitting = ref(false);
+const submittedReview = ref<{
+  reviewId?: string;
+  familyId: string;
+  toRevision?: string;
+  updated?: boolean;
+} | null>(null);
 const defects = ref<string[]>([]);
 const showDefects = ref(false);
 const selectedGate = ref<string | null>(null);
@@ -80,6 +86,7 @@ async function readFile(selected: File) {
   file.value = selected;
   revision.value = '1.4.2';
   result.value = null;
+  submittedReview.value = null;
   revealed.value = 0;
   hashing.value = true;
   fileHash.value = '';
@@ -126,6 +133,7 @@ async function runGates() {
   }
   running.value = true;
   result.value = null;
+  submittedReview.value = null;
   try {
     result.value = await api.upload({
       fileName: file.value.name,
@@ -154,14 +162,23 @@ async function submitReview() {
   submitting.value = true;
   try {
     const response = await api.submitUpload(result.value.uploadId);
+    submittedReview.value = {
+      reviewId: response.reviewId,
+      familyId: response.familyId,
+      toRevision: response.toRevision,
+      updated: response.updated,
+    };
     ui.notify({
       type: 'success',
-      title: response.updated ? '已刷新既有审核任务' : '已提交标准化委员会',
+      title: response.updated ? '已刷新既有审核任务' : session.canReview ? '已提交标准化委员会' : '已提交发布审核',
       message: response.updated
         ? `${response.familyId} 的待审模型、版本与权威算键已更新为本次上传，审查专家将重新加载最新几何。`
         : `${response.familyId} 已进入待审队列，审核专家将进行双模型 3D 对比与签批。`,
-      actionLabel: '前往审核台',
-      action: () => void router.push('/reviews'),
+      actionLabel: session.canReview ? '前往审核台' : '查看构件',
+      action: () =>
+        void router.push(
+          session.canReview ? `/reviews?familyId=${encodeURIComponent(response.familyId)}` : `/components/${response.familyId}`,
+        ),
     });
   } catch (error) {
     ui.notify({ type: 'error', title: '提交失败', message: error instanceof Error ? error.message : String(error) });
@@ -185,6 +202,7 @@ function clearFile() {
   file.value = null;
   fileHash.value = '';
   result.value = null;
+  submittedReview.value = null;
   revealed.value = 0;
   defects.value = [];
 }
@@ -237,6 +255,34 @@ onBeforeUnmount(() => {
 
       <div class="mt-3 rounded-md border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[10.5px] leading-relaxed text-[#92400E]">
         当前为 Mock 门禁演示：服务端只接收文件元数据并模拟 6 道检查，不会解压或解析真实 .cbfc/ZIP。生产环境必须接入服务端文件校验。
+      </div>
+
+      <div v-if="submittedReview" class="mt-3 rounded-md border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-2.5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="flex items-center gap-1.5 text-[12px] font-semibold text-[#166534]">
+              <AppIcon name="checkCircle" :size="14" />{{ submittedReview.updated ? '已刷新既有审核任务' : '已提交发布审核' }}
+            </p>
+            <p class="mt-1 text-[10.5px] leading-relaxed text-[#166534]/80">
+              <span class="mono">{{ submittedReview.familyId }}</span>
+              <template v-if="submittedReview.reviewId"> · 审核任务 <span class="mono">{{ submittedReview.reviewId }}</span></template>
+              <template v-if="submittedReview.toRevision"> · 目标版本 v{{ submittedReview.toRevision }}</template>
+            </p>
+            <p class="mt-1 text-[10.5px] leading-relaxed text-[#4B5563]">
+              <template v-if="session.canReview">下一步：前往「审核质检」找到该构件，完成双模型对比与签批。</template>
+              <template v-else>下一步：等待标准化审查专家签批；审核通过后，构件状态会更新为「已发布」。</template>
+            </p>
+          </div>
+          <div class="flex shrink-0 flex-wrap gap-1.5">
+            <RouterLink v-if="session.canReview" :to="`/reviews?familyId=${encodeURIComponent(submittedReview.familyId)}`" class="btn btn-primary btn-sm">
+              <AppIcon name="shield" :size="12" />前往审核质检
+            </RouterLink>
+            <RouterLink :to="`/components/${submittedReview.familyId}`" class="btn btn-outline btn-sm">
+              <AppIcon name="eye" :size="12" />查看构件
+            </RouterLink>
+            <button class="btn btn-ghost btn-sm" @click="clearFile">继续入库</button>
+          </div>
+        </div>
       </div>
 
       <div class="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
@@ -456,10 +502,10 @@ onBeforeUnmount(() => {
             <button
               v-if="verdict === 'passed'"
               class="btn btn-primary btn-sm"
-              :disabled="submitting"
+              :disabled="submitting || Boolean(submittedReview)"
               @click="submitReview"
             >
-              <AppIcon name="flag" :size="12" />提交发布审核
+              <AppIcon :name="submittedReview ? 'checkCircle' : 'flag'" :size="12" />{{ submittedReview ? '已提交审核' : '提交发布审核' }}
             </button>
           </div>
         </div>
