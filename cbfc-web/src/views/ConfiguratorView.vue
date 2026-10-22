@@ -113,7 +113,7 @@ const statusLabel = computed(() => {
     case 'detached_computing':
       return '后台脱机计算';
     case 'succeeded':
-      return meta.value?.cacheHit ? '预烘焙缓存命中' : '求解完成';
+      return detail.value?.familyId === 'Abutment' ? '建模服务完成' : meta.value?.cacheHit ? '预烘焙缓存命中' : '求解完成';
     case 'failed':
       return '求解失败';
     case 'aborted':
@@ -508,7 +508,7 @@ onBeforeUnmount(() => {
           <div class="border-b border-[#F0F2F5] p-3">
             <div class="flex items-center justify-between">
               <p class="eyebrow">常用标准规格 (Presets)</p>
-              <span class="rounded bg-[#ECFDF3] px-1.5 py-[1px] text-[8.5px] text-success">预烘焙</span>
+              <span class="rounded bg-[#ECFDF3] px-1.5 py-[1px] text-[8.5px] text-success">{{ detail?.familyId === 'Abutment' ? '按需建模' : '预烘焙' }}</span>
             </div>
             <div class="mt-2 space-y-1">
               <button

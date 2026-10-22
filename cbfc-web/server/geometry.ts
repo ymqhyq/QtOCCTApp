@@ -729,6 +729,59 @@ function earClip(points: [number, number][]): [number, number, number][] {
   return triangles;
 }
 
+/**
+ * Lightweight fallback for the abutment when CadQuery is unavailable.
+ * It follows the CQ control levels and keeps the same named-part slots; the
+ * production path still prefers server/cq/abutment_worker.py.
+ */
+export function buildAbutmentFallbackMesh(params: Record<string, number>): MeshData {
+  const h1 = (params.EmbedDepth ?? 0) * 1000;
+  const o = (params.BodyLength ?? 4.3) * 1000;
+  const h2 = Math.max(0, params.BodyHeight ?? 3) * 1000;
+  const bodyWidth = params.BodyWidth ?? 7800;
+  const topWidth = params.TopWidth ?? 12600;
+  const zBody = h1 + h2;
+  const zCap = zBody + 1050;
+  const zTop = zCap + 3631;
+  const xBody = bodyWidth / 2;
+  const xTop = topWidth / 2;
+  const b = new MeshBuilder();
+  const shapeByFace = new Map<number, number>();
+  let faceCursor = 0;
+
+  const box = (slot: number, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+    if (x1 - x0 <= 0 || y1 - y0 <= 0 || z1 - z0 <= 0) return;
+    const ids = Array.from({ length: 6 }, () => faceCursor++);
+    addBoxAt(b, (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0, z0, z1, ids);
+    for (const id of ids) shapeByFace.set(id, slot);
+  };
+
+  // Footing only exists when an embedded depth is requested.
+  if (h1 > 0) box(0, -xBody - 1050, xBody + 1050, -1050, o + 1050, 0, h1);
+  box(1, -xBody, xBody, 0, o, h1, Math.max(zBody, h1 + 1));
+  box(2, -xBody, xBody, Math.max(0, o - 2600), o + 750, zBody, zCap);
+
+  // Parapet / top tray / bearing pads / water curbs.
+  const parapetBack = 0;
+  const parapetFront = Math.max(800, o - 2000);
+  box(3, -xBody, xBody, parapetBack, parapetFront, zBody, zTop - 615);
+  box(4, -xTop, xTop, 0, o + 250, zTop - 615, zTop);
+  for (const sign of [-1, 1]) {
+    const xc = sign * 2200;
+    box(5, xc - 650, xc + 650, Math.max(0, o - 1300), o + 700, zCap, zCap + 350);
+  }
+  box(6, -xTop, xTop, Math.max(0, o - 250), o + 250, zTop, zTop + 75);
+  box(6, -xTop, -445, 0, 250, zTop, zTop + 75);
+  box(6, 445, xTop, 0, 250, zTop, zTop + 75);
+
+  const mesh = b.finalize();
+  mesh.faceGroups = mesh.faceGroups.map((group) => ({
+    ...group,
+    shapeIndex: shapeByFace.get(group.faceId) ?? 0,
+  }));
+  return mesh;
+}
+
 export function buildMesh(kind: GeometryKind, params: Record<string, number>): MeshData {
   switch (kind) {
     case 'pier':

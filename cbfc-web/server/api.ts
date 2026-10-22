@@ -22,7 +22,7 @@ import type {
   UserSession,
 } from '../shared/types';
 import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
-import { buildMesh, type MeshData } from './geometry';
+import { buildAbutmentFallbackMesh, buildMesh, type MeshData } from './geometry';
 import { generateAbutmentMesh } from './cq';
 import { renderProjectionSvg, type ProjectionView } from './projection';
 import {
@@ -316,6 +316,7 @@ function effectiveParams(
     }
   }
   const isPreset = component.parameters.presets.some((p) =>
+    p.isPrebaked &&
     component.recipeInputs.every((key) => {
       const a = params[key];
       const b = p.params[key];
@@ -1274,7 +1275,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
           ) as Record<string, number>);
       if (component.familyId === 'Abutment') {
         const cqMesh = await generateAbutmentMesh(params as Record<string, number | string | boolean>);
-        if (cqMesh) mesh = cqMesh;
+        mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
       }
       const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;
 
@@ -1296,18 +1297,26 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         return true;
       }
 
-      if (isPreset) {
+      if (isPreset || component.familyId === 'Abutment') {
         const jhb = makeJhb(component, params, cacheKey, mesh, legacy);
         state.cache.set(cacheKey, jhb);
         binary(res, 200, new Uint8Array(jhb.buffer), 'application/x-cbf-jhb', undefined, {
           'X-Cache-Key': cacheKey,
-          'X-Cache-Hit': 'true',
+          'X-Cache-Hit': isPreset ? 'true' : 'false',
           'X-Elapsed-Ms': String(elapsedMs),
           'X-Json-Len': String(jhb.jsonLen),
           'X-Payload-Start': String(jhb.payloadStart),
           ...(legacy ? { 'X-Legacy-Frame': 'unaligned' } : {}),
         });
-        pushAudit(state, user!.name, 'evaluate', component.familyId, `预烘焙命中 ${cacheKey.slice(0, 12)}…`);
+        pushAudit(
+          state,
+          user!.name,
+          'evaluate',
+          component.familyId,
+          component.familyId === 'Abutment'
+            ? `建模服务生成 ${cacheKey.slice(0, 12)}…`
+            : `预烘焙命中 ${cacheKey.slice(0, 12)}…`,
+        );
         return true;
       }
 

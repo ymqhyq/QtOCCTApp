@@ -47,6 +47,7 @@ type PresetSpec = {
   label: string;
   overrides?: Record<string, number | string>;
   volumeM3?: number;
+  prebaked?: boolean;
 };
 
 const ABUTMENT_PRESETS = JSON.parse(
@@ -559,7 +560,7 @@ const SEEDS: ComponentSeed[] = [
     dims: { LengthX: 12600, WidthY: 5650, HeightZ: 7756, Taper: 0 },
     tags: ['桥台', '双线一字形', '标准件'],
     description: '双线一字形桥台，含台顶、台身、胸墙及支承垫石等命名部位。',
-    presets: ABUTMENT_PRESETS,
+    presets: ABUTMENT_PRESETS.map((preset) => ({ ...preset, prebaked: false })),
     meshFile: 'StraightAbutment.mesh.json',
     shapes: {
       Footing: { label: '基础（明挖基础，四周 1050 襟边）', code: 'Bridge.Abutment.Footing', geomType: 'solid' },
@@ -1401,7 +1402,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
       label: spec.label,
       drawingCode: `${seed.drawingCode}-${spec.modelNumber.split('-').pop()}`,
       params: presetParams[spec.modelNumber],
-      isPrebaked: true,
+      isPrebaked: spec.prebaked ?? true,
       cacheKey: presetCacheKeys[spec.modelNumber],
     }));
     const modelNumbers = presets.map((p) => p.modelNumber);

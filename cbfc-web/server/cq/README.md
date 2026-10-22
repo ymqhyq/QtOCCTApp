@@ -25,6 +25,8 @@ and returns a JSON mesh. `server/cq.ts` converts that payload into the same JHB
 frame used by the rest of the viewer.
 
 If `CQ_PYTHON` is absent or CadQuery cannot be imported, the API falls back to
-the packaged `StraightAbutment.mesh.json` preview so the application remains
-usable. In that fallback mode parameter fields can be viewed and presets can be
-selected, but arbitrary parameter changes do not rebuild geometry.
+the lightweight control-level mesh generator in `server/geometry.ts`
+(`buildAbutmentFallbackMesh`). This keeps parameter/preset changes visible in
+the demo and clearly marks the component as a modeling-service component; the
+fallback is not an exact B-Rep and should be replaced by the CQ worker for
+production geometry.
