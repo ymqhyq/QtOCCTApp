@@ -91,6 +91,9 @@ const statusMeta = computed(() => (detail.value ? componentStatusMeta(detail.val
 const sourceMeta = computed(() => (detail.value ? sourceModeMeta(detail.value.sourceMode) : null));
 const visibility = computed(() => (detail.value ? visibilityMeta(detail.value.visibility) : null));
 const isParametric = computed(() => detail.value?.sourceMode === 'parametric');
+const canOpenConfigurator = computed(
+  () => isParametric.value || (detail.value?.parameters.presets.length ?? 0) > 1,
+);
 const presetOptions = computed(() => detail.value?.parameters.presets ?? []);
 const selectedPreset = computed(() =>
   presetOptions.value.find((preset) => preset.modelNumber === selectedModel.value) ?? presetOptions.value[0],
@@ -495,11 +498,11 @@ onMounted(async () => {
               </button>
               <button
                 class="btn btn-outline"
-                :disabled="!isParametric"
-                :title="isParametric ? '进入在线参数配置器' : '该构件不支持在线变参，仅可只读预览'"
-                @click="isParametric && router.push(`/components/${detail.familyId}/configurator`)"
+                :disabled="!canOpenConfigurator"
+                :title="isParametric ? '进入在线参数配置器' : canOpenConfigurator ? '查看并切换预定义规格' : '该构件没有可选规格'"
+                @click="canOpenConfigurator && router.push(`/components/${detail.familyId}/configurator`)"
               >
-                <AppIcon name="sliders" :size="14" />配置参数
+                <AppIcon name="sliders" :size="14" />{{ isParametric ? '配置参数' : '规格配置' }}
               </button>
               <button class="btn btn-outline" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
                 <span v-if="ifcBusy" class="h-3 w-3 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-primary" />
@@ -534,7 +537,12 @@ onMounted(async () => {
               v-if="!isParametric"
               class="mt-2 rounded border border-[#FDE68A] bg-[#FFFBEB] px-2 py-1.5 text-[9.5px] leading-relaxed text-[#92400E]"
             >
-              该构件能力为 <span class="font-semibold">{{ sourceMeta?.label }}</span>，仅提供只读预览与参数查看，不开放伪参数化配置器。
+              <template v-if="canOpenConfigurator">
+                该构件为导入几何，可切换 {{ detail.parameters.presets.length }} 个预定义规格，不支持自定义参数生成。
+              </template>
+              <template v-else>
+                该构件能力为 <span class="font-semibold">{{ sourceMeta?.label }}</span>，仅提供只读预览与参数查看。
+              </template>
             </p>
 
             <div v-if="canSeeGovernance" class="mt-3 flex items-center justify-between rounded border border-line bg-[#FAFBFC] px-2 py-1.5">

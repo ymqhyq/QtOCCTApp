@@ -546,7 +546,7 @@ onBeforeUnmount(() => {
               v-if="!isParametric"
               class="mt-2 rounded border border-line bg-[#FAFBFC] px-2.5 py-2 text-[10.5px] leading-relaxed text-muted"
             >
-              该构件能力为 <span class="font-medium text-ink">{{ sourceMeta?.label }}</span>，参数仅可查看，不支持在线修改。
+              该构件为导入几何，可在上方切换预定义规格；自定义参数不会重新生成几何。
             </div>
 
             <div v-for="param in inoutParams" :key="param.name" class="mt-3">
