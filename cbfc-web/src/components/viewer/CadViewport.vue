@@ -68,6 +68,10 @@ function partShapeIndex(key: string) {
 function isPartVisible(key: string) {
   return !hiddenPartKeys.value.has(key);
 }
+function partHasGeometry(key: string) {
+  const index = partShapeIndex(key);
+  return index >= 0 && Boolean(props.decoded?.header.faceToShape?.includes(index));
+}
 function applyPartVisibility() {
   if (!props.decoded) return;
   for (const part of props.namedParts) {
@@ -525,17 +529,19 @@ defineExpose({
             type="checkbox"
             class="h-3 w-3 shrink-0 accent-[#38BDF8]"
             :checked="isPartVisible(part.key)"
+            :disabled="!partHasGeometry(part.key)"
             :aria-label="`显示 ${part.label}`"
             @change="setPartVisible(part.key, ($event.target as HTMLInputElement).checked)"
           />
           <button
             class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
             :class="selectedPart === part.key ? 'text-white' : 'text-[#CBD5E1]'"
-            :title="part.label"
-            @click="emit('selectPart', part.key)"
+            :title="partHasGeometry(part.key) ? part.label : `${part.label}（GLB 中未建模）`"
+            @click="partHasGeometry(part.key) && emit('selectPart', part.key)"
           >
             <span class="h-1 w-1 shrink-0 rounded-full" :class="selectedPart === part.key ? 'bg-hl' : 'bg-[#64748B]'" />
             <span class="min-w-0 flex-1 truncate text-[10px]">{{ part.label }}</span>
+            <span v-if="!partHasGeometry(part.key)" class="shrink-0 rounded bg-white/5 px-1 text-[8px] text-[#64748B]">未建模</span>
           </button>
         </div>
       </div>

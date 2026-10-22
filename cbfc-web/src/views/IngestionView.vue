@@ -48,6 +48,8 @@ const uploadedMeta = ref<{
   triangles: number;
   shapes: { key: string; label: string; node?: string }[];
   presetCount: number;
+  schema: { name: string; label: string; unit?: string }[];
+  presets: { modelNumber: string; label: string; params: Record<string, number | string> }[];
 } | null>(null);
 const uploadedDecoded = ref<DecodedJhb | null>(null);
 const uploadedPart = ref<string | null>(null);
@@ -94,6 +96,23 @@ const uploadedPartIndex = computed(() => {
   const index = diagnosticParts.value.findIndex((part) => part.key === uploadedPart.value);
   return index >= 0 ? index : null;
 });
+const specFields = computed(() =>
+  (uploadedMeta.value?.schema ?? []).filter((field) => !['ModelNumber', 'NetVolume'].includes(field.name)).slice(0, 3),
+);
+function presetSummary(preset: { params: Record<string, number | string> }) {
+  return specFields.value
+    .map((field) => {
+      const value = preset.params[field.name];
+      if (value === undefined || value === '') return '';
+      return `${field.label} ${value}${field.unit ? ` ${field.unit}` : ''}`;
+    })
+    .filter(Boolean)
+    .join(' · ');
+}
+function presetVolume(preset: { params: Record<string, number | string> }) {
+  const value = Number(preset.params.NetVolume ?? 0);
+  return value ? formatVolume(value) : '—';
+}
 type TemplateOption = { code: string; label: string; depth: number };
 function flattenTemplateNodes(nodes: TaxonomyNode[], depth = 0, output: TemplateOption[] = []): TemplateOption[] {
   for (const node of nodes) {
@@ -186,6 +205,20 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
     const geometry = componentJson.geometry ?? {};
     const parameters = componentJson.parameters ?? {};
     const shapes = componentJson.shapes ?? {};
+    const schema = Array.isArray(parameters.schema)
+      ? parameters.schema.map((item: { name?: string; label?: string; unit?: string }) => ({
+          name: String(item.name ?? ''),
+          label: String(item.label ?? item.name ?? ''),
+          unit: item.unit ? String(item.unit) : undefined,
+        }))
+      : [];
+    const presets = Array.isArray(parameters.presets)
+      ? parameters.presets.map((item: { modelNumber?: string; label?: string; params?: Record<string, number | string> }) => ({
+          modelNumber: String(item.modelNumber ?? ''),
+          label: String(item.label ?? item.modelNumber ?? ''),
+          params: item.params ?? {},
+        }))
+      : [];
     const shapeList = Object.entries(shapes).map(([key, value]) => {
       const shape = value as { label?: string; node?: string };
       return { key, label: shape.label ?? key, node: shape.node };
@@ -202,7 +235,9 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
       vertices: Number(parameters.vertices ?? 0),
       triangles: Number(parameters.triangles ?? 0),
       shapes: shapeList,
-      presetCount: Array.isArray(parameters.presets) ? parameters.presets.length : 0,
+      presetCount: presets.length,
+      schema,
+      presets,
     };
     uploadedMeta.value = meta;
     matchTemplateFromPackage(meta);
@@ -585,7 +620,50 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <!-- 门禁流水线 -->
+        <!-- 规格列表 -->
+        <div v-if="uploadedMeta" class="panel p-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p class="section-title">规格列表</p>
+              <p class="mt-0.5 text-[9.5px] text-muted">
+                {{ uploadedMeta.presets.length }} 个预定义型号 · 来自制品包 parameters.presets
+              </p>
+            </div>
+            <div v-if="specFields.length" class="flex flex-wrap gap-1">
+              <span v-for="field in specFields" :key="field.name" class="tag !text-[9px]">
+                {{ field.label }}<span v-if="field.unit" class="ml-0.5 text-muted">({{ field.unit }})</span>
+              </span>
+            </div>
+          </div>
+
+          <div v-if="uploadedMeta.presets.length" class="mt-2 max-h-[300px] overflow-auto rounded border border-line">
+            <table class="w-full min-w-[560px] border-collapse text-[10px]">
+              <thead class="sticky top-0 z-10 bg-[#F6F8FA] text-left text-[9px] uppercase tracking-wide text-[#6B7280]">
+                <tr>
+                  <th class="px-2 py-1.5 font-medium">标准型号</th>
+                  <th class="px-2 py-1.5 font-medium">规格说明</th>
+                  <th class="px-2 py-1.5 font-medium">关键参数</th>
+                  <th class="px-2 py-1.5 text-right font-medium">体积</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(preset, index) in uploadedMeta.presets"
+                  :key="`${preset.modelNumber}-${index}`"
+                  class="border-t border-[#EEF1F4] hover:bg-[#F8FAFB]"
+                >
+                  <td class="mono whitespace-nowrap px-2 py-1 text-[#374151]">{{ preset.modelNumber || '—' }}</td>
+                  <td class="max-w-[180px] truncate px-2 py-1 text-[#4B5563]" :title="preset.label">{{ preset.label || '—' }}</td>
+                  <td class="max-w-[300px] truncate px-2 py-1 text-[#6B7280]" :title="presetSummary(preset)">{{ presetSummary(preset) || '—' }}</td>
+                  <td class="mono whitespace-nowrap px-2 py-1 text-right text-[#374151]">{{ presetVolume(preset) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="mt-2 rounded border border-dashed border-line bg-[#FAFBFC] px-2 py-3 text-center text-[10px] text-muted">
+            该制品包未提供预定义规格。
+          </p>
+        </div>
         <div class="panel p-3.5">
           <div class="flex items-center justify-between">
             <p class="section-title">2 · 6 道入库自动化安全门禁</p>
