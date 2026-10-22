@@ -541,6 +541,14 @@ defineExpose({
       </div>
     </div>
 
+    <!-- 底部扩展工具（由不同页面注入，如审核模式切换） -->
+    <div
+      v-if="$slots['bottom-tools']"
+      class="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center"
+    >
+      <slot name="bottom-tools" />
+    </div>
+
     <!-- HUD -->
     <div v-if="hud && decoded" class="pointer-events-none absolute right-3 z-10 flex flex-col items-end gap-1" :class="pick || measure ? 'bottom-[96px]' : 'bottom-3'">
       <div class="flex flex-wrap items-center gap-1.5 text-[9.5px]">

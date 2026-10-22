@@ -313,28 +313,31 @@ onBeforeUnmount(() => {
             :progress="100"
             :hud="false"
             :shape-labels="{}"
-          />
+          >
+            <template #bottom-tools>
+              <div class="pointer-events-auto flex gap-1 rounded-md border border-white/10 bg-[#0F1A2B]/90 p-1 backdrop-blur">
+                <button
+                  v-for="mode in ([
+                    { id: 'old', label: '基准旧版' },
+                    { id: 'new', label: '送审新版' },
+                    { id: 'overlay', label: '重叠对比' },
+                  ] as const)"
+                  :key="mode.id"
+                  class="rounded px-2 py-1 text-[10px] transition-colors"
+                  :class="reviewViewMode === mode.id ? 'bg-white/15 font-semibold text-white' : 'text-[#94A3B8] hover:text-white'"
+                  @click="reviewViewMode = mode.id"
+                >
+                  {{ mode.label }}
+                </button>
+              </div>
+            </template>
+          </CadViewport>
           <div class="pointer-events-none absolute left-3 top-14 z-10 rounded border border-white/10 bg-[#0F1A2B]/85 px-2.5 py-1.5 backdrop-blur">
             <p class="text-[8.5px] font-semibold uppercase tracking-wider text-[#94A3B8]">双模型重叠对比</p>
             <p class="mt-0.5 text-[10px] text-[#CBD5E1]">
               新版 v{{ current.toRevision }} · 旧版 v{{ current.fromRevision }} 半透明灰度
             </p>
             <p class="mono mt-0.5 text-[8.5px] text-[#64748B]">{{ current.familyId }}</p>
-          </div>
-          <div class="absolute left-1/2 top-14 z-20 flex -translate-x-1/2 gap-1 rounded-md border border-white/10 bg-[#0F1A2B]/90 p-1 backdrop-blur">
-            <button
-              v-for="mode in ([
-                { id: 'old', label: '基准旧版' },
-                { id: 'new', label: '送审新版' },
-                { id: 'overlay', label: '重叠对比' },
-              ] as const)"
-              :key="mode.id"
-              class="rounded px-2 py-1 text-[10px] transition-colors"
-              :class="reviewViewMode === mode.id ? 'bg-white/15 font-semibold text-white' : 'text-[#94A3B8] hover:text-white'"
-              @click="reviewViewMode = mode.id"
-            >
-              {{ mode.label }}
-            </button>
           </div>
         </template>
         <div v-else-if="geometryLoading" class="flex h-full items-center justify-center">
