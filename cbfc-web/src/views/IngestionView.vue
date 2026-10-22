@@ -8,6 +8,8 @@ import CadViewport from '@/components/viewer/CadViewport.vue';
 import UploadedModelView from '@/components/ingestion/UploadedModelView.vue';
 import { api } from '@/api/client';
 import type { ComponentSummary, GateResult, TaxonomyNode, TaxonomyScheme, UploadGateResponse } from '@/api/types';
+import type { DecodedJhb } from '@/jhb/decode';
+import { decodeGlbAsJhb } from '@/utils/glbToJhb';
 import { useEvaluation } from '@/composables/useEvaluation';
 import { useSessionStore } from '@/stores/session';
 import { useUiStore } from '@/stores/ui';
@@ -44,9 +46,11 @@ const uploadedMeta = ref<{
   volumeM3: number;
   vertices: number;
   triangles: number;
-  shapes: string[];
+  shapes: { key: string; label: string; node?: string }[];
   presetCount: number;
 } | null>(null);
+const uploadedDecoded = ref<DecodedJhb | null>(null);
+const uploadedPart = ref<string | null>(null);
 const uploadedPreviewUrl = ref('');
 const packageError = ref('');
 const revision = ref('1.4.2');
@@ -79,6 +83,9 @@ const defectOptions = [
 ];
 
 const target = computed(() => components.value.find((c) => c.familyId === familyId.value) ?? null);
+const diagnosticDecoded = computed(() => uploadedDecoded.value ?? decoded.value);
+const diagnosticStatus = computed(() => (uploadedDecoded.value ? 'succeeded' : status.value));
+const diagnosticParts = computed(() => uploadedMeta.value?.shapes ?? []);
 type TemplateOption = { code: string; label: string; depth: number };
 function flattenTemplateNodes(nodes: TaxonomyNode[], depth = 0, output: TemplateOption[] = []): TemplateOption[] {
   for (const node of nodes) {
@@ -156,6 +163,8 @@ function matchTemplateFromPackage(meta: NonNullable<typeof uploadedMeta.value>) 
 async function parsePackage(buffer: ArrayBuffer, selected: File) {
   packageError.value = '';
   uploadedMeta.value = null;
+  uploadedDecoded.value = null;
+  uploadedPart.value = null;
   if (uploadedPreviewUrl.value) URL.revokeObjectURL(uploadedPreviewUrl.value);
   uploadedPreviewUrl.value = '';
   try {
@@ -170,6 +179,10 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
     const geometry = componentJson.geometry ?? {};
     const parameters = componentJson.parameters ?? {};
     const shapes = componentJson.shapes ?? {};
+    const shapeList = Object.entries(shapes).map(([key, value]) => {
+      const shape = value as { label?: string; node?: string };
+      return { key, label: shape.label ?? key, node: shape.node };
+    });
     const meta = {
       familyId: String(identity.familyId ?? selected.name.replace(/_[\d.]+\.cbfc$/i, '')),
       name: String(identity.name ?? identity.familyId ?? selected.name),
@@ -181,7 +194,7 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
       volumeM3: Number(geometry.volumeM3 ?? 0),
       vertices: Number(parameters.vertices ?? 0),
       triangles: Number(parameters.triangles ?? 0),
-      shapes: Object.keys(shapes),
+      shapes: shapeList,
       presetCount: Array.isArray(parameters.presets) ? parameters.presets.length : 0,
     };
     uploadedMeta.value = meta;
@@ -189,6 +202,15 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
     const glb = entries['display/preview.glb'] ?? entries['preview.glb'];
     if (glb) {
       uploadedPreviewUrl.value = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+      try {
+        const glbBuffer = glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength);
+        uploadedDecoded.value = await decodeGlbAsJhb(glbBuffer, shapeList, {
+          cacheKey: String(geometry.defaultCacheKey ?? ''),
+          name: meta.name,
+        });
+      } catch {
+        /* GLB 解析失败时退回独立查看器 */
+      }
     }
   } catch (error) {
     packageError.value = error instanceof Error ? `制品包解析失败：${error.message}` : '制品包解析失败';
@@ -321,6 +343,8 @@ function clearFile() {
   revealed.value = 0;
   defects.value = [];
   uploadedMeta.value = null;
+  uploadedDecoded.value = null;
+  uploadedPart.value = null;
   packageError.value = '';
   if (uploadedPreviewUrl.value) URL.revokeObjectURL(uploadedPreviewUrl.value);
   uploadedPreviewUrl.value = '';
@@ -467,6 +491,7 @@ onBeforeUnmount(() => {
               <div><dt class="text-muted">分类</dt><dd class="truncate text-ink">{{ uploadedMeta.category || '—' }}</dd></div>
               <div><dt class="text-muted">语义码</dt><dd class="mono truncate text-ink" :title="uploadedMeta.semanticCode">{{ uploadedMeta.semanticCode || '—' }}</dd></div>
               <div><dt class="text-muted">体积</dt><dd class="mono text-ink">{{ formatVolume(uploadedMeta.volumeM3) }}</dd></div>
+              <div><dt class="text-muted">顶点 / 面片</dt><dd class="mono text-ink">{{ diagnosticDecoded?.header.vertexCount ?? 0 }} / {{ diagnosticDecoded?.header.triangleCount ?? 0 }}</dd></div>
               <div><dt class="text-muted">部位</dt><dd class="text-ink">{{ uploadedMeta.shapes.length }} 个</dd></div>
             </dl>
             <p v-if="uploadedPreviewUrl" class="mt-1.5 text-[9px] text-success">已从制品包加载 preview.glb，可在「构件技术诊断」中查看。</p>
@@ -690,16 +715,19 @@ onBeforeUnmount(() => {
             />
           </div>
           <div class="relative h-[340px]">
-            <UploadedModelView v-if="uploadedPreviewUrl" :url="uploadedPreviewUrl" />
             <CadViewport
-              v-else
-              :decoded="decoded"
-              :status="status"
-              :progress="progress"
-              :error="evalError"
+              v-if="diagnosticDecoded"
+              :decoded="diagnosticDecoded"
+              :status="diagnosticStatus"
+              :progress="uploadedDecoded ? 100 : progress"
+              :error="uploadedDecoded ? '' : evalError"
               :compact="true"
               :shape-labels="{}"
+              :named-parts="diagnosticParts"
+              :selected-part="uploadedPart"
+              @select-part="uploadedPart = $event"
             />
+            <UploadedModelView v-else-if="uploadedPreviewUrl" :url="uploadedPreviewUrl" />
             <div
               class="pointer-events-none absolute inset-0"
               :class="verdict === 'failed' ? 'shadow-[inset_0_0_60px_rgba(185,28,28,0.35)]' : 'shadow-[inset_0_0_60px_rgba(34,197,94,0.18)]'"
@@ -708,7 +736,7 @@ onBeforeUnmount(() => {
               <p class="text-[8.5px] font-semibold uppercase tracking-wider" :class="verdict === 'failed' ? 'text-[#FCA5A5]' : 'text-[#86EFAC]'">
                 {{ verdict === 'failed' ? 'RED ALERT · 非流形定位' : 'UPLOAD QA VIEWPORT' }}
               </p>
-              <p class="mono mt-0.5 text-[8px] text-[#64748B]">{{ uploadedMeta?.familyId ?? target?.familyId }} · {{ uploadedMeta?.triangles || decoded?.header.triangleCount || '—' }} tris</p>
+              <p class="mono mt-0.5 text-[8px] text-[#64748B]">{{ uploadedMeta?.familyId ?? target?.familyId }} · {{ diagnosticDecoded?.header.triangleCount ?? uploadedMeta?.triangles ?? '—' }} tris</p>
             </div>
           </div>
         </div>
@@ -729,8 +757,8 @@ onBeforeUnmount(() => {
             <dd class="text-[#374151]">{{ result?.report.bRepCheck ?? '—' }}</dd>
             <dt class="text-muted">顶点 / 面片</dt>
             <dd class="mono text-[#374151]">
-              {{ formatNumber(uploadedMeta?.vertices || result?.report.mesh.vertices || target?.geometry.vertices || 0) }} /
-              {{ formatNumber(uploadedMeta?.triangles || result?.report.mesh.triangles || target?.geometry.triangles || 0) }}
+              {{ formatNumber(uploadedMeta?.vertices || diagnosticDecoded?.header.vertexCount || result?.report.mesh.vertices || target?.geometry.vertices || 0) }} /
+              {{ formatNumber(uploadedMeta?.triangles || diagnosticDecoded?.header.triangleCount || result?.report.mesh.triangles || target?.geometry.triangles || 0) }}
             </dd>
             <dt class="text-muted">部位数量</dt>
             <dd class="text-[#374151]">{{ uploadedMeta?.shapes.length ?? result?.detected.shapes.length ?? 0 }} 个</dd>

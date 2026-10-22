@@ -143,6 +143,9 @@ const shapeLabels = computed<Record<string, string>>(() => {
   for (const entry of shapeEntries.value) map[entry.key] = entry.label;
   return map;
 });
+const namedPartOptions = computed(() =>
+  shapeEntries.value.map((entry) => ({ key: entry.key, label: entry.label })),
+);
 const selectedShape = computed(() => shapeEntries.value.find((s) => s.key === selectedShapeKey.value) ?? null);
 const selectedMapping = computed(() => semantics.value.find((m) => m.shapeKey === selectedShapeKey.value) ?? null);
 const shapeOutput = computed(() => {
@@ -420,8 +423,11 @@ onMounted(async () => {
               :error="evalError"
               :highlight-shape="selectedShape?.index ?? null"
               :shape-labels="shapeLabels"
+              :named-parts="versionCompareActive ? [] : namedPartOptions"
+              :selected-part="selectedShapeKey"
               :hud="canSeeGovernance && !versionCompareActive"
               @pick="(info) => (selectedShapeKey = info?.shapeKey ?? null)"
+              @select-part="selectedShapeKey = $event"
             />
             <div
               v-if="versionCompareActive"

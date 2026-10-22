@@ -18,6 +18,8 @@ const props = withDefaults(
     compareDecoded?: DecodedJhb | null;
     diffChanges?: { shapeKey: string; kind: 'added' | 'removed' | 'modified' }[];
     shapeLabels?: Record<string, string>;
+    namedParts?: { key: string; label: string }[];
+    selectedPart?: string | null;
     waitingText?: string;
   }>(),
   {
@@ -28,6 +30,8 @@ const props = withDefaults(
     highlightShape: null,
     compareDecoded: null,
     diffChanges: () => [],
+    namedParts: () => [],
+    selectedPart: null,
     waitingText: '正在请求权威几何…',
   },
 );
@@ -36,6 +40,7 @@ const emit = defineEmits<{
   pick: [info: PickInfo | null];
   measure: [result: MeasureResult | null];
   reinit: [];
+  selectPart: [key: string];
 }>();
 
 const host = ref<HTMLDivElement | null>(null);
@@ -55,6 +60,7 @@ const axes2d = ref<{ x: [number, number]; y: [number, number]; z: [number, numbe
 const contextLost = ref(false);
 const fullscreen = ref(false);
 const showTools = ref(true);
+const showNamedParts = ref(true);
 const showDetails = ref(false);
 const ready = ref(false);
 
@@ -401,6 +407,15 @@ defineExpose({
         <button class="toolbar-btn" :class="{ 'toolbar-btn-active': measureMode }" title="点对点测距（端点吸附）" @click="toggleMeasure">
           <AppIcon name="measure" :size="12" /><span class="hidden sm:inline">测距</span>
         </button>
+        <button
+          v-if="namedParts.length"
+          class="toolbar-btn"
+          :class="{ 'toolbar-btn-active': showNamedParts }"
+          :title="showNamedParts ? '隐藏命名部位' : '显示命名部位'"
+          @click="showNamedParts = !showNamedParts"
+        >
+          <AppIcon name="list" :size="12" /><span class="hidden sm:inline">部位</span>
+        </button>
         <span class="mx-0.5 h-4 w-px bg-white/10" />
         <button class="toolbar-btn" title="适配视口" @click="fit"><AppIcon name="crosshair" :size="12" /></button>
         <button class="toolbar-btn" :title="fullscreen ? '退出全屏' : '全屏查看'" @click="toggleFullscreen">
@@ -447,6 +462,30 @@ defineExpose({
       <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-[#22C55E]" />新增部位</span>
       <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-[#F59E0B]" />尺寸变形</span>
       <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-sm bg-[#EF4444]" />删除部位</span>
+    </div>
+
+    <!-- 命名部位列表 -->
+    <div
+      v-if="showNamedParts && namedParts.length"
+      class="absolute left-3 top-14 z-20 max-h-[min(280px,calc(100%-72px))] w-[176px] overflow-hidden rounded-md border border-white/10 bg-[#0F1A2B]/92 shadow-lift backdrop-blur"
+    >
+      <div class="flex items-center justify-between border-b border-white/10 px-2.5 py-1.5">
+        <p class="text-[9px] font-semibold uppercase tracking-wider text-[#94A3B8]">命名部位</p>
+        <span class="mono text-[8px] text-[#64748B]">{{ namedParts.length }}</span>
+      </div>
+      <div class="max-h-[240px] overflow-y-auto p-1 scroll-thin">
+        <button
+          v-for="part in namedParts"
+          :key="part.key"
+          class="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors"
+          :class="selectedPart === part.key ? 'bg-hl/15 text-white' : 'text-[#CBD5E1] hover:bg-white/10'"
+          :title="part.label"
+          @click="emit('selectPart', part.key)"
+        >
+          <span class="h-1 w-1 shrink-0 rounded-full" :class="selectedPart === part.key ? 'bg-hl' : 'bg-[#64748B]'" />
+          <span class="min-w-0 flex-1 truncate text-[10px]">{{ part.label }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- HUD -->
