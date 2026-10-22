@@ -46,6 +46,7 @@ type PresetSpec = {
   modelNumber: string;
   label: string;
   overrides?: Record<string, number | string>;
+  volumeM3?: number;
 };
 
 const ABUTMENT_PRESETS = JSON.parse(
@@ -1327,7 +1328,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
         StrengthGrade: seed.strengthGrade ?? 'C40',
       };
       const presetMesh = seed.meshFile ? mesh : buildMesh(seed.kind, numericParams(params, inputs));
-      const presetVolume = Math.round((presetMesh.volumeMm3 / 1e9) * 1000) / 1000;
+      const presetVolume = spec.volumeM3 ?? Math.round((presetMesh.volumeMm3 / 1e9) * 1000) / 1000;
       params.NetVolume = presetVolume;
       presetParams[spec.modelNumber] = params;
       if (seed.familyId === 'PierBody' && spec.modelNumber === 'STD-PIER-12M') {
@@ -1357,7 +1358,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
       StrengthGrade: seed.strengthGrade ?? 'C40',
     };
     const defaultMesh = seed.meshFile ? mesh : buildMesh(seed.kind, numericParams(defaultParams, inputs));
-    const defaultVolume = Math.round((defaultMesh.volumeMm3 / 1e9) * 1000) / 1000;
+    const defaultVolume = defaultPreset?.volumeM3 ?? Math.round((defaultMesh.volumeMm3 / 1e9) * 1000) / 1000;
     defaultParams.NetVolume = defaultVolume;
     const declaredCacheKey =
       presetCacheKeys[String(defaultParams.ModelNumber)] ??
