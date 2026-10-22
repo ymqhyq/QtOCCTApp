@@ -16,8 +16,11 @@ import type {
   EvaluateRequest,
   FacetBucket,
   JobAccepted,
+  ParamSchema,
+  Preset,
   SemanticMapping,
   SemanticProfile,
+  ShapeDef,
   SourceMode,
   UserSession,
 } from '../shared/types';
@@ -556,6 +559,83 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
 
     if (!user && !/^\/api\/v1\/download\/[^/]+$/.test(path)) {
       fail(res, 401, 'UNAUTHORIZED', '缺少有效 Bearer Token，请先登录');
+      return true;
+    }
+
+    // ---------------- 参数化族导入（asset-admin） ----------------
+    if (path === '/api/v1/families/import' && method === 'POST') {
+      if (user!.role !== 'asset-admin') return fail(res, 403, 'FORBIDDEN', '仅资产管理员可导入参数化族'), true;
+      const body = await readJson(req);
+      const template = findComponent(state, String(body.templateFamilyId ?? ''));
+      if (!template) return fail(res, 422, 'TEMPLATE_NOT_FOUND', '目标模板族不存在'), true;
+      const familyId = String(body.familyId ?? '').trim();
+      const familyError = validateFamilyId(familyId);
+      if (familyError) return fail(res, 422, 'INVALID_FAMILY_ID', familyError), true;
+      if (state.components.some((component) => component.familyId === familyId)) {
+        return fail(res, 409, 'FAMILY_EXISTS', `族 ${familyId} 已存在`), true;
+      }
+      const schema = Array.isArray(body.schema) ? (body.schema as ParamSchema[]) : [];
+      const rawPresets = Array.isArray(body.presets) ? body.presets : [];
+      if (!schema.length || !rawPresets.length) {
+        return fail(res, 422, 'INVALID_PARAMETRIC_PACKAGE', '参数化包缺少 schema 或 presets'), true;
+      }
+      const component = await createFamilyFromTemplate(template, {
+        templateFamilyId: template.familyId,
+        familyId,
+        name: String(body.name ?? familyId),
+        category: String(body.category ?? '').trim() || undefined,
+        semanticCode: String(body.semanticCode ?? '').trim() || undefined,
+        author: user!.name,
+      });
+      component.revision = String(body.revision ?? '1.0.0');
+      component.description = String(body.description ?? `从参数化制品包 ${familyId} 导入。`);
+      component.sourceMode = 'parametric';
+      component.engine = 'cadquery';
+      component.importedMesh = true;
+      component.recipeInputs = Array.isArray(body.inputs) && body.inputs.length
+        ? body.inputs.map(String)
+        : component.recipeInputs;
+      component.parameters.schema = schema;
+      component.parameters.presets = rawPresets.map((preset: {
+        modelNumber: string;
+        label?: string;
+        params?: Record<string, number | string | boolean>;
+        isPrebaked?: boolean;
+      }) => ({
+        modelNumber: String(preset.modelNumber),
+        label: String(preset.label ?? preset.modelNumber),
+        drawingCode: `${familyId}-${String(preset.modelNumber).split('-').pop()}`,
+        params: preset.params ?? {},
+        isPrebaked: false,
+        cacheKey: '',
+      }));
+      const shapes = Array.isArray(body.shapes) ? body.shapes : [];
+      if (shapes.length) {
+        component.shapes = Object.fromEntries(
+          shapes.map((shape: { key: string; label?: string; code?: string; geomType?: 'solid' | 'face' }) => [
+            shape.key,
+            {
+              label: shape.label ?? shape.key,
+              code: shape.code ?? `${component.semanticCode}.${shape.key}`,
+              geomType: shape.geomType ?? 'solid',
+            } satisfies ShapeDef,
+          ]),
+        );
+      }
+      component.parameters.schema[0].default = component.parameters.presets[0].modelNumber;
+      component.presetCacheKeys = {};
+      for (const preset of component.parameters.presets) {
+        preset.cacheKey = await cacheKeyFor(component, preset.params);
+        component.presetCacheKeys[preset.modelNumber] = preset.cacheKey;
+      }
+      const defaultKey = component.presetCacheKeys[component.parameters.presets[0].modelNumber];
+      component.geometry.defaultCacheKey = defaultKey;
+      component.declaredCacheKey = defaultKey;
+      state.components.unshift(component);
+      state.taxonomies = buildTaxonomySchemes(state.components);
+      projectionCache.clear();
+      pushAudit(state, user!.name, 'family_import', familyId, `从参数化包导入族 ${familyId}`);
+      json(res, 201, toDetail(component));
       return true;
     }
 
@@ -1273,7 +1353,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         : buildMesh(component.geoKind, Object.fromEntries(
             component.recipeInputs.map((key) => [key, Number(params[key])]),
           ) as Record<string, number>);
-      if (component.familyId === 'Abutment') {
+      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
         const cqMesh = await generateAbutmentMesh(params as Record<string, number | string | boolean>);
         mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
       }
@@ -1297,7 +1377,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         return true;
       }
 
-      if (isPreset || component.familyId === 'Abutment') {
+      if (isPreset || (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric')) {
         const jhb = makeJhb(component, params, cacheKey, mesh, legacy);
         state.cache.set(cacheKey, jhb);
         binary(res, 200, new Uint8Array(jhb.buffer), 'application/x-cbf-jhb', undefined, {

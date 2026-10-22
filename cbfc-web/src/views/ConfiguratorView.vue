@@ -113,7 +113,7 @@ const statusLabel = computed(() => {
     case 'detached_computing':
       return '后台脱机计算';
     case 'succeeded':
-      return detail.value?.familyId === 'Abutment' ? '建模服务完成' : meta.value?.cacheHit ? '预烘焙缓存命中' : '求解完成';
+      return detail.value?.recipe?.engine === 'cadquery' ? '建模服务完成' : meta.value?.cacheHit ? '预烘焙缓存命中' : '求解完成';
     case 'failed':
       return '求解失败';
     case 'aborted':
@@ -128,6 +128,9 @@ const shapeLabels = computed<Record<string, string>>(() => {
   for (const entry of shapeEntries.value) map[entry.key] = entry.label;
   return map;
 });
+const namedPartOptions = computed(() =>
+  shapeEntries.value.map((entry) => ({ key: entry.key, label: entry.label })),
+);
 
 function initValues(component: ComponentDetail, preferred?: Record<string, number | string | boolean>) {
   const preset =
@@ -449,8 +452,11 @@ onBeforeUnmount(() => {
           :error="evalError"
           :highlight-shape="selectedShape?.index ?? null"
           :shape-labels="shapeLabels"
+          :named-parts="namedPartOptions"
+          :selected-part="selectedShape?.key ?? null"
           :hud="showTechnical"
           @pick="onPick"
+          @select-part="(key) => { const entry = shapeEntries.find((item) => item.key === key); if (entry) selectShape(entry); }"
         />
 
         <!-- 任务状态条 -->

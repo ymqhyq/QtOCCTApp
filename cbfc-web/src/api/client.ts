@@ -303,6 +303,24 @@ export const api = {
       body: JSON.stringify(input),
     });
   },
+  importParametricFamily(input: {
+    templateFamilyId: string;
+    familyId: string;
+    name: string;
+    revision?: string;
+    category?: string;
+    semanticCode?: string;
+    description?: string;
+    inputs?: string[];
+    schema: unknown[];
+    presets: unknown[];
+    shapes?: unknown[];
+  }) {
+    return request<ComponentDetail>('/api/v1/families/import', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
   updateFamily(
     familyId: string,
     input: { name?: string; category?: string; semanticCode?: string; status?: string },

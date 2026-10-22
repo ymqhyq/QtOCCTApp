@@ -7,7 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import CadViewport from '@/components/viewer/CadViewport.vue';
 import UploadedModelView from '@/components/ingestion/UploadedModelView.vue';
 import { api } from '@/api/client';
-import type { ComponentSummary, GateResult, TaxonomyNode, TaxonomyScheme, UploadGateResponse } from '@/api/types';
+import type { ComponentSummary, GateResult, ParamSchema, TaxonomyNode, TaxonomyScheme, UploadGateResponse } from '@/api/types';
 import type { DecodedJhb } from '@/jhb/decode';
 import { decodeGlbAsJhb } from '@/utils/glbToJhb';
 import { useEvaluation } from '@/composables/useEvaluation';
@@ -46,15 +46,18 @@ const uploadedMeta = ref<{
   volumeM3: number;
   vertices: number;
   triangles: number;
-  shapes: { key: string; label: string; node?: string }[];
+  shapes: { key: string; label: string; node?: string; code?: string; geomType?: 'solid' | 'face' }[];
   presetCount: number;
-  schema: { name: string; label: string; unit?: string }[];
+  schema: ParamSchema[];
   presets: { modelNumber: string; label: string; params: Record<string, number | string> }[];
 } | null>(null);
 const uploadedDecoded = ref<DecodedJhb | null>(null);
 const uploadedPart = ref<string | null>(null);
 const uploadedPreviewUrl = ref('');
 const packageError = ref('');
+const importingFamily = ref(false);
+const familyImportError = ref('');
+const importedFamilyId = ref('');
 const revision = ref('1.4.2');
 const file = ref<File | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -92,6 +95,13 @@ const diagnosticParts = computed(() => {
   if (uploadedMeta.value?.shapes.length) return uploadedMeta.value.shapes;
   return (result.value?.detected.shapes ?? []).map((key) => ({ key, label: key }));
 });
+const canImportParametricFamily = computed(
+  () =>
+    Boolean(uploadedMeta.value) &&
+    session.canManageFamilies &&
+    Boolean(target.value) &&
+    !components.value.some((component) => component.familyId === uploadedMeta.value!.familyId),
+);
 const uploadedPartIndex = computed(() => {
   const index = diagnosticParts.value.findIndex((part) => part.key === uploadedPart.value);
   return index >= 0 ? index : null;
@@ -206,11 +216,14 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
     const parameters = componentJson.parameters ?? {};
     const shapes = componentJson.shapes ?? {};
     const schema = Array.isArray(parameters.schema)
-      ? parameters.schema.map((item: { name?: string; label?: string; unit?: string }) => ({
-          name: String(item.name ?? ''),
-          label: String(item.label ?? item.name ?? ''),
-          unit: item.unit ? String(item.unit) : undefined,
-        }))
+      ? parameters.schema
+          .filter((item: { name?: string }) => Boolean(item.name))
+          .map((item: Record<string, unknown>) => ({
+            ...item,
+            name: String(item.name),
+            label: String(item.label ?? item.name),
+            type: (item.type ?? 'real') as ParamSchema['type'],
+          })) as ParamSchema[]
       : [];
     const presets = Array.isArray(parameters.presets)
       ? parameters.presets.map((item: { modelNumber?: string; label?: string; params?: Record<string, number | string> }) => ({
@@ -220,8 +233,14 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
         }))
       : [];
     const shapeList = Object.entries(shapes).map(([key, value]) => {
-      const shape = value as { label?: string; node?: string };
-      return { key, label: shape.label ?? key, node: shape.node };
+      const shape = value as { label?: string; node?: string; code?: string; geomType?: 'solid' | 'face' };
+      return {
+        key,
+        label: shape.label ?? key,
+        node: shape.node,
+        code: shape.code,
+        geomType: shape.geomType ?? 'solid',
+      };
     });
     const meta = {
       familyId: String(identity.familyId ?? selected.name.replace(/_[\d.]+\.cbfc$/i, '')),
@@ -254,8 +273,54 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
         /* GLB 解析失败时退回独立查看器 */
       }
     }
+    if (canImportParametricFamily.value) await importParametricFamily(true);
   } catch (error) {
     packageError.value = error instanceof Error ? `制品包解析失败：${error.message}` : '制品包解析失败';
+  }
+}
+
+async function importParametricFamily(auto = false) {
+  if (!uploadedMeta.value || !target.value) {
+    familyImportError.value = '缺少可用的目标模板族，无法创建参数化族。';
+    return;
+  }
+  if (!canImportParametricFamily.value) return;
+  importingFamily.value = true;
+  familyImportError.value = '';
+  try {
+    const created = await api.importParametricFamily({
+      templateFamilyId: target.value.familyId,
+      familyId: uploadedMeta.value.familyId,
+      name: uploadedMeta.value.name,
+      revision: uploadedMeta.value.revision,
+      category: uploadedMeta.value.category,
+      semanticCode: uploadedMeta.value.semanticCode,
+      description: `从参数化制品包导入，包含 ${uploadedMeta.value.presets.length} 个预定义规格。`,
+      inputs: uploadedMeta.value.schema
+        .map((field) => field.name)
+        .filter((name) => name !== 'ModelNumber' && name !== 'NetVolume'),
+      schema: uploadedMeta.value.schema,
+      presets: uploadedMeta.value.presets,
+      shapes: uploadedMeta.value.shapes,
+    });
+    const search = await api.search({ pageSize: 60 });
+    components.value = search.items;
+    familyId.value = created.familyId;
+    templateCode.value = created.taxonomy.crbim;
+    revision.value = created.revision;
+    importedFamilyId.value = created.familyId;
+    ui.notify({
+      type: 'success',
+      title: '已创建参数化族',
+      message: `${created.familyId} 已创建，包含 ${uploadedMeta.value.presets.length} 个规格。`,
+    });
+  } catch (error) {
+    familyImportError.value = error instanceof Error ? error.message : '参数化族导入失败';
+    if (!auto) {
+      ui.notify({ type: 'error', title: '参数化族创建失败', message: familyImportError.value });
+    }
+  } finally {
+    importingFamily.value = false;
   }
 }
 
@@ -598,6 +663,24 @@ onBeforeUnmount(() => {
             <StatusBadge :tone="sourceModeMeta(target.sourceMode).tone" :label="sourceModeMeta(target.sourceMode).label" :dot="false" />
             <span class="text-[9.5px] text-muted">{{ target.engine }} · exactBrep {{ target.geometry.exactBrep }}</span>
           </div>
+
+          <div v-if="canImportParametricFamily" class="mt-2 rounded border border-[#C9DCE6] bg-[#F7FBFD] px-2.5 py-2">
+            <p class="text-[10px] leading-relaxed text-[#374151]">
+              包内 FamilyId <span class="mono">{{ uploadedMeta?.familyId }}</span> 尚未入库。
+              可基于当前匹配族创建新的参数化族，并自动导入 {{ uploadedMeta?.presets.length }} 个规格。
+            </p>
+            <button class="btn btn-outline btn-sm mt-1.5" :disabled="importingFamily" @click="importParametricFamily(false)">
+              <span v-if="importingFamily" class="h-3 w-3 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-primary" />
+              <AppIcon v-else name="package" :size="12" />
+              {{ importingFamily ? '正在创建参数化族…' : '创建参数化族' }}
+            </button>
+          </div>
+          <p v-if="importedFamilyId" class="mt-2 text-[10px] text-success">
+            已自动创建参数化族 <span class="mono">{{ importedFamilyId }}</span>。
+          </p>
+          <p v-if="familyImportError" class="mt-2 rounded border border-[#FECACA] bg-[#FEF2F2] px-2 py-1.5 text-[10px] text-danger">
+            {{ familyImportError }}
+          </p>
 
           <div v-if="debugMode && showDefects" class="mt-2 rounded border border-[#FDE68A] bg-[#FFFBEB] p-2.5">
             <p class="text-[10px] font-semibold text-[#92400E]">演示故障注入（仅用于验证门禁阻断与红色告警体验）</p>
