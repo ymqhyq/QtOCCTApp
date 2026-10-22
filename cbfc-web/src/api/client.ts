@@ -315,6 +315,7 @@ export const api = {
     schema: unknown[];
     presets: unknown[];
     shapes?: unknown[];
+    generatorSource?: string;
   }) {
     return request<ComponentDetail>('/api/v1/families/import', {
       method: 'POST',

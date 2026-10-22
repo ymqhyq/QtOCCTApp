@@ -32,7 +32,10 @@ let cqUnavailable = false;
  * Returns null when CadQuery is not installed in the current environment,
  * in which case the API falls back to the packaged preview mesh.
  */
-export async function generateAbutmentMesh(params: Record<string, number | string | boolean>): Promise<MeshData | null> {
+export async function generateAbutmentMesh(
+  params: Record<string, number | string | boolean>,
+  options: { generatorPath?: string; shapeKeys?: string[]; partSlots?: Record<string, number> } = {},
+): Promise<MeshData | null> {
   const python = pythonPath();
   if (!python || cqUnavailable) return null;
   const worker = resolve(process.cwd(), 'server/cq/abutment_worker.py');
@@ -99,6 +102,11 @@ export async function generateAbutmentMesh(params: Record<string, number | strin
         resolvePromise(null);
       }
     });
-    child.stdin.end(JSON.stringify({ params }));
+    child.stdin.end(JSON.stringify({
+      params,
+      generatorPath: options.generatorPath,
+      shapeKeys: options.shapeKeys,
+      partSlots: options.partSlots,
+    }));
   });
 }

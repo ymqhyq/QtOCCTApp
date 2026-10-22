@@ -8,6 +8,8 @@
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import type {
   AnalyticsOverview,
@@ -623,6 +625,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         );
       }
       component.parameters.schema[0].default = component.parameters.presets[0].modelNumber;
+      const generatorSource = String(body.generatorSource ?? '');
+      if (generatorSource.trim()) {
+        const generatorDir = resolve(process.cwd(), 'server/imports/dynamic');
+        mkdirSync(generatorDir, { recursive: true });
+        const generatorPath = resolve(generatorDir, `${familyId}.py`);
+        writeFileSync(generatorPath, generatorSource, 'utf8');
+        component.cqGenerator = generatorPath;
+      }
       component.presetCacheKeys = {};
       for (const preset of component.parameters.presets) {
         preset.cacheKey = await cacheKeyFor(component, preset.params);
@@ -1354,7 +1364,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
             component.recipeInputs.map((key) => [key, Number(params[key])]),
           ) as Record<string, number>);
       if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
-        const cqMesh = await generateAbutmentMesh(params as Record<string, number | string | boolean>);
+        const cqMesh = await generateAbutmentMesh(
+          params as Record<string, number | string | boolean>,
+          {
+            generatorPath: component.cqGenerator,
+            shapeKeys: Object.keys(component.shapes),
+          },
+        );
         mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
       }
       const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;

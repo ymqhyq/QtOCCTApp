@@ -10,11 +10,12 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+import importlib.util
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import generator  # noqa: E402
+DEFAULT_GENERATOR = HERE / "generator.py"
 
 # Web CBF-C shape slots (the package groups left/right instances into one shape)
 SLOT_BY_PART = {
@@ -41,9 +42,22 @@ SHAPE_KEYS = [
 ]
 
 
+def load_generator(path: str):
+    generator_path = Path(path) if path else DEFAULT_GENERATOR
+    spec = importlib.util.spec_from_file_location("uploaded_cq_generator", generator_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"无法加载生成器: {generator_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def main() -> int:
     payload = json.loads(sys.stdin.read() or "{}")
     params = payload.get("params") or {}
+    generator = load_generator(str(payload.get("generatorPath") or ""))
+    shape_keys = payload.get("shapeKeys") or SHAPE_KEYS
+    slot_by_part = payload.get("partSlots") or SLOT_BY_PART
     parts = generator.build_parts(params)
 
     positions: list[float] = []
@@ -59,7 +73,9 @@ def main() -> int:
     for part_key, shape in parts.items():
         if shape is None:
             continue
-        slot = SLOT_BY_PART.get(part_key)
+        slot = slot_by_part.get(part_key)
+        if slot is None and part_key in shape_keys:
+            slot = shape_keys.index(part_key)
         if slot is None:
             continue
         vertices, triangles = shape.tessellate(0.5, 0.25)
@@ -102,7 +118,7 @@ def main() -> int:
         normals[i + 2] /= length
 
     result = {
-        "shapeKeys": SHAPE_KEYS,
+        "shapeKeys": shape_keys,
         "positions": positions,
         "indices": indices,
         "normals": normals,
@@ -114,7 +130,7 @@ def main() -> int:
         "areaMm2": area_mm2,
         "vertices": len(positions) // 3,
         "triangles": len(indices) // 3,
-        "facesCount": len(SHAPE_KEYS),
+        "facesCount": len(shape_keys),
     }
     sys.stdout.write(json.dumps(result, ensure_ascii=False))
 

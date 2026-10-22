@@ -50,6 +50,7 @@ const uploadedMeta = ref<{
   presetCount: number;
   schema: ParamSchema[];
   presets: { modelNumber: string; label: string; params: Record<string, number | string> }[];
+  generatorSource?: string;
 } | null>(null);
 const uploadedDecoded = ref<DecodedJhb | null>(null);
 const uploadedPart = ref<string | null>(null);
@@ -257,10 +258,17 @@ async function parsePackage(buffer: ArrayBuffer, selected: File) {
       presetCount: presets.length,
       schema,
       presets,
+      generatorSource: '',
     };
     uploadedMeta.value = meta;
     matchTemplateFromPackage(meta);
     const glb = entries['display/preview.glb'] ?? entries['preview.glb'];
+    const generatorEntry = entries['generators/generator.py'];
+    const generatorSource = generatorEntry ? strFromU8(generatorEntry) : '';
+    if (generatorEntry) {
+      // keep the exact CQ source for the family import endpoint
+      meta.generatorSource = generatorSource;
+    }
     if (glb) {
       uploadedPreviewUrl.value = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
       try {
@@ -302,6 +310,7 @@ async function importParametricFamily(auto = false) {
       schema: uploadedMeta.value.schema,
       presets: uploadedMeta.value.presets,
       shapes: uploadedMeta.value.shapes,
+      generatorSource: uploadedMeta.value.generatorSource,
     });
     const search = await api.search({ pageSize: 60 });
     components.value = search.items;

@@ -37,6 +37,8 @@ export interface InternalComponent extends ComponentDetail {
   declaredCacheKey: string;
   geoKind: GeometryKind;
   legacyUnaligned?: boolean;
+  /** 上传包内 generator.py 的落盘路径（动态 CQ 生成器） */
+  cqGenerator?: string;
 }
 
 const TENANT_ID = 'tenant-railway-17';
