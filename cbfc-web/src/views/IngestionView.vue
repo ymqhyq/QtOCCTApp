@@ -338,6 +338,9 @@ onBeforeUnmount(() => {
                   {{ item.name }} · {{ item.familyId }}
                 </option>
               </select>
+              <p class="mt-1 text-[9px] leading-relaxed text-[#92400E]">
+                演示环境不解析包内 familyId，请选择与上传构件一致的目标族。
+              </p>
             </div>
             <div>
               <label class="label">送审版本</label>
