@@ -28,7 +28,7 @@ describe('构件库种子与 JHB 编码', () => {
     expect(
       state.components.filter((c) => c.recipeSource?.startsWith('cq_script/')).length,
     ).toBeGreaterThanOrEqual(9);
-    expect(state.components.reduce((sum, c) => sum + c.parameters.presets.length, 0)).toBe(63);
+    expect(state.components.reduce((sum, c) => sum + c.parameters.presets.length, 0)).toBe(111);
 
     for (const component of state.components) {
       const defaultModel = String(component.parameters.schema[0].default);

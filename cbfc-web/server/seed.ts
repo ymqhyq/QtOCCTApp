@@ -48,6 +48,10 @@ type PresetSpec = {
   overrides?: Record<string, number | string>;
 };
 
+const ABUTMENT_PRESETS = JSON.parse(
+  readFileSync(new URL('./imports/cbfc2/StraightAbutment.presets.json', import.meta.url), 'utf8'),
+) as PresetSpec[];
+
 interface ComponentSeed {
   familyId: string;
   name: string;
@@ -540,7 +544,7 @@ const SEEDS: ComponentSeed[] = [
     dims: { LengthX: 12600, WidthY: 5650, HeightZ: 7756, Taper: 0 },
     tags: ['桥台', '双线一字形', '标准件'],
     description: '双线一字形桥台，含台顶、台身、胸墙及支承垫石等命名部位。',
-    presets: [{ modelNumber: 'A4332-H8.0-D0.0', label: 'A4332 标准桥台', overrides: {} }],
+    presets: ABUTMENT_PRESETS,
     meshFile: 'StraightAbutment.mesh.json',
     shapes: {
       Footing: { label: '基础（明挖基础，四周 1050 襟边）', code: 'Bridge.Abutment.Footing', geomType: 'solid' },
