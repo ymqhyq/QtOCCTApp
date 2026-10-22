@@ -23,6 +23,7 @@ import type {
 } from '../shared/types';
 import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
 import { buildMesh, type MeshData } from './geometry';
+import { generateAbutmentMesh } from './cq';
 import { renderProjectionSvg, type ProjectionView } from './projection';
 import {
   addPreset,
@@ -1266,11 +1267,15 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (errors.length) return fail(res, 422, 'INVALID_PARAMETER', errors.join('；'), errors), true;
       const cacheKey = await cacheKeyFor(component, params);
       const legacy = url.searchParams.get('legacy') === '1' || component.legacyUnaligned === true;
-      const mesh = component.importedMesh
+      let mesh = component.importedMesh
         ? component.mesh
         : buildMesh(component.geoKind, Object.fromEntries(
             component.recipeInputs.map((key) => [key, Number(params[key])]),
           ) as Record<string, number>);
+      if (component.familyId === 'Abutment') {
+        const cqMesh = await generateAbutmentMesh(params as Record<string, number | string | boolean>);
+        if (cqMesh) mesh = cqMesh;
+      }
       const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;
 
       const cached = state.cache.get(cacheKey);

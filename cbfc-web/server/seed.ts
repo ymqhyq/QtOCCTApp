@@ -77,6 +77,10 @@ interface ComponentSeed {
   extraShapes?: Record<string, ShapeDef>;
   /** 覆盖默认形状定义（导入构件使用真实命名部位） */
   shapes?: Record<string, ShapeDef>;
+  /** 覆盖默认参数定义（导入的 CQ 构件使用真实参数名） */
+  paramSchema?: ParamSchema[];
+  /** 覆盖 recipe 输入键（与 CQ generator 的输入参数一致） */
+  inputs?: string[];
   /** 原始 CadQuery 参数化脚本路径（来源追溯，不参与 cacheKey） */
   cqSource?: string;
   /** 构件库2 导入网格（相对 server/imports/cbfc2） */
@@ -539,9 +543,19 @@ const SEEDS: ComponentSeed[] = [
     semanticCode: 'Bridge.Abutment',
     status: 'published',
     visibility: 'tenant',
-    sourceMode: 'native-brep',
-    engine: 'occt-native',
+    sourceMode: 'parametric',
+    engine: 'cadquery',
     kind: 'box',
+    inputs: ['FillHeight', 'EmbedDepth', 'BodyHeight', 'BodyLength', 'BodyWidth', 'TopWidth'],
+    paramSchema: [
+      { name: 'FillHeight', label: '填土高度 H+Δ', type: 'real', default: 8.0, unit: 'm', min: 5.0, max: 8.0, step: 0.5, access: 'in' },
+      { name: 'EmbedDepth', label: '台身入土深度 h1', type: 'real', default: 0.0, unit: 'm', min: 0.0, max: 3.0, step: 0.5, access: 'in' },
+      { name: 'BodyHeight', label: '台身高度 h2', type: 'real', default: 3.0, unit: 'm', min: 0.0, max: 6.5, step: 0.5, access: 'in' },
+      { name: 'BodyLength', label: '台身长度 o', type: 'real', default: 4.9, unit: 'm', min: 4.3, max: 5.5, step: 0.1, access: 'in' },
+      { name: 'BodyWidth', label: '台身横向宽度', type: 'real', default: 7800, unit: 'mm', min: 7800, max: 7800, step: 1, access: 'in' },
+      { name: 'TopWidth', label: '台顶托盘宽度', type: 'real', default: 12600, unit: 'mm', min: 12600, max: 12600, step: 1, access: 'in' },
+      { name: 'NetVolume', label: '主体体积', type: 'real', default: 234.1, unit: 'm3', access: 'out' },
+    ],
     dims: { LengthX: 12600, WidthY: 5650, HeightZ: 7756, Taper: 0 },
     tags: ['桥台', '双线一字形', '标准件'],
     description: '双线一字形桥台，含台顶、台身、胸墙及支承垫石等命名部位。',
@@ -1295,7 +1309,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
   const result: InternalComponent[] = [];
 
   for (const seed of SEEDS) {
-    const inputs = CACHE_INPUTS[seed.kind];
+    const inputs = seed.inputs ?? CACHE_INPUTS[seed.kind];
     const mesh = seed.meshFile ? loadImportedMesh(seed.meshFile) : buildMesh(seed.kind, seed.dims);
     const volumeM3 = Math.round((mesh.volumeMm3 / 1e9) * 1000) / 1000;
     const bounds = mesh.bounds;
@@ -1392,6 +1406,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
     }));
     const modelNumbers = presets.map((p) => p.modelNumber);
     const schema = schemaFor(seed, volumeM3, modelNumbers);
+    if (seed.paramSchema) schema.splice(1, schema.length - 1, ...seed.paramSchema);
     schema[0].default = defaultPreset?.modelNumber ?? modelNumbers[0];
 
     const boundsMin = bounds.min.map((v) => Math.round(v * 10) / 10) as [number, number, number];
