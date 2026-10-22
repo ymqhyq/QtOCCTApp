@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { strFromU8, unzipSync } from 'fflate';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import CadViewport from '@/components/viewer/CadViewport.vue';
+import UploadedModelView from '@/components/ingestion/UploadedModelView.vue';
 import { api } from '@/api/client';
-import type { ComponentSummary, GateResult, UploadGateResponse } from '@/api/types';
+import type { ComponentSummary, GateResult, TaxonomyNode, TaxonomyScheme, UploadGateResponse } from '@/api/types';
 import { useEvaluation } from '@/composables/useEvaluation';
 import { useSessionStore } from '@/stores/session';
 import { useUiStore } from '@/stores/ui';
@@ -26,10 +28,27 @@ const evaluation = useEvaluation();
 const { decoded, status, progress, error: evalError } = evaluation;
 const router = useRouter();
 const debugMode = computed(() => route.query.debug === '1');
-const showDiagnostics = ref(false);
 
 const components = ref<ComponentSummary[]>([]);
+const schemes = ref<TaxonomyScheme[]>([]);
+const templateCode = ref('');
 const familyId = ref('PierBody');
+const uploadedMeta = ref<{
+  familyId: string;
+  name: string;
+  revision: string;
+  category: string;
+  semanticCode: string;
+  sourceMode: string;
+  engine: string;
+  volumeM3: number;
+  vertices: number;
+  triangles: number;
+  shapes: string[];
+  presetCount: number;
+} | null>(null);
+const uploadedPreviewUrl = ref('');
+const packageError = ref('');
 const revision = ref('1.4.2');
 const file = ref<File | null>(null);
 const fileHash = ref('');
@@ -60,6 +79,22 @@ const defectOptions = [
 ];
 
 const target = computed(() => components.value.find((c) => c.familyId === familyId.value) ?? null);
+type TemplateOption = { code: string; label: string; depth: number };
+function flattenTemplateNodes(nodes: TaxonomyNode[], depth = 0, output: TemplateOption[] = []): TemplateOption[] {
+  for (const node of nodes) {
+    if (node.children?.length) flattenTemplateNodes(node.children, depth + 1, output);
+    else output.push({ code: node.code, label: node.label, depth });
+  }
+  return output;
+}
+const templateOptions = computed(() => {
+  const crbim = schemes.value.find((scheme) => scheme.id === 'crbim');
+  return crbim ? flattenTemplateNodes(crbim.nodes) : [];
+});
+const templateLabel = computed(() => templateOptions.value.find((item) => item.code === templateCode.value)?.label ?? '');
+const templateHasFamily = computed(
+  () => !templateCode.value || components.value.some((component) => component.taxonomy.crbim === templateCode.value),
+);
 const passedCount = computed(() => result.value?.gates.filter((g) => g.status === 'passed').length ?? 0);
 const firstFailure = computed(() => result.value?.gates.find((g) => g.status === 'failed') ?? null);
 const pipelineProgress = computed(() => (result.value ? Math.round((revealed.value / 6) * 100) : 0));
@@ -82,6 +117,84 @@ function toggleDefect(id: string) {
     : [...defects.value, id];
 }
 
+function onTemplateChange() {
+  const matched = components.value.find((component) => component.taxonomy.crbim === templateCode.value);
+  if (matched) familyId.value = matched.familyId;
+}
+
+const TEMPLATE_ALIASES: { keyword: string; label: string }[] = [
+  { keyword: 'abutment', label: '桥台' },
+  { keyword: 'pier', label: '桥墩' },
+  { keyword: 'pile', label: '桩基' },
+  { keyword: 'cap', label: '承台' },
+  { keyword: 'girder', label: '梁' },
+  { keyword: 'bearing', label: '支座' },
+  { keyword: 'culvert', label: '涵洞' },
+  { keyword: 'tunnel', label: '隧道' },
+  { keyword: 'retaining', label: '挡土墙' },
+  { keyword: 'foundation', label: '基础' },
+];
+
+function matchTemplateFromPackage(meta: NonNullable<typeof uploadedMeta.value>) {
+  const text = [meta.familyId, meta.name, meta.semanticCode, meta.category].join(' ').toLowerCase();
+  let best: { code: string; score: number } | null = null;
+  for (const option of templateOptions.value) {
+    let score = 0;
+    if (text.includes(option.label.toLowerCase())) score += 12;
+    for (const alias of TEMPLATE_ALIASES) {
+      if (text.includes(alias.keyword) && option.label.includes(alias.label)) score += 8;
+    }
+    if (score > (best?.score ?? 0)) best = { code: option.code, score };
+  }
+  if (best) {
+    templateCode.value = best.code;
+    const matched = components.value.find((component) => component.taxonomy.crbim === best!.code);
+    if (matched) familyId.value = matched.familyId;
+  }
+}
+
+async function parsePackage(buffer: ArrayBuffer, selected: File) {
+  packageError.value = '';
+  uploadedMeta.value = null;
+  if (uploadedPreviewUrl.value) URL.revokeObjectURL(uploadedPreviewUrl.value);
+  uploadedPreviewUrl.value = '';
+  try {
+    const entries = unzipSync(new Uint8Array(buffer));
+    const componentEntry = entries['component.json'];
+    if (!componentEntry) {
+      packageError.value = '制品包缺少 component.json，无法读取构件内容。';
+      return;
+    }
+    const componentJson = JSON.parse(strFromU8(componentEntry));
+    const identity = componentJson.identity ?? {};
+    const geometry = componentJson.geometry ?? {};
+    const parameters = componentJson.parameters ?? {};
+    const shapes = componentJson.shapes ?? {};
+    const meta = {
+      familyId: String(identity.familyId ?? selected.name.replace(/_[\d.]+\.cbfc$/i, '')),
+      name: String(identity.name ?? identity.familyId ?? selected.name),
+      revision: String(identity.revision ?? '1.0.0'),
+      category: String(identity.category ?? ''),
+      semanticCode: String(identity.semanticCode ?? ''),
+      sourceMode: String(identity.sourceMode ?? ''),
+      engine: String(componentJson.recipe?.engine ?? ''),
+      volumeM3: Number(geometry.volumeM3 ?? 0),
+      vertices: Number(parameters.vertices ?? 0),
+      triangles: Number(parameters.triangles ?? 0),
+      shapes: Object.keys(shapes),
+      presetCount: Array.isArray(parameters.presets) ? parameters.presets.length : 0,
+    };
+    uploadedMeta.value = meta;
+    matchTemplateFromPackage(meta);
+    const glb = entries['display/preview.glb'] ?? entries['preview.glb'];
+    if (glb) {
+      uploadedPreviewUrl.value = URL.createObjectURL(new Blob([glb], { type: 'model/gltf-binary' }));
+    }
+  } catch (error) {
+    packageError.value = error instanceof Error ? `制品包解析失败：${error.message}` : '制品包解析失败';
+  }
+}
+
 async function readFile(selected: File) {
   file.value = selected;
   revision.value = '1.4.2';
@@ -94,8 +207,10 @@ async function readFile(selected: File) {
     const buffer = await selected.arrayBuffer();
     const digest = await crypto.subtle.digest('SHA-256', buffer);
     fileHash.value = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    await parsePackage(buffer, selected);
   } catch {
     fileHash.value = '';
+    packageError.value = '文件读取失败';
   } finally {
     hashing.value = false;
     await runGates();
@@ -205,6 +320,10 @@ function clearFile() {
   submittedReview.value = null;
   revealed.value = 0;
   defects.value = [];
+  uploadedMeta.value = null;
+  packageError.value = '';
+  if (uploadedPreviewUrl.value) URL.revokeObjectURL(uploadedPreviewUrl.value);
+  uploadedPreviewUrl.value = '';
 }
 
 function loadTargetGeometry() {
@@ -217,8 +336,11 @@ watch(familyId, () => {
 
 onMounted(async () => {
   try {
-    const search = await api.search({ pageSize: 60 });
+    const [search, taxonomyResponse] = await Promise.all([api.search({ pageSize: 60 }), api.taxonomies()]);
     components.value = search.items;
+    schemes.value = taxonomyResponse.items;
+    const current = components.value.find((component) => component.familyId === familyId.value);
+    if (current) templateCode.value = current.taxonomy.crbim;
     loadTargetGeometry();
   } catch {
     /* ignore */
@@ -227,6 +349,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (revealTimer.value) clearInterval(revealTimer.value);
+  if (uploadedPreviewUrl.value) URL.revokeObjectURL(uploadedPreviewUrl.value);
 });
 </script>
 
@@ -330,28 +453,62 @@ onBeforeUnmount(() => {
             </template>
           </div>
 
-          <div class="mt-2 grid gap-2 sm:grid-cols-[1fr_110px_auto]">
+          <div v-if="uploadedMeta" class="mt-2 rounded border border-[#C9DCE6] bg-[#F7FBFD] p-2.5">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div class="min-w-0">
+                <p class="truncate text-[12px] font-semibold text-ink">{{ uploadedMeta.name }}</p>
+                <p class="mono mt-0.5 text-[9px] text-muted">
+                  {{ uploadedMeta.familyId }} · v{{ uploadedMeta.revision }} · {{ uploadedMeta.sourceMode }}
+                </p>
+              </div>
+              <StatusBadge tone="info" :label="`${uploadedMeta.presetCount} 个预定义型号`" :dot="false" />
+            </div>
+            <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[9.5px] sm:grid-cols-4">
+              <div><dt class="text-muted">分类</dt><dd class="truncate text-ink">{{ uploadedMeta.category || '—' }}</dd></div>
+              <div><dt class="text-muted">语义码</dt><dd class="mono truncate text-ink" :title="uploadedMeta.semanticCode">{{ uploadedMeta.semanticCode || '—' }}</dd></div>
+              <div><dt class="text-muted">体积</dt><dd class="mono text-ink">{{ formatVolume(uploadedMeta.volumeM3) }}</dd></div>
+              <div><dt class="text-muted">部位</dt><dd class="text-ink">{{ uploadedMeta.shapes.length }} 个</dd></div>
+            </dl>
+            <p v-if="uploadedPreviewUrl" class="mt-1.5 text-[9px] text-success">已从制品包加载 preview.glb，可在「构件技术诊断」中查看。</p>
+          </div>
+          <p v-if="packageError" class="mt-2 rounded border border-[#FECACA] bg-[#FEF2F2] px-2 py-1.5 text-[10px] text-danger">{{ packageError }}</p>
+
+          <div class="mt-2 space-y-2">
             <div>
-              <label class="label">目标族模板</label>
-              <select v-model="familyId" class="select !py-1.5 !text-[12.5px]">
-                <option v-for="item in components" :key="item.familyId" :value="item.familyId">
-                  {{ item.name }} · {{ item.familyId }}
+              <label class="label">目标模板（CRBIM 53 表）</label>
+              <select v-model="templateCode" class="select !py-1.5 !text-[12.5px]" @change="onTemplateChange">
+                <option value="">自动/不指定</option>
+                <option v-for="template in templateOptions" :key="template.code" :value="template.code">
+                  {{ '　'.repeat(template.depth) }}{{ template.label }} · {{ template.code }}
                 </option>
               </select>
               <p class="mt-1 text-[9px] leading-relaxed text-[#92400E]">
-                演示环境不解析包内 familyId，请选择与上传构件一致的目标族。
+                全量 CRBIM 53 表模板；上传包会按名称、语义码与分类自动模糊匹配。{{ templateLabel ? `当前匹配：${templateLabel}` : '' }}
+              </p>
+              <p v-if="!templateHasFamily" class="mt-1 text-[9px] leading-relaxed text-danger">
+                该模板当前没有库存构件族，请先在「族库管理」创建对应族后再入库。
               </p>
             </div>
-            <div>
-              <label class="label">送审版本</label>
-              <input v-model="revision" class="input mono !py-1.5 !text-[12.5px]" />
-            </div>
-            <div class="flex items-end">
-              <button class="btn btn-primary w-full" :disabled="running || !file" @click="runGates">
-                <span v-if="running" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                <AppIcon v-else name="play" :size="14" />
-                开始门禁诊断
-              </button>
+            <div class="grid gap-2 sm:grid-cols-[1fr_110px_auto]">
+              <div>
+                <label class="label">目标族模型</label>
+                <select v-model="familyId" class="select !py-1.5 !text-[12.5px]">
+                  <option v-for="item in components" :key="item.familyId" :value="item.familyId">
+                    {{ item.name }} · {{ item.familyId }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="label">送审版本</label>
+                <input v-model="revision" class="input mono !py-1.5 !text-[12.5px]" />
+              </div>
+              <div class="flex items-end">
+                <button class="btn btn-primary w-full" :disabled="running || !file" @click="runGates">
+                  <span v-if="running" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <AppIcon v-else name="play" :size="14" />
+                  开始门禁诊断
+                </button>
+              </div>
             </div>
           </div>
 
@@ -514,24 +671,18 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- 3D 验真视口 -->
+      <!-- 构件技术诊断 -->
       <div class="space-y-3">
-        <div class="panel flex items-center justify-between px-3 py-2">
-          <div>
-            <p class="text-[11px] font-semibold text-ink">3D 验真与技术诊断</p>
-            <p class="mt-0.5 text-[9.5px] text-muted">默认收起，仅在排查几何或门禁问题时展开。</p>
-          </div>
-          <button class="btn btn-outline btn-sm" @click="showDiagnostics = !showDiagnostics">
-            {{ showDiagnostics ? '收起' : '展开' }}
-          </button>
+        <div class="panel px-3 py-2">
+          <p class="text-[11px] font-semibold text-ink">构件技术诊断</p>
+          <p class="mt-0.5 text-[9.5px] text-muted">展示上传包内的构件几何、属性和门禁检验数据。</p>
         </div>
 
-        <template v-if="showDiagnostics">
         <div class="panel overflow-hidden">
           <div class="flex items-center justify-between border-b border-line px-3 py-2">
             <div class="flex items-center gap-1.5">
               <AppIcon name="cube" :size="13" class="text-primary" />
-              <p class="text-[11px] font-semibold text-ink">3D 验真诊断视口</p>
+              <p class="text-[11px] font-semibold text-ink">{{ uploadedPreviewUrl ? '上传构件几何' : '3D 验真诊断视口' }}</p>
             </div>
             <StatusBadge
               :tone="verdict === 'failed' ? 'danger' : verdict === 'passed' ? 'success' : 'muted'"
@@ -539,7 +690,9 @@ onBeforeUnmount(() => {
             />
           </div>
           <div class="relative h-[340px]">
+            <UploadedModelView v-if="uploadedPreviewUrl" :url="uploadedPreviewUrl" />
             <CadViewport
+              v-else
               :decoded="decoded"
               :status="status"
               :progress="progress"
@@ -553,9 +706,9 @@ onBeforeUnmount(() => {
             />
             <div class="pointer-events-none absolute left-3 top-3 rounded border border-white/10 bg-[#0F1A2B]/80 px-2 py-1">
               <p class="text-[8.5px] font-semibold uppercase tracking-wider" :class="verdict === 'failed' ? 'text-[#FCA5A5]' : 'text-[#86EFAC]'">
-                {{ verdict === 'failed' ? 'RED ALERT · 非流形定位' : 'AUTO QA VIEWPORT' }}
+                {{ verdict === 'failed' ? 'RED ALERT · 非流形定位' : 'UPLOAD QA VIEWPORT' }}
               </p>
-              <p class="mono mt-0.5 text-[8px] text-[#64748B]">{{ target?.familyId }} · {{ decoded?.header.triangleCount ?? '—' }} tris</p>
+              <p class="mono mt-0.5 text-[8px] text-[#64748B]">{{ uploadedMeta?.familyId ?? target?.familyId }} · {{ uploadedMeta?.triangles || decoded?.header.triangleCount || '—' }} tris</p>
             </div>
           </div>
         </div>
@@ -566,13 +719,21 @@ onBeforeUnmount(() => {
             <span class="mono text-[11px] text-muted">{{ result ? `${result.durationMs}ms` : '—' }}</span>
           </div>
           <dl class="mt-2 grid grid-cols-[104px_1fr] gap-y-1.5 text-[11.5px]">
+            <dt class="text-muted">构件名称</dt>
+            <dd class="text-[#374151]">{{ uploadedMeta?.name ?? target?.name ?? '—' }}</dd>
+            <dt class="text-muted">FamilyId / 版本</dt>
+            <dd class="mono text-[#374151]">{{ uploadedMeta?.familyId ?? target?.familyId ?? '—' }} · v{{ uploadedMeta?.revision ?? revision }}</dd>
+            <dt class="text-muted">分类 / 语义码</dt>
+            <dd class="mono break-all text-[#374151]">{{ uploadedMeta?.category ?? '—' }} · {{ uploadedMeta?.semanticCode ?? '—' }}</dd>
             <dt class="text-muted">几何流形状态</dt>
             <dd class="text-[#374151]">{{ result?.report.bRepCheck ?? '—' }}</dd>
             <dt class="text-muted">顶点 / 面片</dt>
             <dd class="mono text-[#374151]">
-              {{ formatNumber(result?.report.mesh.vertices ?? target?.geometry.vertices ?? 0) }} /
-              {{ formatNumber(result?.report.mesh.triangles ?? target?.geometry.triangles ?? 0) }}
+              {{ formatNumber(uploadedMeta?.vertices || result?.report.mesh.vertices || target?.geometry.vertices || 0) }} /
+              {{ formatNumber(uploadedMeta?.triangles || result?.report.mesh.triangles || target?.geometry.triangles || 0) }}
             </dd>
+            <dt class="text-muted">部位数量</dt>
+            <dd class="text-[#374151]">{{ uploadedMeta?.shapes.length ?? result?.detected.shapes.length ?? 0 }} 个</dd>
             <dt class="text-muted">自交 / 自重叠</dt>
             <dd class="mono" :class="(result?.report.mesh.selfIntersections ?? 0) ? 'text-danger' : 'text-success'">
               {{ result?.report.mesh.selfIntersections ?? 0 }} 处
@@ -584,9 +745,9 @@ onBeforeUnmount(() => {
             <dt class="text-muted">脚本 SHA-256</dt>
             <dd class="mono break-all text-[11px] text-[#4B5563]">{{ maskKey(result?.report.scriptDigest, 24, 8) }}</dd>
             <dt class="text-muted">实体净体积</dt>
-            <dd class="mono text-[#374151]">{{ formatVolume(target?.geometry.volumeM3 ?? 0) }}</dd>
+            <dd class="mono text-[#374151]">{{ formatVolume(uploadedMeta?.volumeM3 || target?.geometry.volumeM3 || 0) }}</dd>
             <dt class="text-muted">检测引擎</dt>
-            <dd class="text-[#374151]">{{ result?.detected.engine ?? target?.engine ?? '—' }}</dd>
+            <dd class="text-[#374151]">{{ result?.detected.engine ?? uploadedMeta?.engine ?? target?.engine ?? '—' }}</dd>
           </dl>
 
           <div class="mt-2.5 border-t border-[#F0F2F5] pt-2">
@@ -617,7 +778,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </div>
-        </template>
       </div>
     </div>
   </div>
