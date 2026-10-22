@@ -279,10 +279,30 @@ export class ViewerEngine {
     });
   }
 
+  private buildMeshEdgeSegments(decoded: DecodedJhb): number[] {
+    if (!decoded.positions.length || !decoded.indices.length) return [];
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(decoded.positions, 3));
+    geometry.setIndex(new THREE.BufferAttribute(decoded.indices, 1));
+    try {
+      const edges = new THREE.EdgesGeometry(geometry, 18);
+      const position = edges.getAttribute('position');
+      const segments = position ? Array.from(position.array as ArrayLike<number>) : [];
+      edges.dispose();
+      return segments;
+    } catch {
+      return [];
+    } finally {
+      geometry.dispose();
+    }
+  }
+
   private buildEdgeLines(decoded: DecodedJhb) {
     const segments: number[] = [];
     const segmentPolyline: number[] = [];
     const segmentShape: number[] = [];
+    const meshSegments = this.buildMeshEdgeSegments(decoded);
+    const displaySegments = meshSegments.length ? meshSegments : segments;
     const offsets = decoded.edgeOffsets;
     for (let e = 0; e < offsets.length - 1; e += 1) {
       const start = offsets[e];
@@ -316,13 +336,19 @@ export class ViewerEngine {
       }
     }
     if (!this.state) return;
-    this.state.segments = segments;
-    this.state.segmentPolyline = segmentPolyline;
-    this.state.segmentShape = segmentShape;
-    if (!segments.length) return;
+    if (meshSegments.length) {
+      this.state.segments = displaySegments;
+      this.state.segmentPolyline = Array.from({ length: displaySegments.length / 6 }, (_, index) => index);
+      this.state.segmentShape = Array.from({ length: displaySegments.length / 6 }, () => 0);
+    } else {
+      this.state.segments = segments;
+      this.state.segmentPolyline = segmentPolyline;
+      this.state.segmentShape = segmentShape;
+    }
+    if (!displaySegments.length) return;
 
     const lineGeometry = new LineSegmentsGeometry();
-    lineGeometry.setPositions(segments);
+    lineGeometry.setPositions(displaySegments);
     const material = new LineMaterial({
       color:
         this.renderMode === 'wireframe'
@@ -336,7 +362,7 @@ export class ViewerEngine {
       alphaToCoverage: false,
       resolution: this.resolutionVector(),
     });
-    material.depthTest = true;
+    material.depthTest = false;
     material.transparent = true;
     this.edgeMaterial = material;
     this.edgeLines = new LineSegments2(lineGeometry, material);
