@@ -85,7 +85,10 @@ const defectOptions = [
 const target = computed(() => components.value.find((c) => c.familyId === familyId.value) ?? null);
 const diagnosticDecoded = computed(() => uploadedDecoded.value ?? decoded.value);
 const diagnosticStatus = computed(() => (uploadedDecoded.value ? 'succeeded' : status.value));
-const diagnosticParts = computed(() => uploadedMeta.value?.shapes ?? []);
+const diagnosticParts = computed(() => {
+  if (uploadedMeta.value?.shapes.length) return uploadedMeta.value.shapes;
+  return (result.value?.detected.shapes ?? []).map((key) => ({ key, label: key }));
+});
 type TemplateOption = { code: string; label: string; depth: number };
 function flattenTemplateNodes(nodes: TaxonomyNode[], depth = 0, output: TemplateOption[] = []): TemplateOption[] {
   for (const node of nodes) {

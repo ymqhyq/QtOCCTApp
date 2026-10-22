@@ -61,6 +61,28 @@ const contextLost = ref(false);
 const fullscreen = ref(false);
 const showTools = ref(true);
 const showNamedParts = ref(true);
+const hiddenPartKeys = ref<Set<string>>(new Set());
+function partShapeIndex(key: string) {
+  return props.decoded?.header.shapeKeys.indexOf(key) ?? -1;
+}
+function isPartVisible(key: string) {
+  return !hiddenPartKeys.value.has(key);
+}
+function applyPartVisibility() {
+  if (!props.decoded) return;
+  for (const part of props.namedParts) {
+    const index = partShapeIndex(part.key);
+    if (index >= 0) engine.value?.setShapeHidden(index, hiddenPartKeys.value.has(part.key));
+  }
+}
+function setPartVisible(key: string, visible: boolean) {
+  const next = new Set(hiddenPartKeys.value);
+  if (visible) next.delete(key);
+  else next.add(key);
+  hiddenPartKeys.value = next;
+  const index = partShapeIndex(key);
+  if (index >= 0) engine.value?.setShapeHidden(index, !visible);
+}
 const showDetails = ref(false);
 const ready = ref(false);
 
@@ -109,6 +131,7 @@ function buildEngine() {
     },
     onGeometryLoaded: () => {
       ready.value = true;
+      applyPartVisibility();
       if (props.highlightShape !== null) engine.value?.highlightShape(props.highlightShape);
     },
     onAxesChange: (axes) => {
@@ -132,6 +155,7 @@ function applyDecoded(decoded: DecodedJhb | null) {
   engine.value.setRenderMode(renderMode.value);
   if (clipAxis.value) engine.value.setClippingAxis(clipAxis.value);
   if (props.highlightShape !== null) engine.value.highlightShape(props.highlightShape);
+  applyPartVisibility();
 }
 
 function setView(next: ViewPreset) {
@@ -243,6 +267,20 @@ watch(
     if (!ready.value) return;
     engine.value?.highlightShape(shape ?? null);
   },
+);
+
+watch(
+  () => props.decoded,
+  () => {
+    hiddenPartKeys.value = new Set();
+    applyPartVisibility();
+  },
+);
+
+watch(
+  () => props.namedParts,
+  () => applyPartVisibility(),
+  { deep: true },
 );
 
 watch(
@@ -474,17 +512,32 @@ defineExpose({
         <span class="mono text-[8px] text-[#64748B]">{{ namedParts.length }}</span>
       </div>
       <div class="max-h-[240px] overflow-y-auto p-1 scroll-thin">
-        <button
+        <div
           v-for="part in namedParts"
           :key="part.key"
-          class="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors"
-          :class="selectedPart === part.key ? 'bg-hl/15 text-white' : 'text-[#CBD5E1] hover:bg-white/10'"
-          :title="part.label"
-          @click="emit('selectPart', part.key)"
+          class="flex w-full items-center gap-1.5 rounded px-1.5 py-1 transition-colors"
+          :class="[
+            selectedPart === part.key ? 'bg-hl/15' : 'hover:bg-white/10',
+            isPartVisible(part.key) ? '' : 'opacity-45',
+          ]"
         >
-          <span class="h-1 w-1 shrink-0 rounded-full" :class="selectedPart === part.key ? 'bg-hl' : 'bg-[#64748B]'" />
-          <span class="min-w-0 flex-1 truncate text-[10px]">{{ part.label }}</span>
-        </button>
+          <input
+            type="checkbox"
+            class="h-3 w-3 shrink-0 accent-[#38BDF8]"
+            :checked="isPartVisible(part.key)"
+            :aria-label="`显示 ${part.label}`"
+            @change="setPartVisible(part.key, ($event.target as HTMLInputElement).checked)"
+          />
+          <button
+            class="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+            :class="selectedPart === part.key ? 'text-white' : 'text-[#CBD5E1]'"
+            :title="part.label"
+            @click="emit('selectPart', part.key)"
+          >
+            <span class="h-1 w-1 shrink-0 rounded-full" :class="selectedPart === part.key ? 'bg-hl' : 'bg-[#64748B]'" />
+            <span class="min-w-0 flex-1 truncate text-[10px]">{{ part.label }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
