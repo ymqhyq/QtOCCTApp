@@ -25,6 +25,10 @@ const oldDecoded = ref<DecodedJhb | null>(null);
 const newDecoded = ref<DecodedJhb | null>(null);
 const reviewParts = ref<{ key: string; label: string }[]>([]);
 const selectedReviewPart = ref<string | null>(null);
+const selectedReviewPartIndex = computed(() => {
+  const index = reviewParts.value.findIndex((part) => part.key === selectedReviewPart.value);
+  return index >= 0 ? index : null;
+});
 const reviewViewMode = ref<'old' | 'new' | 'overlay'>('overlay');
 const displayedDecoded = computed(() => (reviewViewMode.value === 'old' ? oldDecoded.value : newDecoded.value));
 const displayedCompare = computed(() => (reviewViewMode.value === 'overlay' ? oldDecoded.value : null));
@@ -329,6 +333,7 @@ onBeforeUnmount(() => {
             :shape-labels="{}"
             :named-parts="reviewParts"
             :selected-part="selectedReviewPart"
+            :highlight-shape="selectedReviewPartIndex"
             @select-part="selectedReviewPart = $event"
           >
             <template #bottom-tools>

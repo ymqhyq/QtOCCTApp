@@ -34,7 +34,7 @@ const debugMode = computed(() => route.query.debug === '1');
 const components = ref<ComponentSummary[]>([]);
 const schemes = ref<TaxonomyScheme[]>([]);
 const templateCode = ref('');
-const familyId = ref('PierBody');
+const familyId = ref('');
 const uploadedMeta = ref<{
   familyId: string;
   name: string;
@@ -55,6 +55,7 @@ const uploadedPreviewUrl = ref('');
 const packageError = ref('');
 const revision = ref('1.4.2');
 const file = ref<File | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const fileHash = ref('');
 const hashing = ref(false);
 const dragOver = ref(false);
@@ -89,6 +90,10 @@ const diagnosticParts = computed(() => {
   if (uploadedMeta.value?.shapes.length) return uploadedMeta.value.shapes;
   return (result.value?.detected.shapes ?? []).map((key) => ({ key, label: key }));
 });
+const uploadedPartIndex = computed(() => {
+  const index = diagnosticParts.value.findIndex((part) => part.key === uploadedPart.value);
+  return index >= 0 ? index : null;
+});
 type TemplateOption = { code: string; label: string; depth: number };
 function flattenTemplateNodes(nodes: TaxonomyNode[], depth = 0, output: TemplateOption[] = []): TemplateOption[] {
   for (const node of nodes) {
@@ -101,7 +106,6 @@ const templateOptions = computed(() => {
   const crbim = schemes.value.find((scheme) => scheme.id === 'crbim');
   return crbim ? flattenTemplateNodes(crbim.nodes) : [];
 });
-const templateLabel = computed(() => templateOptions.value.find((item) => item.code === templateCode.value)?.label ?? '');
 const templateHasFamily = computed(
   () => !templateCode.value || components.value.some((component) => component.taxonomy.crbim === templateCode.value),
 );
@@ -129,7 +133,7 @@ function toggleDefect(id: string) {
 
 function onTemplateChange() {
   const matched = components.value.find((component) => component.taxonomy.crbim === templateCode.value);
-  if (matched) familyId.value = matched.familyId;
+  familyId.value = matched?.familyId ?? '';
 }
 
 const TEMPLATE_ALIASES: { keyword: string; label: string }[] = [
@@ -271,6 +275,10 @@ async function runGates() {
     ui.notify({ type: 'warning', title: '请先拖入构件包', message: '支持 .cbfc 制品包（ZIP）。' });
     return;
   }
+  if (!familyId.value) {
+    ui.notify({ type: 'warning', title: '未匹配目标族', message: '请先选择有库存构件族的目标模板。' });
+    return;
+  }
   running.value = true;
   result.value = null;
   submittedReview.value = null;
@@ -340,11 +348,14 @@ function downloadReport() {
 
 function clearFile() {
   file.value = null;
+  if (fileInput.value) fileInput.value.value = '';
   fileHash.value = '';
   result.value = null;
   submittedReview.value = null;
   revealed.value = 0;
   defects.value = [];
+  familyId.value = '';
+  templateCode.value = '';
   uploadedMeta.value = null;
   uploadedDecoded.value = null;
   uploadedPart.value = null;
@@ -358,6 +369,7 @@ function loadTargetGeometry() {
 }
 
 watch(familyId, () => {
+  if (!familyId.value) return;
   if (components.value.length) loadTargetGeometry();
 });
 
@@ -366,9 +378,6 @@ onMounted(async () => {
     const [search, taxonomyResponse] = await Promise.all([api.search({ pageSize: 60 }), api.taxonomies()]);
     components.value = search.items;
     schemes.value = taxonomyResponse.items;
-    const current = components.value.find((component) => component.familyId === familyId.value);
-    if (current) templateCode.value = current.taxonomy.crbim;
-    loadTargetGeometry();
   } catch {
     /* ignore */
   }
@@ -454,7 +463,16 @@ onBeforeUnmount(() => {
             @dragleave="dragOver = false"
             @drop.prevent="onDrop"
           >
-            <input type="file" accept=".cbfc,.zip" class="absolute inset-0 cursor-pointer opacity-0" @change="onFileChange" />
+            <input ref="fileInput" type="file" accept=".cbfc,.zip" class="absolute inset-0 z-10 cursor-pointer opacity-0" @change="onFileChange" />
+            <button
+              v-if="file"
+              class="btn btn-ghost btn-sm absolute right-2 top-2 z-30 bg-white/85"
+              type="button"
+              @click.stop.prevent="clearFile"
+              @mousedown.stop
+            >
+              移除
+            </button>
             <template v-if="!file">
               <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-line bg-white text-[#94A3B8]">
                 <AppIcon name="upload" :size="18" />
@@ -475,7 +493,6 @@ onBeforeUnmount(() => {
                     <span class="mono" v-else>{{ maskKey(fileHash, 16, 6) }}</span>
                   </p>
                 </div>
-                <button class="btn btn-ghost btn-sm" @click.stop.prevent="clearFile">移除</button>
               </div>
             </template>
           </div>
@@ -503,35 +520,37 @@ onBeforeUnmount(() => {
 
           <div class="mt-2 space-y-2">
             <div>
-              <label class="label">目标模板（CRBIM 53 表）</label>
+              <label class="label">目标族模板（CRBIM 53 表）</label>
               <select v-model="templateCode" class="select !py-1.5 !text-[12.5px]" @change="onTemplateChange">
-                <option value="">自动/不指定</option>
+                <option value="">请选择目标族模板</option>
                 <option v-for="template in templateOptions" :key="template.code" :value="template.code">
                   {{ '　'.repeat(template.depth) }}{{ template.label }} · {{ template.code }}
                 </option>
               </select>
               <p class="mt-1 text-[9px] leading-relaxed text-[#92400E]">
-                全量 CRBIM 53 表模板；上传包会按名称、语义码与分类自动模糊匹配。{{ templateLabel ? `当前匹配：${templateLabel}` : '' }}
+                全量 CRBIM 53 表模板；上传包会按名称、语义码与分类自动模糊匹配。
               </p>
-              <p v-if="!templateHasFamily" class="mt-1 text-[9px] leading-relaxed text-danger">
+              <p v-if="templateCode && !templateHasFamily" class="mt-1 text-[9px] leading-relaxed text-danger">
                 该模板当前没有库存构件族，请先在「族库管理」创建对应族后再入库。
               </p>
             </div>
             <div class="grid gap-2 sm:grid-cols-[1fr_110px_auto]">
               <div>
-                <label class="label">目标族模型</label>
-                <select v-model="familyId" class="select !py-1.5 !text-[12.5px]">
-                  <option v-for="item in components" :key="item.familyId" :value="item.familyId">
-                    {{ item.name }} · {{ item.familyId }}
-                  </option>
-                </select>
+                <label class="label">匹配族</label>
+                <div class="flex h-[32px] items-center rounded border border-line bg-[#FAFBFC] px-2 text-[11.5px]">
+                  <template v-if="target">
+                    <span class="truncate text-ink">{{ target.name }}</span>
+                    <span class="mono ml-1.5 shrink-0 text-[9.5px] text-muted">{{ target.familyId }}</span>
+                  </template>
+                  <span v-else class="text-[#9CA3AF]">未匹配到库存构件族</span>
+                </div>
               </div>
               <div>
                 <label class="label">送审版本</label>
                 <input v-model="revision" class="input mono !py-1.5 !text-[12.5px]" />
               </div>
               <div class="flex items-end">
-                <button class="btn btn-primary w-full" :disabled="running || !file" @click="runGates">
+                <button class="btn btn-primary w-full" :disabled="running || !file || !familyId" @click="runGates">
                   <span v-if="running" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                   <AppIcon v-else name="play" :size="14" />
                   开始门禁诊断
@@ -718,8 +737,15 @@ onBeforeUnmount(() => {
             />
           </div>
           <div class="relative h-[340px]">
+            <div v-if="!file" class="flex h-full flex-col items-center justify-center gap-2 text-center">
+              <span class="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[#64748B]">
+                <AppIcon name="cube" :size="18" />
+              </span>
+              <p class="text-[11px] text-[#94A3B8]">上传构件制品包后显示 3D 几何</p>
+              <p class="text-[9px] text-[#64748B]">目标族模板与门禁诊断将在上传后填充</p>
+            </div>
             <CadViewport
-              v-if="diagnosticDecoded"
+              v-else-if="diagnosticDecoded"
               :decoded="diagnosticDecoded"
               :status="diagnosticStatus"
               :progress="uploadedDecoded ? 100 : progress"
@@ -728,14 +754,16 @@ onBeforeUnmount(() => {
               :shape-labels="{}"
               :named-parts="diagnosticParts"
               :selected-part="uploadedPart"
+              :highlight-shape="uploadedPartIndex"
               @select-part="uploadedPart = $event"
             />
             <UploadedModelView v-else-if="uploadedPreviewUrl" :url="uploadedPreviewUrl" />
             <div
+              v-if="file"
               class="pointer-events-none absolute inset-0"
               :class="verdict === 'failed' ? 'shadow-[inset_0_0_60px_rgba(185,28,28,0.35)]' : 'shadow-[inset_0_0_60px_rgba(34,197,94,0.18)]'"
             />
-            <div class="pointer-events-none absolute left-3 top-3 rounded border border-white/10 bg-[#0F1A2B]/80 px-2 py-1">
+            <div v-if="file" class="pointer-events-none absolute left-3 top-3 rounded border border-white/10 bg-[#0F1A2B]/80 px-2 py-1">
               <p class="text-[8.5px] font-semibold uppercase tracking-wider" :class="verdict === 'failed' ? 'text-[#FCA5A5]' : 'text-[#86EFAC]'">
                 {{ verdict === 'failed' ? 'RED ALERT · 非流形定位' : 'UPLOAD QA VIEWPORT' }}
               </p>

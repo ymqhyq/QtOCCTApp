@@ -468,7 +468,7 @@ defineExpose({
     <!-- 剖切滑杆 -->
     <div
       v-if="clipAxis"
-      class="absolute left-1/2 top-14 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-[#0F1A2B]/92 px-3 py-1.5 shadow-lift backdrop-blur"
+      class="absolute left-1/2 top-14 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-[#0F1A2B]/95 px-3 py-1.5 shadow-lift backdrop-blur"
     >
       <span class="shrink-0 rounded bg-hl/15 px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase text-hl">{{ clipAxis }} 剖切</span>
       <input
@@ -505,7 +505,7 @@ defineExpose({
     <!-- 命名部位列表 -->
     <div
       v-if="showNamedParts && namedParts.length"
-      class="absolute left-3 top-14 z-20 max-h-[min(300px,calc(100%-72px))] w-[232px] overflow-hidden rounded-md border border-white/10 bg-[#0F1A2B]/92 shadow-lift backdrop-blur"
+      class="absolute left-3 top-14 z-20 max-h-[min(300px,calc(100%-72px))] w-[232px] overflow-hidden rounded-md border border-white/10 bg-[#0F1A2B]/95 shadow-lift backdrop-blur"
     >
       <div class="flex items-center justify-between border-b border-white/10 px-2.5 py-1.5">
         <p class="text-[9px] font-semibold uppercase tracking-wider text-[#94A3B8]">命名部位</p>
@@ -638,12 +638,12 @@ defineExpose({
     </Transition>
 
     <!-- 测距模式提示 -->
-    <div v-if="measureMode && !measure" class="absolute bottom-[76px] right-3 z-20 rounded-full border border-hl/30 bg-[#0F1A2B]/92 px-3 py-1.5 text-[10.5px] text-[#CBD5E1]">
+    <div v-if="measureMode && !measure" class="absolute bottom-[76px] right-3 z-20 rounded-full border border-hl/30 bg-[#0F1A2B]/95 px-3 py-1.5 text-[10.5px] text-[#CBD5E1]">
       点击模型拾取 A 点，再次点击拾取 B 点 · 自动吸附端点/锚点
     </div>
 
     <!-- WebGL 上下文丢失 -->
-    <div v-if="contextLost" class="absolute inset-0 z-40 flex items-center justify-center bg-[#0B1220]/85 p-6 backdrop-blur">
+    <div v-if="contextLost" class="absolute inset-0 z-40 flex items-center justify-center bg-[#0B1220]/[0.85] p-6 backdrop-blur">
       <div class="max-w-sm rounded-lg border border-white/10 bg-[#111C2B] p-5 text-center">
         <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#78350F] bg-[#451A03]/60 text-[#FCD34D]">
           <AppIcon name="alertTriangle" :size="20" />

@@ -86,6 +86,7 @@ export class ViewerEngine {
   private compareGroup = new THREE.Group();
   private compareDecoded: DecodedJhb | null = null;
   private compareEdges: LineSegments2 | null = null;
+  private compareMesh: THREE.Mesh | null = null;
   private measureGroup = new THREE.Group();
   private measurePoints: THREE.Vector3[] = [];
   private measureLabels: string[] = [];
@@ -279,30 +280,45 @@ export class ViewerEngine {
     });
   }
 
-  private buildMeshEdgeSegments(decoded: DecodedJhb): number[] {
-    if (!decoded.positions.length || !decoded.indices.length) return [];
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(decoded.positions, 3));
-    geometry.setIndex(new THREE.BufferAttribute(decoded.indices, 1));
-    try {
-      const edges = new THREE.EdgesGeometry(geometry, 18);
-      const position = edges.getAttribute('position');
-      const segments = position ? Array.from(position.array as ArrayLike<number>) : [];
-      edges.dispose();
-      return segments;
-    } catch {
-      return [];
-    } finally {
-      geometry.dispose();
+  private buildMeshEdgeSegments(decoded: DecodedJhb): { positions: number[]; shapes: number[] } {
+    if (!decoded.positions.length || !decoded.indices.length) return { positions: [], shapes: [] };
+    const byShape = new Map<number, number[]>();
+    const faceToShape = decoded.header.faceToShape ?? [];
+    for (let t = 0; t < decoded.indices.length / 3; t += 1) {
+      const faceId = decoded.faceIds[t] ?? t;
+      const shapeIndex = faceToShape[faceId] ?? 0;
+      const list = byShape.get(shapeIndex) ?? [];
+      list.push(decoded.indices[t * 3], decoded.indices[t * 3 + 1], decoded.indices[t * 3 + 2]);
+      byShape.set(shapeIndex, list);
     }
+    const positions: number[] = [];
+    const shapes: number[] = [];
+    for (const [shapeIndex, triangleIndices] of byShape) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(decoded.positions, 3));
+      geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(triangleIndices), 1));
+      try {
+        const edges = new THREE.EdgesGeometry(geometry, 18);
+        const position = edges.getAttribute('position');
+        if (position) {
+          const values = Array.from(position.array as ArrayLike<number>);
+          positions.push(...values);
+          for (let i = 0; i < values.length / 6; i += 1) shapes.push(shapeIndex);
+        }
+        edges.dispose();
+      } catch {
+        /* 跳过该部位的轮廓生成 */
+      } finally {
+        geometry.dispose();
+      }
+    }
+    return { positions, shapes };
   }
 
   private buildEdgeLines(decoded: DecodedJhb) {
     const segments: number[] = [];
     const segmentPolyline: number[] = [];
     const segmentShape: number[] = [];
-    const meshSegments = this.buildMeshEdgeSegments(decoded);
-    const displaySegments = meshSegments.length ? meshSegments : segments;
     const offsets = decoded.edgeOffsets;
     for (let e = 0; e < offsets.length - 1; e += 1) {
       const start = offsets[e];
@@ -335,16 +351,15 @@ export class ViewerEngine {
         segmentShape.push(shape);
       }
     }
+    const meshEdges = this.buildMeshEdgeSegments(decoded);
+    const displaySegments = meshEdges.positions.length ? meshEdges.positions : segments;
+    const displayShapes = meshEdges.positions.length ? meshEdges.shapes : segmentShape;
     if (!this.state) return;
-    if (meshSegments.length) {
-      this.state.segments = displaySegments;
-      this.state.segmentPolyline = Array.from({ length: displaySegments.length / 6 }, (_, index) => index);
-      this.state.segmentShape = Array.from({ length: displaySegments.length / 6 }, () => 0);
-    } else {
-      this.state.segments = segments;
-      this.state.segmentPolyline = segmentPolyline;
-      this.state.segmentShape = segmentShape;
-    }
+    this.state.segments = displaySegments;
+    this.state.segmentPolyline = displaySegments.length
+      ? Array.from({ length: displaySegments.length / 6 }, (_, index) => index)
+      : segmentPolyline;
+    this.state.segmentShape = displaySegments.length ? displayShapes : segmentShape;
     if (!displaySegments.length) return;
 
     const lineGeometry = new LineSegmentsGeometry();
@@ -698,6 +713,23 @@ export class ViewerEngine {
       (this.mesh.geometry as THREE.BufferGeometry).setIndex(new THREE.BufferAttribute(new Uint32Array(kept), 1));
     }
 
+    if (this.compareMesh && this.compareDecoded) {
+      const secondary = this.compareDecoded;
+      const secondaryIndex = secondary.indices;
+      if (!this.hiddenShapes.size) {
+        this.compareMesh.geometry.setIndex(new THREE.BufferAttribute(secondaryIndex, 1));
+      } else {
+        const kept: number[] = [];
+        for (let t = 0; t < secondaryIndex.length / 3; t += 1) {
+          const faceId = secondary.faceIds[t];
+          const shapeIndex = secondary.header.faceToShape[faceId] ?? 0;
+          if (this.hiddenShapes.has(shapeIndex)) continue;
+          kept.push(secondaryIndex[t * 3], secondaryIndex[t * 3 + 1], secondaryIndex[t * 3 + 2]);
+        }
+        this.compareMesh.geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(kept), 1));
+      }
+    }
+
     if (this.edgeLines && this.state.segments.length) {
       const kept: number[] = [];
       const segments = this.state.segments;
@@ -983,6 +1015,7 @@ export class ViewerEngine {
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.renderOrder = 0;
+    this.compareMesh = mesh;
     this.compareGroup.add(mesh);
 
     const segments = this.segmentsFor(secondary);
@@ -1036,6 +1069,7 @@ export class ViewerEngine {
       else material?.dispose();
     }
     this.compareEdges = null;
+    this.compareMesh = null;
     this.compareDecoded = null;
   }
 
