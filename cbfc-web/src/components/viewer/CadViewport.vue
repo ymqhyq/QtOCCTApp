@@ -505,7 +505,7 @@ defineExpose({
     <!-- 命名部位列表 -->
     <div
       v-if="showNamedParts && namedParts.length"
-      class="absolute left-3 top-14 z-20 max-h-[min(280px,calc(100%-72px))] w-[176px] overflow-hidden rounded-md border border-white/10 bg-[#0F1A2B]/92 shadow-lift backdrop-blur"
+      class="absolute left-3 top-14 z-20 max-h-[min(300px,calc(100%-72px))] w-[232px] overflow-hidden rounded-md border border-white/10 bg-[#0F1A2B]/92 shadow-lift backdrop-blur"
     >
       <div class="flex items-center justify-between border-b border-white/10 px-2.5 py-1.5">
         <p class="text-[9px] font-semibold uppercase tracking-wider text-[#94A3B8]">命名部位</p>

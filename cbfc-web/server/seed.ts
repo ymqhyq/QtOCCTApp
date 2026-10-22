@@ -70,6 +70,8 @@ interface ComponentSeed {
   modeledBy?: string;
   /** 附加非映射形状，用于演示 unmapped 预警 */
   extraShapes?: Record<string, ShapeDef>;
+  /** 覆盖默认形状定义（导入构件使用真实命名部位） */
+  shapes?: Record<string, ShapeDef>;
   /** 原始 CadQuery 参数化脚本路径（来源追溯，不参与 cacheKey） */
   cqSource?: string;
   /** 构件库2 导入网格（相对 server/imports/cbfc2） */
@@ -540,6 +542,16 @@ const SEEDS: ComponentSeed[] = [
     description: '双线一字形桥台，含台顶、台身、胸墙及支承垫石等命名部位。',
     presets: [{ modelNumber: 'A4332-H8.0-D0.0', label: 'A4332 标准桥台', overrides: {} }],
     meshFile: 'StraightAbutment.mesh.json',
+    shapes: {
+      Footing: { label: '基础（明挖基础，四周 1050 襟边）', code: 'Bridge.Abutment.Footing', geomType: 'solid' },
+      Body: { label: '台身（前面 1:5 收坡）', code: 'Bridge.Abutment.Body', geomType: 'solid' },
+      Cap: { label: '顶帽支撑台阶（承托支承垫石）', code: 'Bridge.Abutment.Cap', geomType: 'solid' },
+      ParapetWall: { label: '胸墙/背墙（挡土墙，正面中央设 1500 检查口凹槽）', code: 'Bridge.Abutment.ParaperWall', geomType: 'solid' },
+      TopTray: { label: '台顶托盘（仅坐落于胸墙顶端，横桥向悬挑至 12600）', code: 'Bridge.Abutment.TopTray', geomType: 'solid' },
+      BearingPad: { label: '支承垫石（每台 2 个，X=±2200）', code: 'Bridge.Abutment.BearingPad', geomType: 'solid' },
+      WaterCurb: { label: '台顶挡水台（台前 A、台后 B 左右段）', code: 'Bridge.Abutment.WaterCurb', geomType: 'solid' },
+      BearingPadTopFace: { label: '支承垫石顶面（支座安装面）', code: 'Bridge.Abutment.BearingPadTopFace', geomType: 'face' },
+    },
     publishedAt: '2026-05-21',
     updatedAt: '2026-09-20',
     modeledBy: '李工',
@@ -1358,7 +1370,7 @@ export async function createComponents(): Promise<InternalComponent[]> {
           ));
 
     const shapes: Record<string, ShapeDef> = {
-      ...shapesFor(seed.kind, seed.semanticCode),
+      ...(seed.shapes ?? shapesFor(seed.kind, seed.semanticCode)),
       ...(seed.extraShapes ?? {}),
     };
     const shapeKeys = Object.keys(shapes);
