@@ -1333,6 +1333,10 @@ export async function createComponents(): Promise<InternalComponent[]> {
             inputs,
           }
         : undefined;
+    if (recipe && seed.familyId === 'Abutment') {
+      recipe.digest = await sha256Hex(readFileSync(new URL('./cq/generator.py', import.meta.url)));
+      recipe.entry = 'build_parts';
+    }
 
     const presetSpecs = seed.presets;
     const presetParams: Record<string, Record<string, number | string | boolean>> = {};

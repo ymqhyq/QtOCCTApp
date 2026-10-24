@@ -2,6 +2,8 @@
  * 制品导出：JHB / GLB / .cbfc 制品包（真实 ZIP） / STEP 与 IFC 交付清单
  */
 import type { InternalComponent } from './seed';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { buildMesh, encodeGlb, renderPreviewSvg } from './geometry';
 import { buildGeneratorSource } from './generator';
 import { encodeJhb } from './jhb';
@@ -271,6 +273,14 @@ export function zipStore(files: { name: string; data: Uint8Array }[]): Uint8Arra
 }
 
 function pySource(component: InternalComponent): string {
+  if (component.familyId === 'Abutment' || component.cqGenerator) {
+    const generatorPath = component.cqGenerator ?? resolve(process.cwd(), 'server/cq/generator.py');
+    try {
+      return readFileSync(generatorPath, 'utf8');
+    } catch {
+      // fall through to the generic source only if the actual source is missing
+    }
+  }
   return buildGeneratorSource({
     familyId: component.familyId,
     name: component.name,
@@ -626,8 +636,7 @@ export async function buildArtifact(
   } else if (
     component.sourceMode === 'parametric' &&
     !component.importedMesh &&
-    Object.keys(params).length &&
-    format !== 'step'
+    Object.keys(params).length
   ) {
     const mesh = buildMesh(
       component.geoKind,
@@ -666,7 +675,7 @@ export async function buildArtifact(
         const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
         if (cqStep) return { data: cqStep, fileName: `${base}.step`, mime: f.mime };
       }
-      return { data: makeStepFile(component), fileName: `${base}.step`, mime: f.mime };
+      return { data: makeStepFile(effectiveComponent), fileName: `${base}.step`, mime: f.mime };
     }
     case 'ifc':
       return { data: makeIfcFile(effectiveComponent), fileName: `${base}.ifc`, mime: f.mime };

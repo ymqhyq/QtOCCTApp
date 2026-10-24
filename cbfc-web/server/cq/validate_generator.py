@@ -36,7 +36,18 @@ FORBIDDEN_NAMES = {
     "setattr",
     "delattr",
 }
-FORBIDDEN_ATTRS = {"__subclasses__", "__globals__", "__builtins__", "__code__"}
+FORBIDDEN_ATTRS = {
+    "__builtins__",
+    "__class__",
+    "__code__",
+    "__dict__",
+    "__globals__",
+    "__subclasses__",
+    "modules",
+    "mro",
+    "subclasses",
+    "sys",
+}
 
 
 def validate(source: str) -> list[str]:

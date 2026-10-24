@@ -631,6 +631,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       }
       component.parameters.schema[0].default = component.parameters.presets[0].modelNumber;
       const generatorSource = String(body.generatorSource ?? '');
+      if (
+        generatorSource.trim() &&
+        process.env.NODE_ENV === 'production' &&
+        process.env.CBF_ALLOW_DYNAMIC_GENERATORS !== '1'
+      ) {
+        return fail(res, 403, 'DYNAMIC_GENERATOR_DISABLED', '生产构建默认禁止通过 HTTP 导入并执行动态生成器'), true;
+      }
       if (generatorSource.trim()) {
         const validation = await validateGeneratorSource(generatorSource);
         if (!validation.ok) {
@@ -678,6 +685,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         return true;
       }
       const items = [...state.components]
+        .filter((component) => accessible(user!, component))
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
         .map(familyView);
       json(res, 200, { items, total: items.length });
@@ -752,6 +760,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (user!.role !== 'asset-admin') return fail(res, 403, 'FORBIDDEN', '仅资产管理员可维护预定义型号'), true;
       const component = findComponent(state, decodeURIComponent(presetMatch[1]));
       if (!component) return fail(res, 404, 'FAMILY_NOT_FOUND', '族不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权维护其他租户的型号'), true;
       try {
         if (method === 'POST' && !presetMatch[2]) {
           const body = await readJson(req);
@@ -1855,12 +1864,16 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         state.profiles.find((p) => p.profileId === String(body.profileCode ?? '')) ??
         state.profiles.find((p) => p.isDefault);
       if (!profile) return fail(res, 404, 'PROFILE_NOT_FOUND', '语义模板不存在'), true;
+      if (profile.tenantId !== 'system' && profile.tenantId !== user!.tenantId) {
+        return fail(res, 403, 'FORBIDDEN', '无权使用其他租户的语义模板'), true;
+      }
       const requested = Array.isArray(body.shapeKeys) ? (body.shapeKeys as string[]) : [];
       const familyId = String(body.familyId ?? '');
       let mappings: SemanticMapping[] = [];
       if (familyId) {
         const component = findComponent(state, familyId);
         if (!component) return fail(res, 404, 'COMPONENT_NOT_FOUND', '构件不存在'), true;
+        if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权访问该构件'), true;
         mappings = resolveMappings(component, profile).filter(
           (m) => !requested.length || requested.includes(m.shapeKey) || requested.includes(m.code),
         );
@@ -2075,6 +2088,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const component = findComponent(state, familyId);
       if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
       if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权推送该构件'), true;
+      const allowedCacheKeys = new Set([
+        component.geometry.defaultCacheKey,
+        ...component.parameters.presets.map((preset) => preset.cacheKey).filter(Boolean),
+      ]);
+      if (!allowedCacheKeys.has(cacheKey)) {
+        return fail(res, 422, 'INVALID_CACHE_KEY', 'cacheKey 不属于该构件'), true;
+      }
       if (user!.role === 'partner') return fail(res, 403, 'FORBIDDEN', '外部合作方无桌面端推送权限'), true;
       const token = `htk_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
       const expiresAt = Date.now() + 45_000;
