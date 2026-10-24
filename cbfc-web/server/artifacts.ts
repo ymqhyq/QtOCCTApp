@@ -2,7 +2,7 @@
  * 制品导出：JHB / GLB / .cbfc 制品包（真实 ZIP） / STEP 与 IFC 交付清单
  */
 import type { InternalComponent } from './seed';
-import { encodeGlb, renderPreviewSvg } from './geometry';
+import { buildMesh, encodeGlb, renderPreviewSvg } from './geometry';
 import { buildGeneratorSource } from './generator';
 import { encodeJhb } from './jhb';
 import { deterministicJson, sha256Hex } from '../shared/deterministic';
@@ -605,6 +605,7 @@ export async function buildArtifact(
       generatorPath: component.cqGenerator,
       shapeKeys: Object.keys(component.shapes),
     });
+    if (!cqMesh) throw new Error('GEOMETRY_BACKEND_UNAVAILABLE');
     if (cqMesh) {
       effectiveComponent = {
         ...component,
@@ -617,6 +618,26 @@ export async function buildArtifact(
         },
       };
     }
+  } else if (
+    component.sourceMode === 'parametric' &&
+    !component.importedMesh &&
+    Object.keys(params).length &&
+    format !== 'step'
+  ) {
+    const mesh = buildMesh(
+      component.geoKind,
+      Object.fromEntries(component.recipeInputs.map((key) => [key, Number(params[key])])) as Record<string, number>,
+    );
+    effectiveComponent = {
+      ...component,
+      mesh,
+      geometry: {
+        ...component.geometry,
+        volumeM3: Math.round((mesh.volumeMm3 / 1e9) * 1000) / 1000,
+        triangles: mesh.triangles,
+        vertices: mesh.vertices,
+      },
+    };
   }
   switch (format) {
     case 'jhb':

@@ -37,6 +37,27 @@ check('合作方读取审核队列被拒绝', (await status('/api/v1/reviews', p
 check('合作方读取运营看板被拒绝', (await status('/api/v1/analytics/overview', partner.token)) === 403);
 check('合作方上传被拒绝', (await status('/api/v1/components/upload', partner.token, 'POST')) === 403);
 check('合作方读取语义模板被拒绝', (await status('/api/v1/semantic-profiles', partner.token)) === 403);
+
+async function evaluate(familyId, token) {
+  const detail = await (await fetch(`${BASE}/api/v1/components/${familyId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })).json();
+  const modelNumber = String(detail.parameters.schema[0]?.default ?? '');
+  const response = await fetch(`${BASE}/api/v1/components/${familyId}/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ modelNumber }),
+  });
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const jsonLen = buffer.readUInt32LE(0);
+  return JSON.parse(buffer.subarray(4, 4 + jsonLen).toString('utf8'));
+}
+for (const familyId of ['PierBodyRect', 'PierTray', 'BoredPile']) {
+  const header = await evaluate(familyId, designer.token);
+  const bounds = header.bounds;
+  const isAbutmentShape = bounds.min[0] === -6300 && bounds.max[2] > 5000;
+  check(`${familyId} 不返回桥台几何`, !isAbutmentShape, `${header.stats?.volumeM3} m³`);
+}
 const failed = results.filter((r) => !r.ok);
 console.log(`SECURITY DONE: ${results.length - failed.length}/${results.length}`);
 if (failed.length) process.exitCode = 2;

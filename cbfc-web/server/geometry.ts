@@ -31,7 +31,7 @@ export interface MeshData {
   edges: Float32Array;
   edgeOffsets: Uint32Array;
   edgeShapes: number[];
-  faceIds: Uint16Array;
+  faceIds: Uint16Array | Uint32Array;
   faceGroups: FaceGroup[];
   edgeLines: EdgeLine[];
   bounds: { min: [number, number, number]; max: [number, number, number] };

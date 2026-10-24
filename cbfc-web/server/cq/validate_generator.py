@@ -67,6 +67,10 @@ def validate(source: str) -> list[str]:
 
 
 def main() -> int:
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8")
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     source = sys.stdin.read()
     errors = validate(source)
     sys.stdout.write(json.dumps({"ok": not errors, "errors": errors}, ensure_ascii=False))

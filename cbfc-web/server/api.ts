@@ -315,9 +315,13 @@ function effectiveParams(
       }
       if (schema.min !== undefined && num < schema.min) errors.push(`${schema.label} 小于下限 ${schema.min}`);
       if (schema.max !== undefined && num > schema.max) errors.push(`${schema.label} 超过上限 ${schema.max}`);
+      if (schema.type === 'int' && !Number.isInteger(num)) errors.push(`${schema.label} 必须为整数`);
       params[name] = num;
     } else if (schema.type === 'bool') {
-      params[name] = Boolean(value);
+      if (typeof value === 'boolean') params[name] = value;
+      else if (value === 'true' || value === '1' || value === 1) params[name] = true;
+      else if (value === 'false' || value === '0' || value === 0) params[name] = false;
+      else errors.push(`${schema.label} 必须为布尔值`);
     }
   }
   const isPreset = component.parameters.presets.some((p) =>
@@ -1717,7 +1721,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         : buildMesh(component.geoKind, Object.fromEntries(
             component.recipeInputs.map((key) => [key, Number(params[key])]),
           ) as Record<string, number>);
-      const key = `review-${review.reviewId}-${side}`;
+      const key = await sha256Hex(
+        `review:${review.reviewId}:${side}:${JSON.stringify(params)}`,
+      );
       const jhb = makeJhb(component, params, key, mesh, false);
       binary(res, 200, new Uint8Array(jhb.buffer), 'application/x-cbf-jhb', undefined, {
         'X-Review-Side': side,
@@ -1807,7 +1813,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (!['asset-admin', 'designer', 'reviewer', 'standard-admin'].includes(user!.role)) {
         return fail(res, 403, 'FORBIDDEN', '语义模板仅对内部用户开放'), true;
       }
-      const items = state.profiles.map((p) => ({
+      const items = state.profiles
+        .filter((p) => p.tenantId === 'system' || p.tenantId === user!.tenantId)
+        .map((p) => ({
         profileId: p.profileId,
         version: p.version,
         tenantId: p.tenantId,
@@ -2144,6 +2152,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
     const message = error instanceof Error ? error.message : String(error);
     if (message === 'INVALID_JSON') return fail(res, 400, 'INVALID_JSON', '请求体不是合法 JSON'), true;
     if (message === 'PAYLOAD_TOO_LARGE') return fail(res, 413, 'PAYLOAD_TOO_LARGE', '请求体超过 16MB 上限'), true;
+    if (message === 'GEOMETRY_BACKEND_UNAVAILABLE') {
+      return fail(res, 503, 'GEOMETRY_BACKEND_UNAVAILABLE', 'CadQuery 建模服务当前不可用，已拒绝返回默认几何'), true;
+    }
     console.error('[cbfc-mock-api]', error);
     fail(res, 500, 'INTERNAL_ERROR', message);
     return true;

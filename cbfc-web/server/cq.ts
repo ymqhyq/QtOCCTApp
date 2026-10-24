@@ -38,7 +38,10 @@ function toMesh(parsed: CqMeshPayload): MeshData {
     positions: Float32Array.from(parsed.positions),
     indices: Uint32Array.from(parsed.indices),
     normals: Float32Array.from(parsed.normals),
-    faceIds: Uint16Array.from(parsed.faceIds),
+    faceIds:
+      parsed.faceIds.length > 65535
+        ? Uint32Array.from(parsed.faceIds)
+        : Uint16Array.from(parsed.faceIds),
     edges: new Float32Array(0),
     edgeOffsets: new Uint32Array([0]),
     edgeShapes: [],
@@ -118,7 +121,6 @@ function spawnWorker(): ChildProcessWithoutNullStreams | null {
   });
   next.on('exit', () => {
     child = null;
-    unavailable = true;
     failAll();
   });
   child = next;
