@@ -170,6 +170,51 @@ export async function generateAbutmentMesh(
   });
 }
 
+export async function generateMeshStep(mesh: MeshData): Promise<Uint8Array | null> {
+  const python = pythonPath();
+  const worker = resolve(process.cwd(), 'server/cq/mesh_step_worker.py');
+  if (!python || !existsSync(worker) || !mesh.indices.length) return null;
+  return new Promise((resolveStep) => {
+    const child = spawn(python, [worker], {
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const chunks: Buffer[] = [];
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill();
+      resolveStep(null);
+    }, 60_000);
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolveStep(null);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0 || !chunks.length) {
+        if (stderr) console.warn('[mesh step]', stderr.slice(0, 600));
+        resolveStep(null);
+        return;
+      }
+      const raw = Buffer.concat(chunks);
+      const marker = Buffer.from('ISO-10303-21;');
+      const start = raw.indexOf(marker);
+      resolveStep(start >= 0 ? new Uint8Array(raw.subarray(start)) : null);
+    });
+    child.stdin.end(
+      JSON.stringify({
+        positions: Array.from(mesh.positions),
+        indices: Array.from(mesh.indices),
+      }),
+    );
+  });
+}
+
 export async function generateAbutmentStep(
   params: Record<string, number | string | boolean>,
   options: { generatorPath?: string } = {},

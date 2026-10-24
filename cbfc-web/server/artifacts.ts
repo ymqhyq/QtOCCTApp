@@ -8,7 +8,7 @@ import { buildMesh, encodeGlb, renderPreviewSvg } from './geometry';
 import { buildGeneratorSource } from './generator';
 import { encodeJhb } from './jhb';
 import { deterministicJson, sha256Hex } from '../shared/deterministic';
-import { generateAbutmentMesh, generateAbutmentStep } from './cq';
+import { generateAbutmentMesh, generateAbutmentStep, generateMeshStep } from './cq';
 
 export const FORMATS = [
   {
@@ -686,6 +686,8 @@ export async function buildArtifact(
         const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
         if (cqStep) return { data: asAp242Step(cqStep), fileName: `${base}.step`, mime: f.mime };
       }
+      const meshStep = await generateMeshStep(effectiveComponent.mesh);
+      if (meshStep) return { data: asAp242Step(meshStep), fileName: `${base}.step`, mime: f.mime };
       return { data: makeStepFile(effectiveComponent), fileName: `${base}.step`, mime: f.mime };
     }
     case 'ifc':
