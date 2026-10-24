@@ -312,7 +312,7 @@ onMounted(async () => {
                   </button>
                 </div>
                 <p class="mt-2 text-[9px] leading-relaxed text-muted">
-                  文件按当前型号生成；IFC / STEP 使用精确几何，下载凭据 15 分钟内有效。
+                  文件按当前型号生成；IFC / STEP 使用精确几何。
                 </p>
               </div>
             </div>

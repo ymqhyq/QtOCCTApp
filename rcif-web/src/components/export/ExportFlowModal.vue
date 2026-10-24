@@ -448,23 +448,10 @@ async function copyChecksum() {
             </button>
             <span class="text-[11.5px] text-muted">下载凭据 15 分钟有效</span>
           </div>
-
-          <div class="rounded-md border border-line bg-[#FAFBFC] p-3">
-            <p class="text-[10.5px] leading-relaxed text-muted">
-              下载凭据 15 分钟内有效；制品由服务端按当前标准型号生成。
-            </p>
-          </div>
         </template>
 
         <div v-if="error" class="rounded border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[11px] text-danger">
           {{ error }}
-        </div>
-
-        <div class="flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2">
-          <AppIcon name="info" :size="13" class="text-[#9CA3AF]" />
-          <p class="text-[10px] leading-relaxed text-muted">
-            优先使用已预烘焙的标准型号制品；下载凭据 15 分钟内有效。
-          </p>
         </div>
       </div>
     </div>
