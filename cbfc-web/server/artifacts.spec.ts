@@ -57,7 +57,8 @@ describe('.cbfc 制品包内部一致性', () => {
     expect(ifc).toContain("FILE_SCHEMA(('IFC4'))");
     expect(ifc).toContain('IFCFACETEDBREP');
     expect(ifc).toContain('IFCCLOSEDSHELL');
-    expect(ifc).toContain('IFCCOLUMN');
+    expect(ifc).toContain('IFCBUILDINGELEMENTPROXY');
+    expect(ifc).toContain('Abutment/Footing');
     expect(ifc).toContain('IFCCARTESIANPOINT');
     expect(ifc).not.toContain('IFCBRIDGE');
   });

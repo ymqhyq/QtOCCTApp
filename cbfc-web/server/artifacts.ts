@@ -471,29 +471,69 @@ export function makeIfcFile(component: InternalComponent): Uint8Array {
     );
   }
 
-  const faces: number[] = [];
-  for (let t = 0; t < mesh.indices.length; t += 3) {
-    const loopId = nextId++;
-    const boundId = nextId++;
-    const faceId = nextId++;
-    lines.push(
-      `#${loopId}=IFCPOLYLOOP((#${pointIds[mesh.indices[t]]},#${pointIds[mesh.indices[t + 1]]},#${pointIds[mesh.indices[t + 2]]}));`,
-      `#${boundId}=IFCFACEOUTERBOUND(#${loopId},.T.);`,
-      `#${faceId}=IFCFACE((#${boundId}));`,
-    );
-    faces.push(faceId);
+  const faceShape = new Map<number, number>();
+  for (const group of mesh.faceGroups) {
+    faceShape.set(group.faceId, group.shapeIndex);
   }
-  const shellId = nextId++;
-  const brepId = nextId++;
-  const productShapeId = nextId++;
-  const shapeRepresentationId = nextId++;
+  const shapeTriangles = new Map<number, number[]>();
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const faceId = mesh.faceIds[Math.floor(t / 3)] ?? Math.floor(t / 3);
+    const shapeIndex = faceShape.get(faceId) ?? 0;
+    const list = shapeTriangles.get(shapeIndex) ?? [];
+    list.push(t);
+    shapeTriangles.set(shapeIndex, list);
+  }
+
+  const shapeKeys = Object.keys(component.shapes);
+  const productIds: number[] = [];
+  const productGuids = [
+    'Edul4Zpfg0AXn0t4N7XtCR',
+    'MKp7LWrFukOreaDP2UBE37',
+    'g395Fx07u2VQJdRMr3mmDr',
+    'bkxwvkwbhf99fbRZsb7Up5',
+    '2pcbg2OrO58H7Xn0TWffaf',
+    'JZbmdg4E5FrC4jTGe3$dhY',
+    'shXIBsQisb53snCJfJ$5gn',
+    'QAuZEuRfaTLePDNsrwcKsm',
+  ];
+  for (let shapeIndex = 0; shapeIndex < shapeKeys.length; shapeIndex += 1) {
+    const key = shapeKeys[shapeIndex];
+    const shape = component.shapes[key];
+    const triangles = shapeTriangles.get(shapeIndex) ?? [];
+    let representationRef = '$';
+    if (triangles.length) {
+      const faces: number[] = [];
+      for (const t of triangles) {
+        const loopId = nextId++;
+        const boundId = nextId++;
+        const faceId = nextId++;
+        lines.push(
+          `#${loopId}=IFCPOLYLOOP((#${pointIds[mesh.indices[t]]},#${pointIds[mesh.indices[t + 1]]},#${pointIds[mesh.indices[t + 2]]}));`,
+          `#${boundId}=IFCFACEOUTERBOUND(#${loopId},.T.);`,
+          `#${faceId}=IFCFACE((#${boundId}));`,
+        );
+        faces.push(faceId);
+      }
+      const shellId = nextId++;
+      const brepId = nextId++;
+      const shapeRepresentationId = nextId++;
+      const productShapeId = nextId++;
+      lines.push(
+        `#${shellId}=IFCCLOSEDSHELL((${faces.map((id) => `#${id}`).join(',')}));`,
+        `#${brepId}=IFCFACETEDBREP(#${shellId});`,
+        `#${shapeRepresentationId}=IFCSHAPEREPRESENTATION(#10,'Body','Brep',(#${brepId}));`,
+        `#${productShapeId}=IFCPRODUCTDEFINITIONSHAPE($,$,(#${shapeRepresentationId}));`,
+      );
+      representationRef = `#${productShapeId}`;
+    }
+    const productId = nextId++;
+    productIds.push(productId);
+    lines.push(
+      `#${productId}=IFCBUILDINGELEMENTPROXY('${productGuids[shapeIndex % productGuids.length]}',#5,${ifcString(shape.label)},$,'${component.familyId}/${key}',#24,${representationRef},$,$);`,
+    );
+  }
   lines.push(
-    `#${shellId}=IFCCLOSEDSHELL((${faces.map((id) => `#${id}`).join(',')}));`,
-    `#${brepId}=IFCFACETEDBREP(#${shellId});`,
-    `#${shapeRepresentationId}=IFCSHAPEREPRESENTATION(#10,'Body','Brep',(#${brepId}));`,
-    `#${productShapeId}=IFCPRODUCTDEFINITIONSHAPE($,$,(#${shapeRepresentationId}));`,
-    `#25=IFCCOLUMN('Edul4Zpfg0AXn0t4N7XtCR',#5,${ifcString(component.name)},$,'${component.familyId}',#24,#${productShapeId},$,$);`,
-    "#26=IFCRELCONTAINEDINSPATIALSTRUCTURE('oEU57lEksPm6nj9MJU8lr5',#5,$,$,(#25),#18);",
+    `#26=IFCRELCONTAINEDINSPATIALSTRUCTURE('oEU57lEksPm6nj9MJU8lr5',#5,$,$,(${productIds.map((id) => `#${id}`).join(',')}),#18);`,
     'ENDSEC;',
     'END-ISO-10303-21;',
   );
