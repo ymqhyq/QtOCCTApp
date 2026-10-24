@@ -515,12 +515,13 @@ function openPresetPage(family: CatalogFamily, preset: Preset) {
   if (family.sourceMode === 'parametric') {
     void router.push(`/components/${family.familyId}/configurator?model=${encodeURIComponent(preset.modelNumber)}`);
   } else {
-    openPresetDetail(family);
+    openPresetDetail(family, preset.modelNumber);
   }
 }
 
-function openPresetDetail(family: CatalogFamily) {
-  void router.push(`/components/${family.familyId}`);
+function openPresetDetail(family: CatalogFamily, modelNumber?: string) {
+  const query = modelNumber ? `?model=${encodeURIComponent(modelNumber)}` : '';
+  void router.push(`/components/${family.familyId}${query}`);
 }
 
 function presetSummary(preset: Preset) {
@@ -844,7 +845,7 @@ onBeforeUnmount(() => {
             <footer class="flex items-center justify-between gap-2 border-t border-line px-3 py-2">
               <span class="text-[9px] text-[#9CA3AF]">型号级独立缓存键</span>
               <div class="flex items-center gap-1">
-                <button class="btn btn-primary btn-sm" @click="openPresetDetail(selectedFamily!)">
+                <button class="btn btn-primary btn-sm" @click="openPresetDetail(selectedFamily!, preset.modelNumber)">
                   <AppIcon name="eye" :size="12" />查看详情
                 </button>
                 <button

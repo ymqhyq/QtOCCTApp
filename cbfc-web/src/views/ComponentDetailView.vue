@@ -331,7 +331,10 @@ onMounted(async () => {
     detail.value = component;
     profiles.value = profileResponse?.items ?? [];
     selectedProfile.value = defaultProfileCode.value;
-    selectedModel.value = String(component.parameters.schema[0].default);
+    const requestedModel = String(route.query.model ?? '');
+    selectedModel.value =
+      component.parameters.presets.find((preset) => preset.modelNumber === requestedModel)?.modelNumber ??
+      String(component.parameters.schema[0].default);
     favorite.value = favoriteResponse.items.some((item: any) => item.familyId === component.familyId);
     await loadSemantics();
     if (component.sourceMode === 'parametric') {
