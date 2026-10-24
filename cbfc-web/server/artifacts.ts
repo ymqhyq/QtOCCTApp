@@ -36,7 +36,7 @@ export const FORMATS = [
   {
     id: 'step',
     ext: 'step',
-    title: '工业标准交换几何',
+    title: '工业标准 STEP AP242 交换几何',
     mime: 'model/step',
     sizeMB: 3.1,
     description: 'STEP AP242 国际标准模型（含交付元数据头）',
@@ -400,6 +400,17 @@ export function makeCbfZip(
   ]);
 }
 
+export const STEP_AP242_SCHEMA = 'AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF { 1 0 10303 442 1 1 4 }';
+
+function asAp242Step(bytes: Uint8Array): Uint8Array {
+  const text = new TextDecoder().decode(bytes);
+  const next = text.replace(
+    /FILE_SCHEMA\s*\(\s*\(\s*'[^']*'\s*\)\s*\)\s*;/i,
+    `FILE_SCHEMA(('${STEP_AP242_SCHEMA}'));`,
+  );
+  return next === text ? bytes : new TextEncoder().encode(next);
+}
+
 export function makeStepFile(component: InternalComponent): Uint8Array {
   const stepString = (value: string) => `'${String(value).replace(/'/g, "''").replace(/[\r\n]/g, ' ')}'`;
   const number = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(6) : '0.000000');
@@ -410,7 +421,7 @@ export function makeStepFile(component: InternalComponent): Uint8Array {
     'HEADER;',
     "FILE_DESCRIPTION(('CBF-C component delivery'),'2;1');",
     `FILE_NAME(${stepString(`${component.familyId}_${component.revision}.step`)},'${timestamp}',(${stepString('CBF-C')}),(${stepString('CR17J')}),'CBF-C Web 2.5','CBF-C Web 2.5','');`,
-    "FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));",
+    `FILE_SCHEMA(('${STEP_AP242_SCHEMA}'));`,
     'ENDSEC;',
     'DATA;',
     "#1=APPLICATION_CONTEXT('configuration controlled 3d designs of mechanical parts and assemblies');",
@@ -673,7 +684,7 @@ export async function buildArtifact(
     case 'step': {
       if (usesCq && component.sourceMode === 'parametric') {
         const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
-        if (cqStep) return { data: cqStep, fileName: `${base}.step`, mime: f.mime };
+        if (cqStep) return { data: asAp242Step(cqStep), fileName: `${base}.step`, mime: f.mime };
       }
       return { data: makeStepFile(effectiveComponent), fileName: `${base}.step`, mime: f.mime };
     }

@@ -53,11 +53,11 @@ describe('.cbfc 制品包内部一致性', () => {
     }
   });
 
-  it('STEP AP203 交付物包含可打开的 Faceted B-Rep', async () => {
+  it('STEP AP242 交付物包含可打开的 Faceted B-Rep', async () => {
     const state = await createState();
     const component = state.components.find((item) => item.familyId === 'Abutment')!;
     const step = text(makeStepFile(component));
-    expect(step).toContain("FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'))");
+    expect(step).toContain("FILE_SCHEMA(('AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF");
     expect(step).toContain('FACETED_BREP');
     expect(step).toContain('CLOSED_SHELL');
     expect(step).toContain('FACE_OUTER_BOUND');
