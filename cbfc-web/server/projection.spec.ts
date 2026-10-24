@@ -78,6 +78,26 @@ describe('二维投影图（mesh HLR → SVG）', () => {
     }
   });
 
+  it('导入网格没有 edge 流时从三角面提取投影轮廓', async () => {
+    const state = await createState();
+    const component = state.components.find((item) => item.familyId === 'Abutment')!;
+    const mesh = {
+      ...component.mesh,
+      edges: new Float32Array(0),
+      edgeOffsets: new Uint32Array([0]),
+      edgeLines: [],
+      edgesCount: 0,
+    };
+    const svg = renderProjectionSvg(mesh, metaFor(component), {
+      view: 'sheet',
+      hidden: true,
+      dimensions: true,
+      generatedAt: '2026-10-19',
+    });
+    expect(svg).toContain('<svg');
+    expect((svg.match(/L/g) ?? []).length).toBeGreaterThan(20);
+  });
+
   it('构件名称中的 XML 特殊字符被转义', async () => {
     const state = await createState();
     const component = state.components.find((item) => item.familyId === 'PierBody')!;

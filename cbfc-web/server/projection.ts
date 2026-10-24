@@ -191,7 +191,45 @@ function fillDepthBuffer(
   return buffer;
 }
 
+function fallbackEdgePolylines(mesh: MeshData): { points: Vec3[]; closed: boolean }[] {
+  const edges = new Map<string, { a: Vec3; b: Vec3; normals: Vec3[] }>();
+  const keyOf = (p: Vec3) => p.map((value) => Math.round(value * 100)).join(',');
+  const addEdge = (ia: number, ib: number, normal: Vec3) => {
+    const a: Vec3 = [mesh.positions[ia * 3], mesh.positions[ia * 3 + 1], mesh.positions[ia * 3 + 2]];
+    const b: Vec3 = [mesh.positions[ib * 3], mesh.positions[ib * 3 + 1], mesh.positions[ib * 3 + 2]];
+    const ka = keyOf(a);
+    const kb = keyOf(b);
+    const key = ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+    const entry = edges.get(key) ?? { a, b, normals: [] };
+    entry.normals.push(normal);
+    edges.set(key, entry);
+  };
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const ia = mesh.indices[t];
+    const ib = mesh.indices[t + 1];
+    const ic = mesh.indices[t + 2];
+    const a: Vec3 = [mesh.positions[ia * 3], mesh.positions[ia * 3 + 1], mesh.positions[ia * 3 + 2]];
+    const b: Vec3 = [mesh.positions[ib * 3], mesh.positions[ib * 3 + 1], mesh.positions[ib * 3 + 2]];
+    const c: Vec3 = [mesh.positions[ic * 3], mesh.positions[ic * 3 + 1], mesh.positions[ic * 3 + 2]];
+    const normal = norm(cross(sub(b, a), sub(c, a)));
+    addEdge(ia, ib, normal);
+    addEdge(ib, ic, normal);
+    addEdge(ic, ia, normal);
+  }
+  const result: { points: Vec3[]; closed: boolean }[] = [];
+  const threshold = Math.cos((20 * Math.PI) / 180);
+  for (const edge of edges.values()) {
+    if (edge.normals.length === 1 || edge.normals.some((normal, index) =>
+      edge.normals.slice(index + 1).some((other) => dot(normal, other) < threshold),
+    )) {
+      result.push({ points: [edge.a, edge.b], closed: false });
+    }
+  }
+  return result;
+}
+
 function edgePolylines(mesh: MeshData): { points: Vec3[]; closed: boolean }[] {
+  if (!mesh.edges.length) return fallbackEdgePolylines(mesh);
   const result: { points: Vec3[]; closed: boolean }[] = [];
   for (let e = 0; e < mesh.edgeOffsets.length - 1; e += 1) {
     const start = mesh.edgeOffsets[e];
