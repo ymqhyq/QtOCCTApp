@@ -8,7 +8,6 @@ import type { ComponentDetail, ComponentSummary, DownloadFormat } from '@/api/ty
 import { useUiStore } from '@/stores/ui';
 import {
   componentStatusMeta,
-  formatBytes,
   formatDate,
   formatVolume,
   sourceModeMeta,
@@ -62,18 +61,16 @@ const groupedComponents = computed(() => {
 const exportHistory = computed(() =>
   history.value.filter((h) => ['download', 'export', 'handoff'].includes(h.action)).slice(0, 10),
 );
-const FORMAT_ORDER = ['cbfc', 'ifc', 'glb', 'step', 'cbf'];
-const visibleFormats = computed(() =>
-  FORMAT_ORDER.map((id) => formats.value.find((format) => format.id === id)).filter(
-    (format): format is FormatRow => Boolean(format),
-  ),
-);
 const presetOptions = computed(() => detail.value?.parameters.presets ?? []);
 const selectedPreset = computed(
   () => presetOptions.value.find((preset) => preset.modelNumber === selectedModel.value) ?? null,
 );
 function isFormatAvailable(id: string) {
   return formats.value.find((format) => format.id === id)?.available ?? true;
+}
+function formatHint(id: string) {
+  const format = formats.value.find((item) => item.id === id);
+  return format ? `${format.title} · ${format.scenario} · 约 ${format.sizeMB.toFixed(1)} MB` : '';
 }
 
 function clearComponentFilters() {
@@ -274,49 +271,20 @@ onMounted(async () => {
               </div>
 
               <div class="mt-3 flex flex-wrap gap-1.5">
-                <button class="btn btn-primary btn-sm" @click="openExport('cbfc')">
+                <button class="btn btn-primary btn-sm" :title="formatHint('cbfc')" @click="openExport('cbfc')">
                   <AppIcon name="package" :size="13" />下载 .cbfc
                 </button>
-                <button class="btn btn-outline btn-sm" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
+                <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
                   <AppIcon name="globe" :size="13" />IFC 4.3
                 </button>
-                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
+                <button class="btn btn-outline btn-sm" :title="formatHint('glb')" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
                   <AppIcon name="cube" :size="13" />GLB
                 </button>
-                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('step')" @click="openExport('step')">
+                <button class="btn btn-outline btn-sm" :title="formatHint('step')" :disabled="!isFormatAvailable('step')" @click="openExport('step')">
                   <AppIcon name="layers" :size="13" />STEP
                 </button>
-                <button class="btn btn-outline btn-sm" :disabled="!isFormatAvailable('cbf')" @click="openExport('cbf')">
+                <button class="btn btn-outline btn-sm" :title="formatHint('cbf')" :disabled="!isFormatAvailable('cbf')" @click="openExport('cbf')">
                   <AppIcon name="box" :size="13" />CBF
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="border-t border-line">
-            <div class="flex items-center justify-between px-3 py-2">
-              <p class="text-[11px] font-semibold text-ink">支持格式</p>
-              <span class="text-[9px] text-muted">按常用交付顺序排列</span>
-            </div>
-            <div class="grid gap-2 px-3 pb-3 sm:grid-cols-2 xl:grid-cols-3">
-              <div
-                v-for="format in visibleFormats"
-                :key="format.id"
-                class="rounded border px-2.5 py-2"
-                :class="format.available ? 'border-line bg-white' : 'border-line bg-[#FAFBFC] opacity-60'"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="mono rounded bg-[#F1F4F7] px-1.5 py-[1px] text-[9px] font-semibold uppercase text-[#4B5563]">.{{ format.ext }}</span>
-                </div>
-                <p class="mt-1 text-[10.5px] font-medium text-ink">{{ format.title }}</p>
-                <p class="mt-0.5 text-[9px] text-muted">{{ format.scenario }} · 约 {{ format.sizeMB.toFixed(1) }} MB</p>
-                <button
-                  class="mt-1.5 text-[9.5px] font-medium"
-                  :class="format.available ? 'text-primary hover:text-primary-hover' : 'cursor-not-allowed text-[#9CA3AF]'"
-                  :disabled="!format.available"
-                  @click="selectedFamily && (exportFormat = format.id, openExport(format.id))"
-                >
-                  {{ format.available ? '使用此格式导出 →' : format.reason }}
                 </button>
               </div>
             </div>
