@@ -1859,7 +1859,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       return true;
     }
 
-    // ---------------- 语义标准中枢 ----------------
+    // ---------------- 构件语义 ----------------
     if (path === '/api/v1/semantic-profiles' && method === 'GET') {
       if (!['asset-admin', 'designer', 'reviewer', 'standard-admin'].includes(user!.role)) {
         return fail(res, 403, 'FORBIDDEN', '语义模板仅对内部用户开放'), true;
@@ -1977,6 +1977,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
           jtg: r.jtg,
           ifc: r.ifc ?? { entity: 'IfcBuildingElementProxy', shapeAspect: 'IfcShapeAspect' },
           qto: r.qto ?? r.ifc?.qto,
+          kind: r.kind,
+          familyId: r.familyId,
+          parameter: r.parameter,
+          crbim59: r.crbim59,
+          ifcProperty: r.ifcProperty,
         }));
       const known = new Set(profile.rules.map((r) => r.code));
       const allCodes = allSemanticCodes(state.components);

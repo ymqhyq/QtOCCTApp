@@ -1,5 +1,5 @@
 /**
- * 外部语义标准中枢：三级优先级解析（构件内覆盖 -> 项目/租户模板 -> hint 回退 -> unmapped）
+ * 构件语义：构件/命名部位/参数三级语义映射（构件内覆盖 -> 项目/租户模板 -> unmapped）
  * 服务端为唯一真实源，前端沙盒仅呈现。
  */
 import type {
@@ -68,6 +68,48 @@ function makeRule(component: InternalComponent, shapeKey: string): SemanticProfi
     jtg: `${component.taxonomy.jtg} ${TREE_LABELS.get(`jtg:${component.taxonomy.jtg}`) ?? ''}`.trim(),
     ifc: { ...ifc, shapeAspect: `${ifc.shapeAspect}#${shapeKey}` },
     qto: ifc.qto,
+    kind: 'part',
+    familyId: component.familyId,
+  };
+}
+
+function makeComponentRule(component: InternalComponent): SemanticProfileRule {
+  const crbimLabel = TREE_LABELS.get(`crbim:${component.taxonomy.crbim}`) ?? component.taxonomy.crbim;
+  return {
+    code: `component:${component.familyId}`,
+    name: component.name,
+    crbim: `${component.taxonomy.crbim} ${crbimLabel}`,
+    gb51269: `${component.taxonomy.gb51269} ${TREE_LABELS.get(`gb51269:${component.taxonomy.gb51269}`) ?? ''}`.trim(),
+    jtg: `${component.taxonomy.jtg} ${TREE_LABELS.get(`jtg:${component.taxonomy.jtg}`) ?? ''}`.trim(),
+    ifc: {
+      entity: 'IfcBuildingElementProxy',
+      shapeAspect: `IfcBuildingElementProxy#${component.familyId}`,
+    },
+    kind: 'component',
+    familyId: component.familyId,
+  };
+}
+
+function makeParameterRule(
+  component: InternalComponent,
+  field: InternalComponent['parameters']['schema'][number],
+): SemanticProfileRule {
+  const crbimLabel = TREE_LABELS.get(`crbim:${component.taxonomy.crbim}`) ?? component.taxonomy.crbim;
+  return {
+    code: `parameter:${component.familyId}.${field.name}`,
+    name: field.label,
+    crbim: `${component.taxonomy.crbim} ${crbimLabel}`,
+    gb51269: `${component.taxonomy.gb51269} ${TREE_LABELS.get(`gb51269:${component.taxonomy.gb51269}`) ?? ''}`.trim(),
+    jtg: `${component.taxonomy.jtg} ${TREE_LABELS.get(`jtg:${component.taxonomy.jtg}`) ?? ''}`.trim(),
+    ifc: {
+      entity: 'IfcPropertySingleValue',
+      shapeAspect: `IfcPropertySingleValue#${field.name}`,
+    },
+    kind: 'parameter',
+    familyId: component.familyId,
+    parameter: field.name,
+    crbim59: `59 表 · ${field.label}`,
+    ifcProperty: field.name,
   };
 }
 
@@ -85,7 +127,19 @@ export function buildSemanticProfiles(components: InternalComponent[]): Semantic
     }
   }
   const allRules = [...ruleMap.values()].sort((a, b) => a.code.localeCompare(b.code));
-  const baseRules = allRules.filter((r) => !EXCLUDED_CODES.has(r.code));
+  const componentRules = components
+    .map(makeComponentRule)
+    .sort((a, b) => a.code.localeCompare(b.code));
+  const parameterRules = components
+    .flatMap((component) =>
+      component.parameters.schema.map((field) => makeParameterRule(component, field)),
+    )
+    .sort((a, b) => a.code.localeCompare(b.code));
+  const baseRules = [
+    ...allRules.filter((r) => !EXCLUDED_CODES.has(r.code)),
+    ...componentRules,
+    ...parameterRules,
+  ];
   const highwayRules = baseRules.filter((r) => r.code !== 'Bridge.Accessory.DrainageInlet');
   const tenantRules = baseRules
     .filter((r) => !r.code.endsWith('.BottomContour') && !r.code.endsWith('.EndContour'))

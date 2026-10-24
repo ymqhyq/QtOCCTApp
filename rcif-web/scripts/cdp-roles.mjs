@@ -65,7 +65,7 @@ check('资产管理员导航：族库/监控可见', body.includes('族库管理
 
 await go('/?role=standard-admin');
 body = await text();
-check('标准管理员导航：语义中枢可见', body.includes('语义标准中枢'));
+check('标准管理员导航：构件语义可见', body.includes('构件语义'));
 check('标准管理员导航：无族库管理', !body.includes('族库管理'));
 
 await go('/reviews?role=designer', 5000);

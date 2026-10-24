@@ -23,6 +23,7 @@ const sandboxAt = ref('');
 const sandboxLoading = ref(false);
 const components = ref<ComponentSummary[]>([]);
 const selectedFamily = ref('');
+const ruleFamily = ref('');
 const activePanel = ref<'rules' | 'sandbox'>('rules');
 const sandboxFilter = ref<'all' | 'unmapped'>('all');
 const ruleFilter = ref('');
@@ -39,18 +40,32 @@ const unmapped = computed(() => sandboxMappings.value.filter((m) => m.status ===
 const displaySandboxMappings = computed(() =>
   sandboxFilter.value === 'unmapped' ? unmapped.value : sandboxMappings.value,
 );
-const filteredRules = computed(() => {
-  if (!profile.value) return [];
+const familyRules = computed(() =>
+  (profile.value?.rules ?? []).filter((rule) => rule.familyId === ruleFamily.value),
+);
+const componentRule = computed(
+  () => familyRules.value.find((rule) => rule.kind === 'component') ?? null,
+);
+const partRules = computed(() =>
+  familyRules.value
+    .filter((rule) => rule.kind !== 'component' && rule.kind !== 'parameter')
+    .filter((rule) => matchesRuleFilter(rule)),
+);
+const parameterRules = computed(() =>
+  familyRules.value
+    .filter((rule) => rule.kind === 'parameter')
+    .filter((rule) => matchesRuleFilter(rule)),
+);
+const selectedFamilySummary = computed(
+  () => components.value.find((item) => item.familyId === ruleFamily.value) ?? null,
+);
+function matchesRuleFilter(rule: SemanticProfileRule) {
   const term = ruleFilter.value.trim().toLowerCase();
-  if (!term) return profile.value.rules;
-  return profile.value.rules.filter(
-    (r) =>
-      r.code.toLowerCase().includes(term) ||
-      r.name.toLowerCase().includes(term) ||
-      (r.crbim ?? '').toLowerCase().includes(term) ||
-      (r.ifc?.entity ?? '').toLowerCase().includes(term),
-  );
-});
+  if (!term) return true;
+  return [rule.code, rule.name, rule.crbim, rule.crbim59, rule.ifc?.entity, rule.ifcProperty]
+    .filter(Boolean)
+    .some((value) => String(value).toLowerCase().includes(term));
+}
 const coverage = computed(() => {
   const total = sandboxMappings.value.length;
   const mapped = total - unmapped.value.length;
@@ -78,6 +93,10 @@ async function selectProfile(profileId: string) {
   selectedId.value = profileId;
   try {
     profile.value = await api.profile(profileId);
+    if (!profile.value.rules.some((rule) => rule.familyId === ruleFamily.value && rule.kind === 'component')) {
+      ruleFamily.value =
+        profile.value.rules.find((rule) => rule.kind === 'component')?.familyId ?? '';
+    }
     await runSandbox();
   } catch (error) {
     ui.notify({ type: 'error', title: '模板详情加载失败', message: String(error) });
@@ -192,6 +211,7 @@ onMounted(async () => {
     const search = await api.search({ pageSize: 60 });
     components.value = search.items;
     selectedFamily.value = search.items[0]?.familyId ?? '';
+    ruleFamily.value = ruleFamily.value || selectedFamily.value;
   } catch {
     /* ignore */
   }
@@ -218,11 +238,11 @@ watch(
         <div class="flex items-center gap-1.5 text-[10.5px] text-[#9CA3AF]">
           <RouterLink to="/" class="hover:text-primary">工作台</RouterLink>
           <AppIcon name="chevronRight" :size="10" />
-          <span class="text-[#4B5563]">语义标准中枢</span>
+          <span class="text-[#4B5563]">构件语义</span>
         </div>
-        <h1 class="mt-1 text-[20px] font-semibold tracking-tight text-ink">外部语义标准库中枢</h1>
+        <h1 class="mt-1 text-[20px] font-semibold tracking-tight text-ink">构件语义</h1>
         <p class="mt-0.5 max-w-3xl text-[12px] leading-relaxed text-muted">
-          维护 CRBIM 53 表 / JTG / GB/T 51269 与 IFC 4.3 的映射规则，映射结果由工程标准服务集中统一计算。
+          按“构件（族）→ 命名部位 / 参数”组织语义映射：构件映射 CRBIM 53 表，参数映射 CRBIM 59 表（特性）。
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -329,59 +349,145 @@ watch(
             </div>
           </div>
 
-          <!-- 规则表 -->
-          <div v-if="activePanel === 'rules'">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-[#F0F2F5] px-3 py-2">
-              <div class="flex items-center gap-1.5 rounded border border-line bg-[#FAFBFC] px-2 py-1">
-                <AppIcon name="search" :size="12" class="text-[#9CA3AF]" />
-                <input v-model="ruleFilter" class="w-[220px] border-0 bg-transparent text-[11px] focus:outline-none" placeholder="检索语义码 / IFC 实体…" />
+          <!-- 构件语义：构件 / 命名部位 / 参数 -->
+          <div v-if="activePanel === 'rules'" class="p-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="min-w-[240px]">
+                  <label class="label">构件（族）</label>
+                  <select v-model="ruleFamily" class="select !py-1.5 !text-[11.5px]">
+                    <option v-for="item in components" :key="item.familyId" :value="item.familyId">
+                      {{ item.name }} · {{ item.familyId }}
+                    </option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-1.5 self-end rounded border border-line bg-[#FAFBFC] px-2 py-1">
+                  <AppIcon name="search" :size="12" class="text-[#9CA3AF]" />
+                  <input v-model="ruleFilter" class="w-[210px] border-0 bg-transparent text-[11px] focus:outline-none" placeholder="检索部位 / 参数 / IFC…" />
+                </div>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-[9.5px] text-muted">三层优先级：构件内覆盖 → 项目模板 → hint 回退</span>
+              <div class="flex items-center gap-2 self-end">
+                <span class="text-[9.5px] text-muted">构件 → 命名部位 / 参数</span>
                 <span v-if="!isEditable" class="flex items-center gap-1 rounded bg-[#F3F4F6] px-1.5 py-[1px] text-[9px] text-muted">
                   <AppIcon name="lock" :size="10" />只读
                 </span>
               </div>
             </div>
-            <div class="max-h-[540px] overflow-auto scroll-thin">
-              <table class="table-dense min-w-[1180px]">
-                <thead class="sticky top-0 z-10">
-                  <tr>
-                    <th>语义码 (code)</th>
-                    <th>名称</th>
-                    <th>CRBIM 53 表</th>
-                    <th>GB/T 51269</th>
-                    <th>IFC 实体</th>
-                    <th>IfcShapeAspect</th>
-                    <th>算量集</th>
-                    <th class="w-[60px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="rule in filteredRules" :key="rule.code">
-                    <td class="mono whitespace-nowrap text-[12px] font-medium text-ink">{{ rule.code }}</td>
-                    <td class="min-w-[130px] text-[12px] text-[#374151]">{{ rule.name }}</td>
-                    <td class="whitespace-nowrap text-[11.5px] text-[#374151]">{{ rule.crbim }}</td>
-                    <td class="whitespace-nowrap text-[11.5px] text-[#374151]">{{ rule.gb51269 ?? '—' }}</td>
-                    <td class="mono whitespace-nowrap text-[11.5px] font-medium text-[#1D4ED8]">{{ rule.ifc.entity }}</td>
-                    <td class="mono whitespace-nowrap text-[11px] text-[#374151]">{{ rule.ifc.shapeAspect }}</td>
-                    <td class="mono whitespace-nowrap text-[11px] text-muted">{{ rule.qto ?? '—' }}</td>
-                    <td class="text-right">
-                      <button
-                        class="btn btn-ghost btn-sm"
-                        :class="isEditable ? 'text-primary' : 'text-[#9CA3AF]'"
-                        title="编辑映射"
-                        @click="openEdit(rule)"
-                      >
-                        <AppIcon :name="isEditable ? 'settings' : 'lock'" :size="12" />
-                      </button>
-                    </td>
-                  </tr>
-                  <tr v-if="!filteredRules.length">
-                    <td colspan="8" class="py-8 text-center text-[12px] text-muted">未找到匹配规则</td>
-                  </tr>
-                </tbody>
-              </table>
+
+            <div v-if="componentRule" class="mt-3 rounded-md border border-line bg-[#FAFBFC] px-3 py-2.5">
+              <div class="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p class="text-[9px] text-muted">构件（族）</p>
+                  <p class="mt-0.5 text-[13px] font-semibold text-ink">{{ componentRule.name }}</p>
+                  <p class="mono mt-0.5 text-[9.5px] text-muted">{{ componentRule.familyId }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="rounded bg-[#E8EFF4] px-2 py-1 text-[10px] text-primary">CRBIM 53 表</span>
+                  <button
+                    class="btn btn-ghost btn-sm"
+                    :class="isEditable ? 'text-primary' : 'text-[#9CA3AF]'"
+                    title="编辑构件语义"
+                    @click="openEdit(componentRule)"
+                  >
+                    <AppIcon :name="isEditable ? 'settings' : 'lock'" :size="12" />
+                  </button>
+                </div>
+              </div>
+              <dl class="mt-2 grid gap-2 text-[10.5px] sm:grid-cols-3">
+                <div>
+                  <dt class="text-[9px] text-muted">CRBIM 53</dt>
+                  <dd class="mt-0.5 text-[#374151]">{{ componentRule.crbim }}</dd>
+                </div>
+                <div>
+                  <dt class="text-[9px] text-muted">GB/T 51269</dt>
+                  <dd class="mt-0.5 text-[#374151]">{{ componentRule.gb51269 ?? '—' }}</dd>
+                </div>
+                <div>
+                  <dt class="text-[9px] text-muted">IFC 实体</dt>
+                  <dd class="mono mt-0.5 text-[#374151]">{{ componentRule.ifc.entity }}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div class="mt-3 rounded-md border border-line">
+              <div class="flex items-center justify-between border-b border-[#F0F2F5] px-3 py-2">
+                <p class="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+                  <AppIcon name="layers" :size="12" class="text-primary" />命名部位
+                </p>
+                <span class="mono text-[9px] text-muted">{{ partRules.length }} 项</span>
+              </div>
+              <div class="max-h-[260px] overflow-auto scroll-thin">
+                <table class="table-dense min-w-[920px]">
+                  <thead class="sticky top-0 z-10">
+                    <tr>
+                      <th>语义码 (code)</th>
+                      <th>部位名称</th>
+                      <th>CRBIM 53 表</th>
+                      <th>IFC 实体</th>
+                      <th>IfcShapeAspect</th>
+                      <th>算量集</th>
+                      <th class="w-[60px]"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="rule in partRules" :key="rule.code">
+                      <td class="mono whitespace-nowrap text-[11.5px] font-medium text-ink">{{ rule.code }}</td>
+                      <td class="min-w-[130px] text-[11.5px] text-[#374151]">{{ rule.name }}</td>
+                      <td class="whitespace-nowrap text-[11px] text-[#374151]">{{ rule.crbim }}</td>
+                      <td class="mono whitespace-nowrap text-[11px] font-medium text-[#1D4ED8]">{{ rule.ifc.entity }}</td>
+                      <td class="mono whitespace-nowrap text-[10.5px] text-[#374151]">{{ rule.ifc.shapeAspect }}</td>
+                      <td class="mono whitespace-nowrap text-[10.5px] text-muted">{{ rule.qto ?? '—' }}</td>
+                      <td class="text-right">
+                        <button class="btn btn-ghost btn-sm" :class="isEditable ? 'text-primary' : 'text-[#9CA3AF]'" title="编辑部位语义" @click="openEdit(rule)">
+                          <AppIcon :name="isEditable ? 'settings' : 'lock'" :size="12" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="!partRules.length">
+                      <td colspan="7" class="py-6 text-center text-[11px] text-muted">当前构件暂无命名部位映射</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="mt-3 rounded-md border border-line">
+              <div class="flex items-center justify-between border-b border-[#F0F2F5] px-3 py-2">
+                <p class="flex items-center gap-1.5 text-[11px] font-semibold text-ink">
+                  <AppIcon name="sliders" :size="12" class="text-[#7C5C1D]" />参数
+                  <span class="rounded bg-[#FFFBEB] px-1.5 py-[1px] text-[8.5px] text-[#92400E]">CRBIM 59 表 · 特性</span>
+                </p>
+                <span class="mono text-[9px] text-muted">{{ parameterRules.length }} 项</span>
+              </div>
+              <div class="max-h-[260px] overflow-auto scroll-thin">
+                <table class="table-dense min-w-[760px]">
+                  <thead class="sticky top-0 z-10">
+                    <tr>
+                      <th>参数名</th>
+                      <th>参数名称</th>
+                      <th>CRBIM 59 表（特性）</th>
+                      <th>IFC 属性</th>
+                      <th class="w-[60px]"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="rule in parameterRules" :key="rule.code">
+                      <td class="mono whitespace-nowrap text-[11.5px] font-medium text-ink">{{ rule.parameter ?? rule.code }}</td>
+                      <td class="text-[11.5px] text-[#374151]">{{ rule.name }}</td>
+                      <td class="whitespace-nowrap text-[11px] text-[#92400E]">{{ rule.crbim59 ?? '—' }}</td>
+                      <td class="mono whitespace-nowrap text-[10.5px] text-[#374151]">{{ rule.ifcProperty ?? rule.ifc.shapeAspect }}</td>
+                      <td class="text-right">
+                        <button class="btn btn-ghost btn-sm" :class="isEditable ? 'text-primary' : 'text-[#9CA3AF]'" title="编辑参数语义" @click="openEdit(rule)">
+                          <AppIcon :name="isEditable ? 'settings' : 'lock'" :size="12" />
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="!parameterRules.length">
+                      <td colspan="5" class="py-6 text-center text-[11px] text-muted">当前构件暂无参数特性映射</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -504,26 +610,34 @@ watch(
           <input v-model="editing.code" class="input mono !text-[12.5px]" readonly />
         </div>
         <div>
-          <label class="label">部位名称</label>
+          <label class="label">{{ editing.kind === 'component' ? '构件名称' : editing.kind === 'parameter' ? '参数名称' : '部位名称' }}</label>
           <input v-model="editing.name" class="input" />
         </div>
-        <div>
-          <label class="label">CRBIM 53 表映射</label>
+        <div v-if="editing.kind === 'parameter'">
+          <label class="label">CRBIM 59 表（特性）</label>
+          <input v-model="editing.crbim59" class="input" placeholder="59 表 · 参数特性" />
+        </div>
+        <div v-else>
+          <label class="label">CRBIM 53 表（构件）</label>
           <input v-model="editing.crbim" class="input" />
         </div>
-        <div>
+        <div v-if="editing.kind !== 'parameter'">
           <label class="label">GB/T 51269 映射</label>
           <input v-model="editing.gb51269" class="input" />
         </div>
         <div>
-          <label class="label">IFC 实体</label>
+          <label class="label">{{ editing.kind === 'parameter' ? 'IFC 属性集实体' : 'IFC 实体' }}</label>
           <input v-model="editing.ifc.entity" class="input mono !text-[12.5px]" placeholder="IfcColumn" />
         </div>
-        <div>
+        <div v-if="editing.kind === 'parameter'">
+          <label class="label">IFC 属性名</label>
+          <input v-model="editing.ifcProperty" class="input mono !text-[12.5px]" placeholder="PierHeight" />
+        </div>
+        <div v-else>
           <label class="label">IfcShapeAspect</label>
           <input v-model="editing.ifc.shapeAspect" class="input mono !text-[12.5px]" placeholder="IfcColumnBody#PierBodySolid" />
         </div>
-        <div>
+        <div v-if="editing.kind !== 'parameter'">
           <label class="label">算量集 (Qto)</label>
           <input v-model="editing.qto" class="input mono !text-[12.5px]" placeholder="Qto_ColumnBaseQuantities" />
         </div>

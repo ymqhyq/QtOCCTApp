@@ -60,7 +60,7 @@ const routes = [
     path: '/semantics',
     name: 'semantics',
     component: () => import('@/views/SemanticsView.vue'),
-    meta: { title: '语义标准中枢', permission: 'semantics-view' },
+    meta: { title: '构件语义', permission: 'semantics-view' },
   },
   {
     path: '/analytics',

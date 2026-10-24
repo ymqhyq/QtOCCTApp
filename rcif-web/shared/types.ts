@@ -265,6 +265,15 @@ export interface SemanticProfileRule {
   jtg?: string;
   ifc: IfcMapping;
   qto?: string;
+  /** 语义层级：构件 / 命名部位 / 参数 */
+  kind?: 'component' | 'part' | 'parameter';
+  familyId?: string;
+  /** 参数语义码（kind=parameter） */
+  parameter?: string;
+  /** CRBIM 59 表特性映射（kind=parameter） */
+  crbim59?: string;
+  /** IFC 属性名（kind=parameter） */
+  ifcProperty?: string;
 }
 
 export interface SemanticProfile {

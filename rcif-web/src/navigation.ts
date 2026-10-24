@@ -30,7 +30,7 @@ export const SIDEBAR_TOOLS: NavItem[] = [
   { to: '/ingestion', label: '构件入库', icon: 'upload', permission: 'ingest' },
   { to: '/families', label: '族库管理', icon: 'grid', permission: 'families' },
   { to: '/reviews', label: '审核质检', icon: 'shield', permission: 'review' },
-  { to: '/semantics', label: '语义标准中枢', icon: 'layers', permission: 'semantics' },
+  { to: '/semantics', label: '构件语义', icon: 'layers', permission: 'semantics' },
   { to: '/analytics', label: '监控看板', icon: 'activity', permission: 'analytics' },
   { to: '/exports', label: '导出中心', icon: 'download', permission: 'internal' },
 ];

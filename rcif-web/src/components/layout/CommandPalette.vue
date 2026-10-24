@@ -26,7 +26,7 @@ const quickActions = computed(() =>
   [
     { label: '前往构件资产大厅', hint: '分类树 / 名称编码 / 几何相似', icon: 'grid', to: '/library', show: true },
     { label: '构件入库与门禁质检', hint: '上传 .rcif · GATE-01 → GATE-06', icon: 'upload', to: '/ingestion', show: session.canIngest },
-    { label: '外部语义标准中枢', hint: 'CRBIM / JTG / 国标映射与沙盒', icon: 'layers', to: '/semantics', show: session.canManageSemantics },
+    { label: '构件语义', hint: '构件 CRBIM 53 / 参数 CRBIM 59 映射', icon: 'layers', to: '/semantics', show: session.canManageSemantics },
     { label: '审核质检', hint: '双模型差异与结构化签批', icon: 'shield', to: '/reviews', show: session.canReview },
     { label: '打开计算任务中心', hint: '断点恢复与脱机计算', icon: 'cpu', action: () => (ui.jobDrawerOpen = true), show: true },
   ].filter((a) => a.show !== false),
