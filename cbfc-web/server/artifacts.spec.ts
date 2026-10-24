@@ -36,6 +36,9 @@ describe('.cbfc 制品包内部一致性', () => {
         component.recipe!.digest,
       );
       expect(text(scriptBytes), `${familyId} entry`).toContain(`def ${componentJson.recipe.entry}(`);
+      if (familyId === 'Abutment') {
+        expect(text(scriptBytes), 'Abutment 包内必须携带实际 CQ 生成器').toContain('def build_abutment');
+      }
       if (familyId === 'PierBody') {
         expect(componentJson.recipe.entry).toBe('build_pier');
       }

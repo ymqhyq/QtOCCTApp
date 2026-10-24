@@ -37,16 +37,52 @@ FORBIDDEN_NAMES = {
     "delattr",
 }
 FORBIDDEN_ATTRS = {
+    "__base__",
+    "__bases__",
     "__builtins__",
     "__class__",
+    "__closure__",
     "__code__",
     "__dict__",
+    "__func__",
+    "__getattr__",
+    "__getattribute__",
     "__globals__",
+    "__loader__",
+    "__mro__",
+    "__package__",
+    "__path__",
+    "__reduce__",
+    "__reduce_ex__",
+    "__self__",
+    "__setattr__",
+    "__spec__",
     "__subclasses__",
+    "__delattr__",
     "modules",
     "mro",
     "subclasses",
     "sys",
+}
+FORBIDDEN_STRINGS = {
+    "__base__",
+    "__bases__",
+    "__builtins__",
+    "__class__",
+    "__closure__",
+    "__code__",
+    "__dict__",
+    "__func__",
+    "__getattr__",
+    "__getattribute__",
+    "__globals__",
+    "__mro__",
+    "__reduce__",
+    "__reduce_ex__",
+    "__self__",
+    "__setattr__",
+    "__subclasses__",
+    "__delattr__",
 }
 
 
@@ -72,8 +108,12 @@ def validate(source: str) -> list[str]:
             if isinstance(node.func, ast.Attribute) and node.func.attr in FORBIDDEN_ATTRS:
                 errors.append(f"不允许的属性访问: {node.func.attr} (line {node.lineno})")
         elif isinstance(node, ast.Attribute):
-            if node.attr in FORBIDDEN_ATTRS:
+            if node.attr in FORBIDDEN_ATTRS or (node.attr.startswith("__") and node.attr.endswith("__")):
                 errors.append(f"不允许的属性访问: {node.attr} (line {node.lineno})")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            for token in FORBIDDEN_STRINGS:
+                if token in node.value:
+                    errors.append(f"不允许的危险属性字符串: {token} (line {node.lineno})")
     return sorted(set(errors))
 
 

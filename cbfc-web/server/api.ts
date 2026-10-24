@@ -995,7 +995,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const fileSize = Math.max(1024, Number(body.fileSize ?? 2_400_000));
       const familyId = String(body.familyId ?? 'PierBody');
       const revision = String(body.revision ?? '1.0.0');
-      const component = findComponent(state, familyId) ?? state.components[0];
+      const component = findComponent(state, familyId);
+      if (!component) return fail(res, 404, 'COMPONENT_NOT_FOUND', '目标族不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权向其他租户构件上传'), true;
       const defects = new Set<string>(Array.isArray(body.defects) ? body.defects : []);
       if (fileSize > 200 * 1024 * 1024) defects.add('quota');
       const sourceDigest =
@@ -1196,7 +1198,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (!upload.passed) return fail(res, 409, 'GATE_BLOCKED', '门禁未全部通过，禁止提交发布审核'), true;
       const component = findComponent(state, upload.familyId);
       if (!component) return fail(res, 404, 'COMPONENT_NOT_FOUND', '目标族模板不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权提交其他租户构件的审核'), true;
       const defaults = component.parameters.presets[0].params;
+      const previousParams = { ...defaults };
+      const paramDiff = component.parameters.schema.map((schema) => {
+        const from = String(previousParams[schema.name] ?? '—');
+        const to = String(defaults[schema.name] ?? '—');
+        return { name: schema.name, label: schema.label, from, to, changed: from !== to };
+      });
       const now = new Date().toISOString();
       const changedShapes = Object.keys(component.shapes).map((shapeKey) => ({
         shapeKey,
@@ -1213,6 +1222,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         existing.gatesPassed = upload.gates;
         existing.gatesTotal = 6;
         existing.changedShapes = changedShapes;
+        existing.oldParams = previousParams;
+        existing.newParams = { ...defaults };
+        existing.paramDiff = paramDiff;
         existing.newCacheKey = upload.cacheKey;
         existing.volume = { from: existing.volume.from, to: component.geometry.volumeM3 };
         existing.rationale = `上传包 ${upload.file} 重新通过 6 道门禁，已刷新待审模型与权威算键，提交标准化委员会复核。`;
@@ -1231,7 +1243,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
           gatesPassed: upload.gates,
           gatesTotal: 6,
           changedShapes,
-          paramDiff: [],
+          paramDiff,
+          oldParams: previousParams,
+          newParams: { ...defaults },
           oldCacheKey: component.geometry.defaultCacheKey,
           newCacheKey: upload.cacheKey,
           volume: { from: component.geometry.volumeM3, to: component.geometry.volumeM3 },
@@ -1239,8 +1253,6 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
           rationale: `上传包 ${upload.file} 通过 6 道门禁，提交标准化委员会技术发布审核。`,
           componentFamilyId: component.familyId,
           modelNumber: String(component.parameters.schema[0].default),
-          oldParams: { ...defaults },
-          newParams: { ...defaults },
         });
       }
       pushAudit(
@@ -1776,12 +1788,42 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
             ...review.changedShapes.slice(0, 3).map((shape) => `${shape.shapeKey}：${shape.note}`),
             ...review.paramDiff.filter((param) => param.changed).map((param) => `${param.label} ${param.from} → ${param.to}`),
           ].slice(0, 6);
+          const approvedParams = {
+            ...(component.parameters.presets[0]?.params ?? {}),
+            ...review.newParams,
+          };
+          let approvedMesh = component.mesh;
+          if (component.familyId === 'Abutment' || component.cqGenerator) {
+            const cqMesh = await generateAbutmentMesh(approvedParams, {
+              generatorPath: component.cqGenerator,
+              shapeKeys: Object.keys(component.shapes),
+            });
+            if (!cqMesh) {
+              return fail(res, 503, 'GEOMETRY_BACKEND_UNAVAILABLE', '审核签批时 CQ 建模服务不可用'), true;
+            }
+            approvedMesh = cqMesh;
+          } else if (component.sourceMode === 'parametric' && !component.importedMesh) {
+            approvedMesh = buildMesh(
+              component.geoKind,
+              Object.fromEntries(
+                component.recipeInputs.map((key) => [key, Number(approvedParams[key])]),
+              ) as Record<string, number>,
+            );
+          }
+          const approvedKey = await cacheKeyFor(component, approvedParams);
+          component.mesh = approvedMesh;
+          component.geometry.volumeM3 = Math.round((approvedMesh.volumeMm3 / 1e9) * 1000) / 1000;
+          component.geometry.triangles = approvedMesh.triangles;
+          component.geometry.vertices = approvedMesh.vertices;
+          component.geometry.bounds = approvedMesh.bounds;
+          component.parameters.presets[0].params = approvedParams;
           component.status = 'published';
           component.revision = nextRevision;
           component.updatedAt = today;
           component.publishedAt = component.publishedAt ?? today;
           component.qa.passedAt = today;
-          component.geometry.defaultCacheKey = review.newCacheKey;
+          component.geometry.defaultCacheKey = approvedKey;
+          review.newCacheKey = approvedKey;
           component.changelog.unshift({
             version: nextRevision,
             date: today,
@@ -2000,7 +2042,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         reuseTrend,
         workerLatency,
         failures,
-        reviewBacklog: state.reviews.map(reviewView),
+        reviewBacklog: state.reviews
+          .filter((review) => {
+            const component = findComponent(state, review.componentFamilyId);
+            return Boolean(component && accessible(user!, component!));
+          })
+          .map(reviewView),
         storage: {
           casDedupRate: 38.6,
           artifacts: 1284,
@@ -2020,16 +2067,19 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       }
       const items = state.projects.map((p) => ({
         ...p,
-        componentCount: p.componentIds.length,
+        componentCount: p.componentIds.filter((id) => {
+          const component = findComponent(state, id);
+          return Boolean(component && accessible(user!, component));
+        }).length,
         components: p.componentIds
           .map((id) => findComponent(state, id))
-          .filter(Boolean)
-          .map((c) => ({
-            familyId: c!.familyId,
-            name: c!.name,
-            category: c!.category,
-            status: c!.status,
-            volumeM3: c!.geometry.volumeM3,
+          .filter((component): component is InternalComponent => Boolean(component) && accessible(user!, component!))
+          .map((component) => ({
+            familyId: component.familyId,
+            name: component.name,
+            category: component.category,
+            status: component.status,
+            volumeM3: component.geometry.volumeM3,
           })),
       }));
       json(res, 200, { items, total: items.length });

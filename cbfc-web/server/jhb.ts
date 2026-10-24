@@ -38,8 +38,8 @@ function padTo4(text: string): string {
 
 export function encodeJhb(input: JhbEncodeInput): JhbEncodeResult {
   const { mesh } = input;
-  const faceIdBytes = mesh.facesCount > 65535 ? 4 : 2;
-  const faceIdType = mesh.facesCount > 65535 ? 'uint32' : 'uint16';
+  const faceIdBytes = mesh.faceIds.BYTES_PER_ELEMENT === 4 ? 4 : 2;
+  const faceIdType = faceIdBytes === 4 ? 'uint32' : 'uint16';
 
   const buffers = {
     vertices: { offset: 0, length: mesh.positions.byteLength, type: 'float32', stride: 3 },

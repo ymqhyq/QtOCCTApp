@@ -50,6 +50,12 @@ let probeTimer: ReturnType<typeof setTimeout> | null = null;
 
 const isPartner = computed(() => session.user?.role === 'partner');
 const selectedFormat = computed(() => formats.value.find((f) => f.id === selected.value));
+const currentCacheKey = computed(() => {
+  const preset = props.component?.parameters.presets.find(
+    (item) => item.modelNumber === props.modelNumber,
+  );
+  return preset?.cacheKey ?? props.component?.geometry.defaultCacheKey ?? '';
+});
 const checksum = computed(() => ticket.value?.checksum ?? '');
 const ticketCountdown = computed(() => {
   if (!ticket.value?.expiresAt) return '';
@@ -203,7 +209,7 @@ async function startHandoff() {
   busy.value = true;
   error.value = '';
   try {
-    const token = await api.handoffToken(props.component.familyId, props.component.geometry.defaultCacheKey);
+    const token = await api.handoffToken(props.component.familyId, currentCacheKey.value);
     if (!/^htk_[a-zA-Z0-9_-]{32,64}$/.test(token.handoffToken)) {
       throw new Error('handoffToken 格式未通过前端白名单校验，已阻断唤起');
     }

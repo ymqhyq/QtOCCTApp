@@ -37,6 +37,14 @@ check('合作方读取审核队列被拒绝', (await status('/api/v1/reviews', p
 check('合作方读取运营看板被拒绝', (await status('/api/v1/analytics/overview', partner.token)) === 403);
 check('合作方上传被拒绝', (await status('/api/v1/components/upload', partner.token, 'POST')) === 403);
 check('合作方读取语义模板被拒绝', (await status('/api/v1/semantic-profiles', partner.token)) === 403);
+check(
+  'handoff 拒绝不属于构件的 cacheKey',
+  (await fetch(`${BASE}/api/v1/auth/handoff-token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${designer.token}` },
+    body: JSON.stringify({ familyId: 'Abutment', cacheKey: 'a'.repeat(64) }),
+  })).status === 422,
+);
 
 async function evaluate(familyId, token) {
   const detail = await (await fetch(`${BASE}/api/v1/components/${familyId}`, {
