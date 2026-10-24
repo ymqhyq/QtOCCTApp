@@ -207,7 +207,7 @@ async function exportIfc() {
   if (!detail.value) return;
   ifcBusy.value = true;
   try {
-    const result = await api.exportIfc(detail.value.familyId);
+    const result = await api.exportIfc(detail.value.familyId, selectedModel.value || undefined);
     triggerDownload(result.downloadUrl, result.fileName);
     if (result.unmapped.length) {
       ui.notify({
