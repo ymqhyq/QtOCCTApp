@@ -413,34 +413,91 @@ END-ISO-10303-21;
 }
 
 export function makeIfcFile(component: InternalComponent): Uint8Array {
-  const step = (value: string) => String(value).replace(/'/g, "''").replace(/[\r\n]/g, ' ');
-  const safeName = step(component.name);
-  const safeCategory = step(component.category);
-  const safeFamilyId = step(component.familyId);
-  const text = `ISO-10303-21;
-HEADER;
-FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]'),'2;1');
-FILE_NAME('${safeFamilyId}_${step(component.revision)}.ifc','2026-10-19T03:00:00',('CBF-C'),('CR17J'),'CBF-C Web 2.5','CBF-C Web 2.5','');
-FILE_SCHEMA(('IFC4X3_ADD2'));
-ENDSEC;
-DATA;
-/* CBF-C IFC 4.3 数字工程交付物
-   familyId=${safeFamilyId} revision=${step(component.revision)}
-   semanticProfile=${step(component.semanticProfileHint)}
-   cacheKey=${component.geometry.defaultCacheKey}
-   shapes=${Object.keys(component.shapes).map(step).join(', ')}
-   unmapped=${Object.values(component.shapes).filter((s) => s.code.includes('Monitor') || s.code.includes('Drainage')).length}
-   本文件为演示导出：保留 IFC 4.3 HEADER 与 IfcShapeAspect 命名面清单，几何由服务端导出管线生成。
-*/
-#1=IFCPROJECT('2f7c9e12-0000-4000-8000-000000000001',$,'${safeName}',$,$,$,$,$,$);
-#2=IFCSITE('2f7c9e12-0000-4000-8000-000000000002',$,'CBF-C Site',$,$,$,$,$,$,$,$,$,$,$);
-#3=IFCBUILDING('2f7c9e12-0000-4000-8000-000000000003',$,'${safeCategory}',$,$,$,$,$,$,$,$,$);
-#4=IFCBRIDGE('2f7c9e12-0000-4000-8000-000000000004',$,'${safeName}',$,$,$,$,$,$,$,$,$);
-#5=IFCCOLUMN('2f7c9e12-0000-4000-8000-000000000005',$,'${safeFamilyId}',$,$,$,$,$,$,$);
-ENDSEC;
-END-ISO-10303-21;
-`;
-  return new TextEncoder().encode(text);
+  const ifcString = (value: string) => {
+    let out = '';
+    for (let i = 0; i < value.length; i += 1) {
+      const code = value.charCodeAt(i);
+      if (code === 39) out += "''";
+      else if (code === 92) out += '\\\\';
+      else if (code >= 32 && code <= 126) out += value[i];
+      else out += `\\X2\\${code.toString(16).toUpperCase().padStart(4, '0')}\\X0\\`;
+    }
+    return `'${out}'`;
+  };
+  const ifcNumber = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(3) : '0.000');
+  const mesh = component.mesh;
+  const date = new Date().toISOString().slice(0, 19);
+  const lines: string[] = [
+    'ISO-10303-21;',
+    'HEADER;',
+    "FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');",
+    `FILE_NAME(${ifcString(`${component.familyId}_${component.revision}.ifc`)},'${date}',(${ifcString('CBF-C')}),(${ifcString('CR17J')}),'CBF-C Web 2.5','CBF-C Web 2.5','');`,
+    "FILE_SCHEMA(('IFC4'));",
+    'ENDSEC;',
+    'DATA;',
+    "#1=IFCPERSON($,$,'CBF-C',$,$,$,$,$);",
+    "#2=IFCORGANIZATION($,'CR17J',$,$,$);",
+    '#3=IFCPERSONANDORGANIZATION(#1,#2,$);',
+    "#4=IFCAPPLICATION(#2,'2.5','CBF-C Web','CBF-C Web');",
+    '#5=IFCOWNERHISTORY(#3,#4,$,.ADDED.,$,$,$,0);',
+    '#6=IFCCARTESIANPOINT((0.,0.,0.));',
+    '#7=IFCDIRECTION((0.,0.,1.));',
+    '#8=IFCDIRECTION((1.,0.,0.));',
+    '#9=IFCAXIS2PLACEMENT3D(#6,#7,#8);',
+    "#10=IFCGEOMETRICREPRESENTATIONCONTEXT('Model','Model',3,1.E-05,#9,$);",
+    '#11=IFCSIUNIT(*,.LENGTHUNIT.,.MILLI.,.METRE.);',
+    '#12=IFCUNITASSIGNMENT((#11));',
+    `#13=IFCPROJECT('LyVdQwF4$gR$YaTmP$IJLd',#5,${ifcString(component.name)},$,$,$,$,(#10),#12);`,
+    '#14=IFCLOCALPLACEMENT($,#9);',
+    `#15=IFCSITE('XsTzLiv6KBzYCBbaW0YfOu',#5,'CBF-C Site',$,$,#14,$,$,.ELEMENT.,$,$,$,$,$);`,
+    "#16=IFCRELAGGREGATES('acjn_u4VxmeP9K_Nw00xfz',#5,$,$,#13,(#15));",
+    '#17=IFCLOCALPLACEMENT(#14,#9);',
+    "#18=IFCBUILDING('QMF0U4519HMeRnwUsHpMtJ',#5,'CBF-C Building',$,$,#17,$,$,.ELEMENT.,$,$,$);",
+    "#19=IFCRELAGGREGATES('PKeG5XLNljhqz4zI7HzIe4',#5,$,$,#15,(#18));",
+    '#20=IFCCARTESIANPOINT((0.,0.,0.));',
+    '#21=IFCDIRECTION((0.,0.,1.));',
+    '#22=IFCDIRECTION((1.,0.,0.));',
+    '#23=IFCAXIS2PLACEMENT3D(#20,#21,#22);',
+    '#24=IFCLOCALPLACEMENT(#17,#23);',
+  ];
+
+  let nextId = 1000;
+  const pointIds: number[] = [];
+  for (let i = 0; i < mesh.positions.length / 3; i += 1) {
+    const id = nextId++;
+    pointIds.push(id);
+    lines.push(
+      `#${id}=IFCCARTESIANPOINT((${ifcNumber(mesh.positions[i * 3])},${ifcNumber(mesh.positions[i * 3 + 1])},${ifcNumber(mesh.positions[i * 3 + 2])}));`,
+    );
+  }
+
+  const faces: number[] = [];
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const loopId = nextId++;
+    const boundId = nextId++;
+    const faceId = nextId++;
+    lines.push(
+      `#${loopId}=IFCPOLYLOOP((#${pointIds[mesh.indices[t]]},#${pointIds[mesh.indices[t + 1]]},#${pointIds[mesh.indices[t + 2]]}));`,
+      `#${boundId}=IFCFACEOUTERBOUND(#${loopId},.T.);`,
+      `#${faceId}=IFCFACE((#${boundId}));`,
+    );
+    faces.push(faceId);
+  }
+  const shellId = nextId++;
+  const brepId = nextId++;
+  const productShapeId = nextId++;
+  const shapeRepresentationId = nextId++;
+  lines.push(
+    `#${shellId}=IFCCLOSEDSHELL((${faces.map((id) => `#${id}`).join(',')}));`,
+    `#${brepId}=IFCFACETEDBREP(#${shellId});`,
+    `#${shapeRepresentationId}=IFCSHAPEREPRESENTATION(#10,'Body','Brep',(#${brepId}));`,
+    `#${productShapeId}=IFCPRODUCTDEFINITIONSHAPE($,$,(#${shapeRepresentationId}));`,
+    `#25=IFCCOLUMN('Edul4Zpfg0AXn0t4N7XtCR',#5,${ifcString(component.name)},$,'${component.familyId}',#24,#${productShapeId},$,$);`,
+    "#26=IFCRELCONTAINEDINSPATIALSTRUCTURE('oEU57lEksPm6nj9MJU8lr5',#5,$,$,(#25),#18);",
+    'ENDSEC;',
+    'END-ISO-10303-21;',
+  );
+  return new TextEncoder().encode(lines.join('\n'));
 }
 
 export async function buildArtifact(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createState } from './state';
-import { buildCbfcFiles, makeJhb } from './artifacts';
+import { buildCbfcFiles, makeIfcFile, makeJhb } from './artifacts';
 import { decodeJhb } from '../src/jhb/decode';
 import { SPEC_PIER_GENERATOR_SOURCE } from './spec-generator';
 import { buildGeneratorSource } from './generator';
@@ -48,6 +48,18 @@ describe('.cbfc 制品包内部一致性', () => {
         );
       }
     }
+  });
+
+  it('IFC4 交付物包含可被浏览器加载的 B-Rep 三角面', async () => {
+    const state = await createState();
+    const component = state.components.find((item) => item.familyId === 'Abutment')!;
+    const ifc = text(makeIfcFile(component));
+    expect(ifc).toContain("FILE_SCHEMA(('IFC4'))");
+    expect(ifc).toContain('IFCFACETEDBREP');
+    expect(ifc).toContain('IFCCLOSEDSHELL');
+    expect(ifc).toContain('IFCCOLUMN');
+    expect(ifc).toContain('IFCCARTESIANPOINT');
+    expect(ifc).not.toContain('IFCBRIDGE');
   });
 
   it('族名写入生成脚本时被执行字符串转义', () => {
