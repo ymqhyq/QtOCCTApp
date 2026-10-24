@@ -65,6 +65,19 @@ const presetOptions = computed(() => detail.value?.parameters.presets ?? []);
 const selectedPreset = computed(
   () => presetOptions.value.find((preset) => preset.modelNumber === selectedModel.value) ?? null,
 );
+const modelParamPreview = computed(() => {
+  const preset = selectedPreset.value;
+  if (!preset) return [];
+  return (detail.value?.parameters.schema ?? [])
+    .filter((field) => field.access !== 'out')
+    .slice(0, 4)
+    .map((field) => ({
+      name: field.name,
+      label: field.label,
+      value: preset.params[field.name],
+      unit: field.unit ?? '',
+    }));
+});
 function isFormatAvailable(id: string) {
   return formats.value.find((format) => format.id === id)?.available ?? true;
 }
@@ -166,7 +179,7 @@ onMounted(async () => {
 
     <div class="mt-3 grid gap-3 lg:grid-cols-[300px_minmax(0,1fr)]">
         <!-- 构件选择 -->
-        <aside class="panel flex max-h-[560px] flex-col overflow-hidden">
+        <aside class="panel flex max-h-[390px] flex-col overflow-hidden">
           <div class="border-b border-line p-2.5">
             <div class="mb-1.5 flex items-center justify-between">
               <p class="eyebrow">选择构件</p>
@@ -232,60 +245,75 @@ onMounted(async () => {
         </aside>
 
         <!-- 导出详情 -->
-        <section v-if="detail" class="panel overflow-hidden">
-          <div class="grid gap-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-            <div class="relative flex min-h-[260px] items-center justify-center border-b border-line bg-[#F5F8FA] md:border-b-0 md:border-r">
+        <section v-if="detail" class="panel overflow-hidden lg:min-h-[390px]">
+          <div class="grid h-full gap-0 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+            <div class="relative flex min-h-[260px] items-center justify-center border-b border-line bg-[#F5F8FA] md:min-h-[390px] md:border-b-0 md:border-r">
               <div class="grid-bg absolute inset-0 opacity-50" />
-              <img :src="api.previewUrl(detail.familyId, 720, 480)" :alt="detail.name" class="relative max-h-[300px] w-full object-contain p-3" />
+              <img :src="api.previewUrl(detail.familyId, 720, 480)" :alt="detail.name" class="relative max-h-[350px] w-full object-contain p-3" />
               <div class="absolute left-3 top-3 flex gap-1">
                 <StatusBadge :tone="componentStatusMeta(detail.status).tone" :label="componentStatusMeta(detail.status).label" />
                 <StatusBadge :tone="sourceModeMeta(detail.sourceMode).tone" :label="sourceModeMeta(detail.sourceMode).label" :dot="false" />
               </div>
             </div>
 
-            <div class="p-4">
-              <h2 class="text-[16px] font-semibold text-ink">{{ detail.name }}</h2>
-              <p class="mt-0.5 font-mono text-[10px] text-muted">
-                {{ detail.familyId }} · {{ detail.drawingCode }} · v{{ detail.revision }}
-              </p>
-              <div class="mt-2 flex flex-wrap gap-1.5">
-                <span class="tag">体积 {{ formatVolume(detail.geometry.volumeM3) }}</span>
-                <span class="tag">{{ detail.geometry.triangles.toLocaleString() }} 面片</span>
-                <span class="tag">{{ detail.geometry.exactBrep ? 'exactBrep' : 'mesh-only' }}</span>
-                <span class="tag mono">{{ detail.taxonomy.crbim }}</span>
-              </div>
-              <p class="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[#4B5563]">{{ detail.description }}</p>
-
-              <div v-if="presetOptions.length" class="mt-3 rounded border border-line bg-[#FAFBFC] px-2.5 py-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <label class="text-[10px] font-medium text-[#374151]" for="export-model">导出型号</label>
-                  <select id="export-model" v-model="selectedModel" class="select !w-auto min-w-[230px] !py-1 !text-[11px]">
-                    <option v-for="preset in presetOptions" :key="preset.modelNumber" :value="preset.modelNumber">
-                      {{ preset.modelNumber }} · {{ preset.label }}
-                    </option>
-                  </select>
-                </div>
-                <p v-if="selectedPreset" class="mt-1 text-[9px] text-muted">
-                  {{ selectedPreset.label }} · {{ selectedPreset.isPrebaked ? '预烘焙' : '按需求解' }}
+            <div class="flex flex-col p-4">
+              <div>
+                <h2 class="text-[16px] font-semibold text-ink">{{ detail.name }}</h2>
+                <p class="mt-0.5 font-mono text-[10px] text-muted">
+                  {{ detail.familyId }} · {{ detail.drawingCode }} · v{{ detail.revision }}
                 </p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <span class="tag">体积 {{ formatVolume(detail.geometry.volumeM3) }}</span>
+                  <span class="tag">{{ detail.geometry.triangles.toLocaleString() }} 面片</span>
+                  <span class="tag">{{ detail.geometry.exactBrep ? 'exactBrep' : 'mesh-only' }}</span>
+                  <span class="tag mono">{{ detail.taxonomy.crbim }}</span>
+                </div>
+                <p class="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[#4B5563]">{{ detail.description }}</p>
+
+                <div v-if="presetOptions.length" class="mt-3 rounded border border-line bg-[#FAFBFC] px-2.5 py-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="text-[10px] font-medium text-[#374151]" for="export-model">导出型号</label>
+                    <select id="export-model" v-model="selectedModel" class="select !w-auto min-w-[230px] !py-1 !text-[11px]">
+                      <option v-for="preset in presetOptions" :key="preset.modelNumber" :value="preset.modelNumber">
+                        {{ preset.modelNumber }} · {{ preset.label }}
+                      </option>
+                    </select>
+                  </div>
+                  <p v-if="selectedPreset" class="mt-1 text-[9px] text-muted">
+                    {{ selectedPreset.label }} · {{ selectedPreset.isPrebaked ? '预烘焙' : '按需求解' }}
+                  </p>
+                  <dl v-if="modelParamPreview.length" class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+                    <div v-for="field in modelParamPreview" :key="field.name" class="flex min-w-0 items-baseline justify-between gap-1">
+                      <dt class="truncate text-[9px] text-[#9CA3AF]">{{ field.label }}</dt>
+                      <dd class="mono shrink-0 text-[9.5px] text-[#374151]">
+                        {{ field.value ?? '—' }}{{ field.unit }}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
 
-              <div class="mt-3 flex flex-wrap gap-1.5">
-                <button class="btn btn-primary btn-sm" :title="formatHint('cbfc')" @click="openExport('cbfc')">
-                  <AppIcon name="package" :size="13" />下载 .cbfc
-                </button>
-                <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
-                  <AppIcon name="globe" :size="13" />IFC 4.3
-                </button>
-                <button class="btn btn-outline btn-sm" :title="formatHint('glb')" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
-                  <AppIcon name="cube" :size="13" />GLB
-                </button>
-                <button class="btn btn-outline btn-sm" :title="formatHint('step')" :disabled="!isFormatAvailable('step')" @click="openExport('step')">
-                  <AppIcon name="layers" :size="13" />STEP
-                </button>
-                <button class="btn btn-outline btn-sm" :title="formatHint('cbf')" :disabled="!isFormatAvailable('cbf')" @click="openExport('cbf')">
-                  <AppIcon name="box" :size="13" />CBF
-                </button>
+              <div class="mt-auto pt-3">
+                <div class="flex flex-wrap gap-1.5">
+                  <button class="btn btn-primary btn-sm" :title="formatHint('cbfc')" @click="openExport('cbfc')">
+                    <AppIcon name="package" :size="13" />下载 .cbfc
+                  </button>
+                  <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
+                    <AppIcon name="globe" :size="13" />IFC 4.3
+                  </button>
+                  <button class="btn btn-outline btn-sm" :title="formatHint('glb')" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
+                    <AppIcon name="cube" :size="13" />GLB
+                  </button>
+                  <button class="btn btn-outline btn-sm" :title="formatHint('step')" :disabled="!isFormatAvailable('step')" @click="openExport('step')">
+                    <AppIcon name="layers" :size="13" />STEP
+                  </button>
+                  <button class="btn btn-outline btn-sm" :title="formatHint('cbf')" :disabled="!isFormatAvailable('cbf')" @click="openExport('cbf')">
+                    <AppIcon name="box" :size="13" />CBF
+                  </button>
+                </div>
+                <p class="mt-2 text-[9px] leading-relaxed text-muted">
+                  文件按当前型号生成；IFC / STEP 使用精确几何，下载凭据 15 分钟内有效。
+                </p>
               </div>
             </div>
           </div>
