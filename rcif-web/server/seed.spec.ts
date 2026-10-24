@@ -17,7 +17,8 @@ describe('构件库种子与 JHB 编码', () => {
     expect(pier.mesh.triangles).toBeGreaterThan(500);
     expect(pier.mesh.faceIds.length).toBe(pier.mesh.triangles);
     expect(pier.shapes.PierBodySolid).toBeTruthy();
-    expect(state.reviews.length).toBe(5);
+    expect(state.reviews.length).toBe(24);
+    expect(state.components.filter((c) => c.status === 'draft')).toHaveLength(0);
 
     expect(state.components.find((c) => c.familyId === 'CompositePier')?.recipeSource).toBe(
       'cq_script/bridge_pier_cq2.py',

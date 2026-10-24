@@ -437,6 +437,42 @@ export async function createState(): Promise<AppState> {
     },
   ];
 
+  const reviews: ReviewRecord[] = [reviewPier, reviewPile, reviewGantry, reviewGirder, reviewTray];
+  const reviewedFamilies = new Set(reviews.map((review) => review.familyId));
+  for (const component of components.filter((item) => item.status === 'draft')) {
+    if (reviewedFamilies.has(component.familyId)) continue;
+    const params = { ...(component.parameters.presets[0]?.params ?? {}) };
+    const index = reviews.length;
+    const review = makeReview(
+      component,
+      index,
+      component.revision,
+      '下次发布',
+      'normal',
+      Object.keys(component.shapes).map((shapeKey) => ({
+        shapeKey,
+        kind: 'modified' as const,
+        note: '草稿基线纳入发布审核',
+      })),
+      component.parameters.schema.map((field) => ({
+        name: field.name,
+        label: field.label,
+        from: String(params[field.name] ?? '—'),
+        to: String(params[field.name] ?? '—'),
+        changed: false,
+      })),
+      '草稿构件批量纳入待审核队列，等待标准化审查专家签批。',
+      params,
+      { ...params },
+    );
+    review.submittedBy = '系统导入';
+    review.submittedAt = new Date(Date.UTC(2026, 9, 20, 9, index)).toISOString();
+    component.status = 'reviewing';
+    component.updatedAt = '2026-10-20';
+    reviews.push(review);
+    reviewedFamilies.add(component.familyId);
+  }
+
   return {
     components,
     profiles,
@@ -446,7 +482,7 @@ export async function createState(): Promise<AppState> {
     cache: new Map(),
     tickets: new Map(),
     handoffs: new Map(),
-    reviews: [reviewPier, reviewPile, reviewGantry, reviewGirder, reviewTray],
+    reviews,
     projects,
     favorites,
     history,
