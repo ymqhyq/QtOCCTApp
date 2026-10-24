@@ -20,13 +20,17 @@ def main() -> int:
     params = payload.get("params") or {}
     generator = load_generator(str(payload.get("generatorPath") or ""))
     builder = getattr(generator, "build_abutment", None) or getattr(generator, "build", None)
-    if builder is None:
-        raise RuntimeError("生成器没有 build_abutment/build 入口")
-    shape = builder(params)
+    assembly_builder = getattr(generator, "build_assembly", None)
+    shape = assembly_builder(params) if assembly_builder else builder(params) if builder else None
+    if shape is None:
+        raise RuntimeError("生成器没有 build_abutment/build/build_assembly 入口")
     with tempfile.NamedTemporaryFile(suffix=".step", delete=False) as handle:
         output = Path(handle.name)
     try:
-        cq.exporters.export(shape, str(output))
+        if isinstance(shape, cq.Assembly):
+            shape.export(str(output), "STEP")
+        else:
+            cq.exporters.export(shape, str(output))
         sys.stdout.buffer.write(output.read_bytes())
     finally:
         output.unlink(missing_ok=True)

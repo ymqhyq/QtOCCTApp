@@ -643,7 +643,15 @@ export async function buildArtifact(
     case 'jhb':
       return { data: new Uint8Array(makeJhb(effectiveComponent, params, cacheKey).buffer), fileName: `${base}.jhb`, mime: f.mime };
     case 'glb':
-      return { data: encodeGlb(effectiveComponent.mesh, effectiveComponent.name), fileName: `${base}.glb`, mime: f.mime };
+      return {
+        data: encodeGlb(
+          effectiveComponent.mesh,
+          effectiveComponent.name,
+          Object.entries(effectiveComponent.shapes).map(([key, shape]) => ({ key, label: shape.label })),
+        ),
+        fileName: `${base}.glb`,
+        mime: f.mime,
+      };
     case 'cbfc':
       return { data: await buildCbfcZip(effectiveComponent, params, cacheKey), fileName: `${base}.cbfc`, mime: f.mime };
     case 'cbf':

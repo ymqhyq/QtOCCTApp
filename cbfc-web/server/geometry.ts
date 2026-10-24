@@ -956,32 +956,99 @@ export function renderPreviewSvg(
 </svg>`;
 }
 
-/** 真实 GLB（glTF 2.0 二进制）导出，供通用三维引擎消费 */
-export function encodeGlb(mesh: MeshData, name: string): Uint8Array {
+/** 真实 GLB（glTF 2.0 二进制）导出，按命名部位输出独立 node/mesh。 */
+export function encodeGlb(
+  mesh: MeshData,
+  name: string,
+  parts: { key: string; label: string }[] = [],
+): Uint8Array {
+  const shapeByFace = new Map<number, number>();
+  for (const group of mesh.faceGroups) shapeByFace.set(group.faceId, group.shapeIndex);
+  const indicesByShape = new Map<number, number[]>();
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const faceId = mesh.faceIds[Math.floor(t / 3)] ?? Math.floor(t / 3);
+    const shapeIndex = shapeByFace.get(faceId) ?? 0;
+    const list = indicesByShape.get(shapeIndex) ?? [];
+    list.push(mesh.indices[t], mesh.indices[t + 1], mesh.indices[t + 2]);
+    indicesByShape.set(shapeIndex, list);
+  }
+  const namedParts = (parts.length ? parts : [{ key: name, label: name }]).map((part, index) => ({
+    ...part,
+    shapeIndex: index,
+  }));
   const posBytes = mesh.positions.byteLength;
   const nrmBytes = mesh.normals.byteLength;
-  const idxBytes = mesh.indices.byteLength;
-  const idxPad = (4 - (idxBytes % 4)) % 4;
-  const binLength = posBytes + nrmBytes + idxBytes + idxPad;
+  let offset = posBytes + nrmBytes;
+  const indexChunks: { shapeIndex: number; bytes: Uint8Array; offset: number; count: number }[] = [];
+  for (const part of namedParts) {
+    const values = indicesByShape.get(part.shapeIndex) ?? [];
+    const data = Uint32Array.from(values);
+    const bytes = new Uint8Array(data.buffer);
+    indexChunks.push({ shapeIndex: part.shapeIndex, bytes, offset, count: data.length });
+    offset += bytes.byteLength;
+  }
+  const binLength = offset;
   const encoder = new TextEncoder();
-  const json = {
-    asset: { version: '2.0', generator: 'CBF-C Web Library mock exporter v2.5' },
-    scene: 0,
-    scenes: [{ nodes: [0], name }],
-    nodes: [{ mesh: 0, name }],
-    meshes: [
-      {
-        name,
+  const bufferViews = [
+    { buffer: 0, byteOffset: 0, byteLength: posBytes, target: 34962 },
+    { buffer: 0, byteOffset: posBytes, byteLength: nrmBytes, target: 34962 },
+    ...indexChunks.map((chunk) => ({
+      buffer: 0,
+      byteOffset: chunk.offset,
+      byteLength: chunk.bytes.byteLength,
+      target: 34963,
+    })),
+  ];
+  const accessors = [
+    {
+      bufferView: 0,
+      componentType: 5126,
+      count: mesh.vertices,
+      type: 'VEC3',
+      min: mesh.bounds.min,
+      max: mesh.bounds.max,
+    },
+    { bufferView: 1, componentType: 5126, count: mesh.vertices, type: 'VEC3' },
+    ...indexChunks.map((chunk, index) => ({
+      bufferView: index + 2,
+      componentType: 5125,
+      count: chunk.count,
+      type: 'SCALAR',
+    })),
+  ];
+  const meshes = namedParts
+    .map((part, index) => {
+      const chunk = indexChunks[index];
+      if (!chunk.count) return null;
+      return {
+        name: part.label,
         primitives: [
           {
             attributes: { POSITION: 0, NORMAL: 1 },
-            indices: 2,
+            indices: index + 2,
             material: 0,
             mode: 4,
           },
         ],
-      },
-    ],
+      };
+    })
+    .filter(Boolean) as { name: string; primitives: { attributes: Record<string, number>; indices: number; material: number; mode: number }[] }[];
+  const nodes: { name: string; mesh?: number }[] = [];
+  let meshCursor = 0;
+  for (const part of namedParts) {
+    if (indicesByShape.get(part.shapeIndex)?.length) {
+      nodes.push({ name: part.label, mesh: meshCursor });
+      meshCursor += 1;
+    } else {
+      nodes.push({ name: part.label });
+    }
+  }
+  const json = {
+    asset: { version: '2.0', generator: 'CBF-C Web Library mock exporter v2.5' },
+    scene: 0,
+    scenes: [{ nodes: nodes.map((_, index) => index), name }],
+    nodes,
+    meshes,
     materials: [
       {
         pbrMetallicRoughness: {
@@ -992,23 +1059,8 @@ export function encodeGlb(mesh: MeshData, name: string): Uint8Array {
       },
     ],
     buffers: [{ byteLength: binLength }],
-    bufferViews: [
-      { buffer: 0, byteOffset: 0, byteLength: posBytes, target: 34962 },
-      { buffer: 0, byteOffset: posBytes, byteLength: nrmBytes, target: 34962 },
-      { buffer: 0, byteOffset: posBytes + nrmBytes, byteLength: idxBytes, target: 34963 },
-    ],
-    accessors: [
-      {
-        bufferView: 0,
-        componentType: 5126,
-        count: mesh.vertices,
-        type: 'VEC3',
-        min: mesh.bounds.min,
-        max: mesh.bounds.max,
-      },
-      { bufferView: 1, componentType: 5126, count: mesh.vertices, type: 'VEC3' },
-      { bufferView: 2, componentType: 5125, count: mesh.indices.length, type: 'SCALAR' },
-    ],
+    bufferViews,
+    accessors,
   };
   let jsonText = JSON.stringify(json);
   while (jsonText.length % 4 !== 0) jsonText += ' ';
@@ -1018,25 +1070,26 @@ export function encodeGlb(mesh: MeshData, name: string): Uint8Array {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   let o = 0;
-  const u32 = (v: number) => {
-    view.setUint32(o, v, true);
+  const u32 = (value: number) => {
+    view.setUint32(o, value, true);
     o += 4;
   };
-  u32(0x46546c67); // glTF
+  u32(0x46546c67);
   u32(2);
   u32(total);
   u32(jsonBytes.length);
-  u32(0x4e4f534a); // JSON
+  u32(0x4e4f534a);
   bytes.set(jsonBytes, o);
   o += jsonBytes.length;
   u32(binLength);
-  u32(0x004e4942); // BIN
-  bytes.set(new Uint8Array(mesh.positions.buffer), o);
+  u32(0x004e4942);
+  bytes.set(new Uint8Array(mesh.positions.buffer, mesh.positions.byteOffset, posBytes), o);
   o += posBytes;
-  bytes.set(new Uint8Array(mesh.normals.buffer), o);
+  bytes.set(new Uint8Array(mesh.normals.buffer, mesh.normals.byteOffset, nrmBytes), o);
   o += nrmBytes;
-  bytes.set(new Uint8Array(mesh.indices.buffer), o);
-  o += idxBytes;
-  for (let i = 0; i < idxPad; i += 1) bytes[o + i] = 0;
+  for (const chunk of indexChunks) {
+    bytes.set(chunk.bytes, o);
+    o += chunk.bytes.byteLength;
+  }
   return bytes;
 }
