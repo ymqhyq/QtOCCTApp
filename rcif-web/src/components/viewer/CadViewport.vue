@@ -50,7 +50,7 @@ const view = ref<ViewPreset>('iso');
 const projection = ref<ProjectionMode>('perspective');
 const renderMode = ref<RenderMode>('shaded');
 const edgesVisible = ref(true);
-const lineWidth = ref(1.7);
+const lineWidth = ref(1.0);
 const clipAxis = ref<ClipAxis | null>(null);
 const clipRatio = ref(76);
 const measureMode = ref(false);
@@ -186,7 +186,7 @@ function cycleRenderMode() {
 }
 
 function cycleLineWidth() {
-  const options = [1.2, 1.7, 2.2, 2.8];
+  const options = [1.0, 1.5, 2.0];
   const index = options.indexOf(lineWidth.value);
   lineWidth.value = options[(index + 1) % options.length];
   engine.value?.setLineWidth(lineWidth.value);
