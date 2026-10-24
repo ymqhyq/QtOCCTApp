@@ -1,6 +1,7 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { createInterface } from 'node:readline';
 import type { MeshData } from './geometry';
 
 interface CqMeshPayload {
@@ -17,6 +18,13 @@ interface CqMeshPayload {
   vertices: number;
   triangles: number;
   facesCount: number;
+  error?: string;
+}
+
+interface CqJob {
+  payload: Record<string, unknown>;
+  resolve: (mesh: MeshData | null) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 function pythonPath() {
@@ -25,88 +33,143 @@ function pythonPath() {
   return existsSync(local) ? local : '';
 }
 
-let cqUnavailable = false;
+function toMesh(parsed: CqMeshPayload): MeshData {
+  return {
+    positions: Float32Array.from(parsed.positions),
+    indices: Uint32Array.from(parsed.indices),
+    normals: Float32Array.from(parsed.normals),
+    faceIds: Uint16Array.from(parsed.faceIds),
+    edges: new Float32Array(0),
+    edgeOffsets: new Uint32Array([0]),
+    edgeShapes: [],
+    faceGroups: parsed.faceGroups.map((group) => ({
+      ...group,
+      label: 'CadQuery 拓扑面',
+      triangles: 1,
+      centroid: [0, 0, 0] as [number, number, number],
+    })),
+    edgeLines: [],
+    bounds: parsed.bounds,
+    volumeMm3: parsed.volumeMm3,
+    areaMm2: parsed.areaMm2,
+    vertices: parsed.vertices,
+    triangles: parsed.triangles,
+    facesCount: parsed.facesCount,
+    edgesCount: 0,
+  };
+}
+
+let child: ChildProcessWithoutNullStreams | null = null;
+let queue: CqJob[] = [];
+let active: CqJob | null = null;
+let unavailable = false;
+
+function failAll() {
+  if (active) {
+    clearTimeout(active.timer);
+    active.resolve(null);
+    active = null;
+  }
+  for (const job of queue) {
+    clearTimeout(job.timer);
+    job.resolve(null);
+  }
+  queue = [];
+}
+
+function stopChild() {
+  if (child) {
+    child.removeAllListeners();
+    child.kill();
+    child = null;
+  }
+}
+
+function spawnWorker(): ChildProcessWithoutNullStreams | null {
+  const python = pythonPath();
+  const server = resolve(process.cwd(), 'server/cq/abutment_server.py');
+  if (!python || !existsSync(server) || unavailable) return null;
+  const next = spawn(python, [server], {
+    cwd: process.cwd(),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  const lines = createInterface({ input: next.stdout });
+  lines.on('line', (line) => {
+    if (!active) return;
+    const job = active;
+    active = null;
+    clearTimeout(job.timer);
+    try {
+      const parsed = JSON.parse(line) as CqMeshPayload;
+      job.resolve(parsed.error ? null : toMesh(parsed));
+    } catch {
+      job.resolve(null);
+    }
+    runNext();
+  });
+  next.stderr.on('data', (chunk) => {
+    console.warn('[cadquery]', String(chunk).slice(0, 500));
+  });
+  next.on('error', () => {
+    unavailable = true;
+    stopChild();
+    failAll();
+  });
+  next.on('exit', () => {
+    child = null;
+    unavailable = true;
+    failAll();
+  });
+  child = next;
+  return next;
+}
+
+function runNext() {
+  if (active || !queue.length) return;
+  const worker = child ?? spawnWorker();
+  if (!worker) {
+    failAll();
+    return;
+  }
+  active = queue.shift() ?? null;
+  if (!active) return;
+  worker.stdin.write(`${JSON.stringify(active.payload)}\n`);
+  active.timer = setTimeout(() => {
+    stopChild();
+    failAll();
+  }, 60_000);
+}
 
 /**
- * Runs the authoritative CadQuery generator for the abutment.
- * Returns null when CadQuery is not installed in the current environment,
- * in which case the API falls back to the packaged preview mesh.
+ * Runs the authoritative CadQuery generator through a persistent worker.
+ * The worker keeps CadQuery/OCP imported between requests, so only the first
+ * request pays the Python startup cost.
  */
 export async function generateAbutmentMesh(
   params: Record<string, number | string | boolean>,
   options: { generatorPath?: string; shapeKeys?: string[]; partSlots?: Record<string, number> } = {},
 ): Promise<MeshData | null> {
-  const python = pythonPath();
-  if (!python || cqUnavailable) return null;
-  const worker = resolve(process.cwd(), 'server/cq/abutment_worker.py');
-  if (!existsSync(worker)) return null;
-
+  if (!pythonPath() || unavailable) return null;
   return new Promise((resolvePromise) => {
-    const child = spawn(python, [worker], {
-      cwd: process.cwd(),
-      stdio: ['pipe', 'pipe', 'pipe'],
-      windowsHide: true,
-    });
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => {
-      child.kill();
-      resolvePromise(null);
-    }, 60_000);
-    child.stdout.on('data', (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on('error', () => {
-      clearTimeout(timer);
-      cqUnavailable = true;
-      resolvePromise(null);
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code !== 0 || !stdout.trim()) {
-        if (stderr) console.warn('[cadquery]', stderr.slice(0, 600));
-        cqUnavailable = true;
-        resolvePromise(null);
-        return;
-      }
-      try {
-        const parsed = JSON.parse(stdout) as CqMeshPayload;
-        resolvePromise({
-          positions: Float32Array.from(parsed.positions),
-          indices: Uint32Array.from(parsed.indices),
-          normals: Float32Array.from(parsed.normals),
-          faceIds: Uint16Array.from(parsed.faceIds),
-          edges: new Float32Array(0),
-          edgeOffsets: new Uint32Array([0]),
-          edgeShapes: [],
-          faceGroups: parsed.faceGroups.map((group) => ({
-            ...group,
-            label: 'CadQuery 拓扑面',
-            triangles: 1,
-            centroid: [0, 0, 0] as [number, number, number],
-          })),
-          edgeLines: [],
-          bounds: parsed.bounds,
-          volumeMm3: parsed.volumeMm3,
-          areaMm2: parsed.areaMm2,
-          vertices: parsed.vertices,
-          triangles: parsed.triangles,
-          facesCount: parsed.facesCount,
-          edgesCount: 0,
-        });
-      } catch (error) {
-        console.warn('[cadquery] invalid worker output', error);
-        resolvePromise(null);
-      }
-    });
-    child.stdin.end(JSON.stringify({
-      params,
-      generatorPath: options.generatorPath,
-      shapeKeys: options.shapeKeys,
-      partSlots: options.partSlots,
-    }));
+    const job: CqJob = {
+      payload: {
+        params,
+        generatorPath: options.generatorPath,
+        shapeKeys: options.shapeKeys,
+        partSlots: options.partSlots,
+      },
+      resolve: resolvePromise,
+      timer: setTimeout(() => undefined, 0),
+    };
+    clearTimeout(job.timer);
+    queue.push(job);
+    runNext();
   });
 }
+
+export function shutdownCqWorker() {
+  stopChild();
+}
+
+process.once('exit', shutdownCqWorker);

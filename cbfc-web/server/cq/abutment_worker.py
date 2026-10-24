@@ -52,8 +52,7 @@ def load_generator(path: str):
     return module
 
 
-def main() -> int:
-    payload = json.loads(sys.stdin.read() or "{}")
+def build_payload(payload: dict) -> dict:
     params = payload.get("params") or {}
     generator = load_generator(str(payload.get("generatorPath") or ""))
     shape_keys = payload.get("shapeKeys") or SHAPE_KEYS
@@ -132,7 +131,13 @@ def main() -> int:
         "triangles": len(indices) // 3,
         "facesCount": len(shape_keys),
     }
-    sys.stdout.write(json.dumps(result, ensure_ascii=False))
+    return result
+
+
+def main() -> int:
+    payload = json.loads(sys.stdin.read() or "{}")
+    sys.stdout.write(json.dumps(build_payload(payload), ensure_ascii=False))
+    return 0
 
 
 if __name__ == "__main__":
