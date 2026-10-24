@@ -1,0 +1,628 @@
+# 对 `rcif_component_format_spec_v1.1.md` 的审核意见
+
+审核对象：[rcif_component_format_spec_v1.1.md](D:/QtOCCTApp/docs/rcif_component_format_spec_v1.1.md)
+
+## 总体结论
+
+v1.1 相比 v1.0 有明显进步，上一轮的大部分 P0 已经闭环：
+
+- `shapeKey` 已改为 `TDataStd_AsciiString` 技术键；
+- `TDataStd_Name` 只作为显示名称；
+- `access` 统一为 `input / inout / out / derived`；
+- `placementSupport.modes` 支持 `point / curve`；
+- `cacheKey` 去掉了路径不安全的 `sha256:` 前缀；
+- 增加了 `payloadKind` 和 `TDataStd_Comment` 自描述；
+- `defaultArtifact` 增加了参数哈希、内核和指标；
+- JHB 协议增加了错误、版本和大小限制；
+- IFC 的 `exactBrep` 改为按实际导入结果判定；
+- 国产内核扩展名改为 Adapter 动态声明；
+- 原子保存范围缩小为 `ProjectManager::SaveAll()`，并明确 `ProjectPackage` 已有 `QSaveFile`。
+
+但当前版本仍有若干关键问题，主要集中在：
+
+1. `cacheKey` 与材质/XCAF 视觉属性之间的关系；
+2. `parameterHash` 与 `cacheKey` 的职责没有分离；
+3. `defaultArtifact` 仍缺少完整工件身份；
+4. `formatVersion` 没有随格式变化升级；
+5. `mesh-only` 把预览文件当成权威几何；
+6. JHB 协议仍然假定 BinXCAF，和“多内核”目标不完全一致；
+7. `classification` 条件引用了未定义参数；
+8. `IGeometryKernelAdapter` 接口不足以支撑参数化重建。
+
+**审核结论：有条件通过。架构可以保留，但暂不建议直接冻结为“正式研发基线”。建议发布 v1.1.1 或 v1.2 修订版后再批准。**
+
+---
+
+## 一、上一轮问题的闭环情况
+
+| v1.0 问题 | v1.1 状态 | 评价 |
+|---|---|---|
+| `%.9g` 缓存键精度 | 改为 `%.12g`，增加 `cacheKeyVersion` | **部分解决**，但需区分“几何缓存键”和“精确参数身份” |
+| 默认工件与定义包边界 | 增加 `defaultArtifact` 元数据 | **部分解决**，仍缺 `artifactKey` 和可选性定义 |
+| 生成器 `entry` 路径悬空 | 改为 `resolver + entryPoint` | **已解决** |
+| `placementMode` 单值 | 改为 `placementSupport.modes` | **已解决** |
+| `Width` 使用 `output + expr` | 改为 `derived` | **已解决** |
+| `TDataStd_Name` 当技术键 | 改为 `TDataStd_AsciiString` | **已解决** |
+| `.cbf` 方言无法区分 | 增加 `payloadKind` + 根标签自描述 | **基本解决**，需验证 `TDataStd_Comment` 持久化 |
+| `sha256:` 进入文件名 | 改为 64 位十六进制 | **已解决** |
+| `std::filesystem::rename` 原子性 | 改为 `MoveFileExW`，并明确 `ProjectPackage` 已用 `QSaveFile` | **已解决** |
+| 字段数量、`access` 命名 | 已统一为 9 个顶级字段、4 种 access | **已解决** |
+| `IfcEarthworksFill` 单一映射 | 改为条件分类数组 | **部分解决**，但条件参数未定义 |
+| 默认工件完整性 | 增加 `parameterHash`、内核、指标 | **部分解决**，缺 `artifactKey` |
+
+---
+
+## 二、仍需修复的 P0 问题
+
+### 1. `cacheKey` 排除材质，但 CBF 又保存 XCAF 视觉材质
+
+规范第 1.1 节说几何缓存：
+
+> 仅承载 BRep 拓扑、命名子形状（`shapeKey`）和 XCAF 视觉材质
+
+但第 5.1 节又说：
+
+> 纯语义或材质属性（如 `StrengthGrade`）不计入几何 `cacheKey`
+
+这两条存在直接冲突。
+
+如果 `StrengthGrade` 会影响 XCAF 材质或 `preview.glb` 外观，那么：
+
+```text
+StrengthGrade = C30
+StrengthGrade = C50
+```
+
+可能得到相同的 `cacheKey`，但需要不同的 XCAF 材质或显示表达。结果就是缓存复用了错误的外观。
+
+建议二选一：
+
+**方案 A：几何缓存只保存 BRep，不保存材质**
+
+- `geometry.cbf` 只保存拓扑、`shapeKey`、`subshapeId`；
+- 材质在运行时由 `component.json` 的语义绑定应用到 XCAF；
+- `cacheKey` 只覆盖几何参数。
+
+**方案 B：拆分几何键和显示键**
+
+```json
+{
+  "geometryCacheKey": "...",
+  "displayCacheKey": "...",
+  "materialHash": "..."
+}
+```
+
+或者把材质相关参数加入 `cacheKey`：
+
+```json
+"inputParams": {
+  "StrengthGrade": "C35",
+  ...
+}
+```
+
+如果 `cacheKey` 是“几何缓存键”，就必须明确 CBF 中不存材质；如果 CBF 存材质，就必须把材质纳入工件身份。二者不能同时成立。
+
+---
+
+### 2. `cacheKey` 和 `parameterHash` 的职责没有定义清楚
+
+v1.1 同时存在：
+
+- `cacheKey`：用于几何缓存复用；
+- `parameterHash`：出现在 `defaultArtifact` 中。
+
+但规范没有定义 `parameterHash` 的算法。
+
+建议明确区分：
+
+| 键 | 用途 | 规范化 |
+|---|---|---|
+| `parameterHash` | 精确参数身份、实例变更检测、工件元数据 | 17 位有效数字或 `std::to_chars` |
+| `geometryCacheKey` | 几何缓存复用 | 可按公差归一化，如 `%.12g` |
+| `displayCacheKey` | 显示/材质缓存 | 包含材质和 LOD 参数 |
+
+`%.12g` 作为几何缓存键是合理的：在 200,000 mm 尺度下，12 位有效数字的分辨率远小于 0.01 mm 公差。但它不适合作为“精确参数身份”。
+
+因此建议：
+
+```text
+parameterHash = exactCanonicalHash(parameters, 17g)
+geometryCacheKey = geometryToleranceHash(parameters, 12g)
+```
+
+并在 `defaultArtifact` 中同时保存：
+
+```json
+{
+  "parameterHash": "...",
+  "geometryCacheKey": "...",
+  "cacheKeyVersion": 2,
+  "schemaVersion": "1.1.0"
+}
+```
+
+---
+
+### 3. `formatVersion` 没有随格式变化升级
+
+v1.1 的 `component.json` 仍然写：
+
+```json
+"formatVersion": 1
+```
+
+但 v1.1 已经改变了：
+
+- `shapeKey` 存储方式；
+- `payloadKind`；
+- `cacheKey` 算法；
+- `access` 枚举；
+- `defaultArtifact` 结构。
+
+这些都属于格式级变化，不应继续使用 `formatVersion: 1`。
+
+建议改为：
+
+```json
+"formatVersion": 2
+```
+
+或者：
+
+```json
+"formatVersion": "1.1"
+```
+
+同时明确：
+
+- `formatVersion` 是容器/字段结构版本；
+- `schemaVersion` 是业务参数/语义版本；
+- `cacheKeyVersion` 是缓存键算法版本。
+
+三者不能混用。
+
+---
+
+### 4. `defaultArtifact` 缺少实际工件哈希
+
+`defaultArtifact` 当前有：
+
+- `cacheKey`
+- `parameterHash`
+- `generatorVersion`
+- `kernel`
+- `nativeFile`
+- `payloadKind`
+- `displayFile`
+- `metrics`
+
+但没有：
+
+- `artifactKey` / `nativeHash`；
+- `displayHash`；
+- `cacheKeyVersion`；
+- `schemaVersion`。
+
+`checksums.json` 可以覆盖包内文件，但运行时缓存、项目工件和跨包复制需要独立的工件身份。
+
+建议补充：
+
+```json
+"defaultArtifact": {
+  "artifactKey": "...",
+  "cacheKey": "...",
+  "cacheKeyVersion": 2,
+  "parameterHash": "...",
+  "schemaVersion": "1.1.0",
+  "generatorVersion": "1.2.0",
+  "kernel": {
+    "id": "occt",
+    "version": "8.0.0",
+    "adapterVersion": "1.0.0"
+  },
+  "nativeFile": "geometry/default.cbf",
+  "nativeHash": "...",
+  "displayFile": "display/preview.glb",
+  "displayHash": "...",
+  "metrics": {}
+}
+```
+
+同时明确：`defaultArtifact` 是**可选字段**。如果 `.rcif` 没有 `default.cbf`，则 `defaultArtifact` 必须为空或不存在，不能强制要求每个定义包都携带默认几何。
+
+---
+
+### 5. `mesh-only` 把 `preview.glb` 当成权威几何
+
+第 6.1 节中：
+
+```text
+mesh-only → authority = display/preview.glb
+```
+
+但 `preview.glb` 的定位是构件库卡片预览，可能是低 LOD、简化材质或裁剪后的展示网格，不适合作为工程几何权威。
+
+建议：
+
+- `preview.glb` 只用于预览；
+- `mesh-only` 使用独立的 `geometry/mesh.glb` 或 `source/original.glb` 作为权威；
+- `display/preview.glb` 可以是从权威网格生成的预览。
+
+推荐结构：
+
+```text
+geometry/
+  mesh.glb          # mesh-only 权威几何
+display/
+  preview.glb       # 构件库预览
+```
+
+并在 `capabilities` 中明确：
+
+```json
+{
+  "exactBrep": false,
+  "editable": false,
+  "mesh": true,
+  "authoritativeMesh": "geometry/mesh.glb"
+}
+```
+
+---
+
+### 6. JHB 协议仍然假定 BinXCAF，与多内核目标冲突
+
+第 5.2 节定义：
+
+```text
+[4字节 JSON 长度][JSON 元数据][BinXCAF 二进制流]
+```
+
+但第 6.2 节又提出中望、华天等内核 adapter。如果 JHB 只用于 OCCT，这是可以的；如果它要作为统一建模服务协议，则二进制载荷不能固定为 BinXCAF。
+
+建议把协议改为：
+
+```text
+[4字节 JSON 长度][JSON 元数据][geometry payload]
+```
+
+并在 JSON 中增加：
+
+```json
+{
+  "payloadKind": "BinXCAF",
+  "payloadFormat": "cbf",
+  "kernel": {
+    "id": "occt",
+    "version": "8.0.0",
+    "adapterVersion": "1.0.0"
+  },
+  "payloadHash": "sha256:..."
+}
+```
+
+或者明确 JHB v1.1 只服务 OCCT，另定义 `JHB-Native` 或 `JHB-MultiKernel` 扩展协议。
+
+另外，`256 MB` 二进制上限对大型桥梁/路基模型可能不足，建议改为可配置，并区分 JSON 元数据、原生载荷、显示载荷的独立上限。
+
+---
+
+### 7. `classification.condition` 引用了未定义参数
+
+示例中：
+
+```json
+"condition": "FunctionalType == '路堤边坡'"
+```
+
+但 `FunctionalType` 不在 `parameters.schema` 中，也不在 `identity` 中。
+
+这会导致分类条件无法求值。
+
+建议二选一：
+
+**方案 A：增加参数**
+
+```json
+{
+  "name": "FunctionalType",
+  "type": "enum",
+  "options": ["路堤边坡", "路堑边坡"],
+  "access": "input",
+  "default": "路堤边坡"
+}
+```
+
+**方案 B：放到 identity**
+
+```json
+"identity": {
+  "functionalType": "路堤边坡"
+}
+```
+
+并明确 `condition` 的求值上下文包含哪些字段、支持哪些运算符和字面量。
+
+---
+
+## 三、P1：建议在 v1.1.1 补齐
+
+### 1. `IGeometryKernelAdapter` 接口不足以支撑参数化
+
+当前接口只有：
+
+- load/save native cache；
+- query shape metrics；
+- export/import STEP。
+
+缺少：
+
+- `evaluate(generator, parameters)`；
+- `resolveShapeKeys(document, bindings)`；
+- `tessellate(document, options)`；
+- `importNeutral/exportNeutral`；
+- `capabilities()`；
+- `validate(document)`。
+
+建议补充：
+
+```cpp
+virtual Result<NativeDocument>
+    evaluate(const Recipe& recipe,
+             const ParameterValues& params) = 0;
+
+virtual Result<ShapeMap>
+    resolveShapeKeys(const NativeDocument& doc,
+                     const BindingTable& bindings) = 0;
+
+virtual Result<Mesh>
+    tessellate(const NativeDocument& doc,
+               const TessellationOptions& options) = 0;
+
+virtual CapabilitySet capabilities() const = 0;
+```
+
+否则多内核参数化重建无法通过统一接口实现。
+
+---
+
+### 2. `recipe` 缺少确定性和安全字段
+
+建议补充：
+
+```json
+{
+  "deterministic": true,
+  "timeoutSeconds": 60,
+  "sandbox": true,
+  "cachePolicy": "verify-cache"
+}
+```
+
+对于 `resolver: "embedded"` 的脚本尤其重要。
+
+---
+
+### 3. `recipe.inputs` 没有覆盖 `ModelNumber`
+
+示例中 `recipe.inputs` 只有：
+
+- Length
+- Height
+- SlopeRatio
+
+但 `ModelNumber` 会通过 presets 影响参数，甚至可能影响生成器行为。
+
+建议明确：
+
+- `recipe.inputs` 必须列出生成器实际读取的全部参数；
+- `cacheKey.inputParams` 必须使用经过 presets、overrides、derived 解析后的最终输入值；
+- 如果 `ModelNumber` 只用于 presets，则应在文档中明确它不直接传给生成器。
+
+---
+
+### 4. `origin.expr` 的表达式语法未定义
+
+示例：
+
+```json
+"origin": { "expr": "[Length, 0.0, 0.0]" }
+```
+
+这是数组字面量表达式，但规范没有定义：
+
+- 支持哪些运算符；
+- 是否支持数组；
+- 变量作用域；
+- 单位；
+- 错误处理。
+
+建议统一为：
+
+```json
+"origin": {
+  "expr": "vec3(Length, 0, 0)",
+  "unit": "mm"
+}
+```
+
+或者直接使用 JSON AST：
+
+```json
+"origin": {
+  "x": { "ref": "Length" },
+  "y": 0.0,
+  "z": 0.0,
+  "unit": "mm"
+}
+```
+
+后者更易验证，也不需要自研表达式语言。
+
+---
+
+### 5. `curve` 布置字段不完整
+
+当前曲线布置只有：
+
+- `alignmentRef`
+- `stationStart`
+- `stationEnd`
+- `lateralOffset`
+
+对于路基边坡、箱梁，还缺少：
+
+- `verticalOffset`
+- `orientationRule`（tangent / normal / up）
+- `crossfall`
+- 桩号单位
+- 起点/终点端部处理
+- 是否随路线曲率旋转
+
+建议补充：
+
+```json
+{
+  "mode": "curve",
+  "alignmentRef": "alignment-mainline-01",
+  "stationUnit": "mm",
+  "stationStart": 1200000.0,
+  "stationEnd": 1220000.0,
+  "lateralOffset": 0.0,
+  "verticalOffset": 0.0,
+  "crossfall": 0.0,
+  "orientationRule": "tangent"
+}
+```
+
+---
+
+### 6. `WriteBackParams` 仍使用 `%.15g`
+
+第 7 节阶段一仍建议：
+
+```cpp
+std::snprintf(buf, sizeof(buf), "%.15g", value);
+```
+
+但缓存键使用 `%.12g`，`parameterHash` 又需要精确值。
+
+建议明确两套函数：
+
+```text
+writeback/parameterHash → %.17g 或 std::to_chars
+geometryCacheKey        → %.12g
+```
+
+不要在不同位置使用不同精度而不说明用途。
+
+---
+
+### 7. `adSlopeIndication` 需要 `TargetShapeKey`
+
+规范说：
+
+> 通过 `TargetObjectID` 找到三维构件，再按 `shapeKey` 提取 `ShoulderLine` 和 `ToeLine`。
+
+但现有 `adSlopeIndication` schema 只有 `TargetObjectID`，没有 `TargetShapeKey`。
+
+建议补充：
+
+```text
+TargetShapeKey: "ShoulderLine" / "ToeLine"
+```
+
+或者在绑定表中显式记录：
+
+```json
+{
+  "subject": { "kind": "shape", "ref": "ShoulderLine" },
+  "predicate": { "kind": "drawingRole", "ref": "SlopeIndication.ShoulderLine" }
+}
+```
+
+并让 `adSlopeIndication` 通过绑定表解析，而不是依赖硬编码字段。
+
+---
+
+## 四、P2：一致性与文档问题
+
+1. **“64 位纯小写 Hex”表述不准确**
+   - SHA-256 是 256 位，应写“64 个十六进制字符”或“256 位哈希的 64 位十六进制表示”。
+
+2. **`TDataStd_Comment` 需要验证持久化**
+   - 建议增加 BinXCAF/ACTBin 往返测试，确认 `TDataStd_Comment` 在保存/加载后仍存在。
+   - 更稳妥的是使用专用 `TDataStd_AsciiString` 或单独属性 GUID 写入 `CBF-Payload`。
+
+3. **标签树路径不应作为硬性契约**
+   - `0:1:1:1` 等路径可以作为示例，但长期契约应是 `shapeKey`，不是标签路径。
+   - 建议明确“标签树是建议布局，`shapeKey` 是唯一稳定引用”。
+
+4. **`checksums.json` 的签名关系**
+   - 已明确不包含自身和签名文件，很好。
+   - 建议补充：签名文件覆盖 `checksums.json` 和 `component.json`，避免签名清单被替换。
+
+5. **`defaultArtifact` 的 `metrics` 不完整**
+   - 建议增加 `area`、`faces`、`edges`、`vertices`、`watertight`、`centroid`，便于跨内核比较。
+
+6. **`geometry.defaultArtifact` 和 `geometry.capabilities` 的关系**
+   - `capabilities` 是定义层能力，`defaultArtifact` 是具体工件；
+   - 建议默认工件也带 `capabilities`，避免组件级能力与工件实际能力不一致。
+
+---
+
+## 五、建议的最终修订优先级
+
+### P0：发布前必须修
+
+1. 明确 CBF 是否保存材质；如果保存，材质参数必须进入工件身份，或拆分 `geometryCacheKey` / `displayCacheKey`；
+2. 定义 `parameterHash` 的精确算法，区分它与 `cacheKey`；
+3. `formatVersion` 升级，不能继续使用 `1`；
+4. `defaultArtifact` 增加 `artifactKey`、`nativeHash`、`displayHash`、`cacheKeyVersion`，并明确为可选；
+5. `mesh-only` 使用独立权威网格，不用 `preview.glb`；
+6. JHB 二进制载荷增加 `payloadKind` / `payloadFormat` / `adapterVersion`，或明确仅限 OCCT；
+7. 定义 `FunctionalType` 的来源，修复 classification 条件；
+8. 补齐 `IGeometryKernelAdapter` 的 evaluate / resolveShapeKeys / tessellate / capabilities。
+
+### P1：v1.1.1 建议修
+
+1. `recipe.inputs` 覆盖所有生成器输入，包括 `ModelNumber` 或明确其不参与生成；
+2. `origin.expr` 统一语法；
+3. `curve` 布置补齐 `verticalOffset`、`orientationRule`、`crossfall`、`stationUnit`；
+4. `WriteBackParams` 与 `parameterHash` 使用 17 位精度，几何缓存键使用 12 位归一化；
+5. `adSlopeIndication` 增加 `TargetShapeKey` 或绑定表解析；
+6. `defaultArtifact` 增加完整 metrics；
+7. `TDataStd_Comment` 做往返验证，必要时改为专用 `AsciiString`。
+
+### P2：文档和长期演进
+
+1. 修正“64 位 Hex”措辞；
+2. 明确标签树只是建议布局；
+3. 增加签名覆盖关系；
+4. 增加跨内核转换报告和 golden 测试；
+5. 规划 `cad_kernel_api` 的能力矩阵和最低支持特性集。
+
+---
+
+## 六、最终审核结论
+
+| 维度 | 评价 |
+|---|---|
+| 架构方向 | 正确，8.5/10 |
+| 与 v1.0 评审意见的闭环程度 | 良好，大部分 P0 已解决 |
+| 当前能否冻结为正式基线 | **暂不建议** |
+| 建议状态 | Release Candidate / 有条件通过 |
+| 建议版本 | v1.1.1 或 v1.2 |
+
+**结论：v1.1 已经可以进入研发评审，但还不能作为“正式研发基线”冻结。** 最需要先解决的是：
+
+- 材质与 `cacheKey` 的一致性；
+- `parameterHash` 与几何缓存键分离；
+- 默认工件完整身份；
+- 多内核 JHB 载荷定义；
+- `FunctionalType` 条件求值；
+- Adapter 接口完整性。
+
+这些修完后，RCIF 1.1 就可以作为构件库、参数化建模服务和项目工程包的正式基线使用。

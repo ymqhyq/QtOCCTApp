@@ -1,0 +1,784 @@
+# 对 `rcif_component_format_spec_v1.0.md` 的审核意见
+
+审核对象：[rcif_component_format_spec_v1.0.md](D:/QtOCCTApp/docs/rcif_component_format_spec_v1.0.md)
+
+## 总体结论
+
+这份规范整体方向正确，已经吸收了上一轮评审的主要意见：
+
+- `.rcif` 构件定义、`.cbf` 几何缓存、`.rde` 项目包职责分离；
+- `component.json` 单一权威清单；
+- 生成器配方优先、特征图不强制；
+- `shapeKey` 稳定锚点；
+- 型号表与 `input/inout/output` 流水线；
+- IFC/GLB 能力分级；
+- 多内核 adapter；
+- STEP 惰性导出。
+
+但它目前**不建议直接冻结为 v1.0 基线**。主要问题不是架构方向，而是若干关键字段存在语义冲突、路径不可用、缓存键精度不足、默认工件与定义包边界不清，以及部分落地建议与现有代码不一致。
+
+建议定位为：
+
+> **有条件通过：架构可保留，完成 P0 修订后发布 v1.1，再作为研发基线。**
+
+---
+
+## 一、值得肯定的部分
+
+1. **定义包、实例、几何缓存分离**
+   - `.rcif` 保存 family 定义；
+   - `.cbf` 按 `cacheKey` 保存几何；
+   - `.rde` 保存实例和缓存池；
+   - 方向正确，解决了“每改一个参数就发布一个构件包”的问题。
+
+2. **取消 CBF 内部业务语义双写**
+   - CBF 只保存几何、XCAF 样式、`shapeKey` 和最小文档信息；
+   - 业务语义由 `component.json` 和项目 `DataModel` 管理；
+   - 这是正确的收敛。
+
+3. **引入型号表和 `inout/output` 求值流水线**
+   - 与现有 `core-data-model.yaml` 中的 `ModelNumber`、`inout`、`out` 对上；
+   - 能覆盖桥墩、托盘、箱梁、承台的现有工作流。
+
+4. **明确命名子形状**
+   - 要求生成器输出 `Body`、`ShoulderLine`、`ToeLine`；
+   - 为 2D 示坡线自动更新提供了基础；
+   - 也指出了当前 `ImportAndMergeCbf` 只取 `tempShapes.Value(1)` 的缺陷。
+
+5. **静态导入选择器禁止绝对坐标**
+   - 改为归一化包围盒和极值语义；
+   - 参数化构件与静态模型的能力边界更清晰。
+
+6. **JHB 协议扩展方向正确**
+   - 返回 `cache_key`、`args`、`outputs`、`anchors`；
+   - 为参数回写、几何指标和 2D 联动提供了协议基础。
+
+---
+
+## 二、P0：必须在 v1.1 修订的问题
+
+### 1. `cacheKey` 使用 `%.9g` 会导致错误缓存命中
+
+规范第 5.1 节要求：
+
+```text
+real 浮点数按 %.9g 格式化
+```
+
+这是**高风险错误**。
+
+`double` 通常需要 **17 位有效数字**才能完整往返。使用 9 位有效数字会丢失参数差异，例如：
+
+```text
+20000.0001
+20000.0002
+```
+
+可能被归一化成同一个值，导致：
+
+- 不同参数命中同一个几何缓存；
+- 构件尺寸细微变化无法重建；
+- 工程量、2D 特征线出现错误；
+- 缓存污染难以排查。
+
+建议改为：
+
+```cpp
+std::to_chars(buffer, buffer + size, value,
+              std::chars_format::general);
+```
+
+或：
+
+```cpp
+std::snprintf(buffer, size, "%.17g", value);
+```
+
+同时增加：
+
+```json
+"cacheKeyVersion": 2
+```
+
+因为从 `%.9g` 改成 `%.17g` 后，所有旧缓存键都会变化。没有 `cacheKeyVersion` 会导致新旧缓存无法区分。
+
+---
+
+### 2. `default.cbf` 是“必须”文件，但没有工件元数据
+
+规范要求 `.rcif` 必须包含：
+
+```text
+geometry/default.cbf
+```
+
+并在 `component.json` 中写 `geometry.defaultCacheKey`。
+
+问题是：
+
+- `default.cbf` 只是某一组默认参数下的几何；
+- 如果默认参数、型号表或生成器变化，`default.cbf` 会过期；
+- 当前没有 `defaultArtifact` 元数据说明它由哪个参数、哪个生成器、哪个内核生成；
+- 只靠 `defaultCacheKey` 无法验证文件是否真的匹配。
+
+建议改成二选一：
+
+**方案 A：默认工件可选**
+
+```json
+"geometry": {
+  "defaultArtifact": null
+}
+```
+
+构件库只要求 `preview.glb`，不强制默认 CBF。
+
+**方案 B：默认工件必须带完整元数据**
+
+```json
+"geometry": {
+  "defaultArtifact": {
+    "cacheKey": "sha256:...",
+    "artifactKey": "sha256:...",
+    "parameterHash": "sha256:...",
+    "generatorVersion": "1.2.0",
+    "kernel": {
+      "id": "occt",
+      "version": "8.0.0"
+    },
+    "metrics": {
+      "volume": 768000000000.0,
+      "bbox": [0, 0, 0, 20000, 12000, 8000]
+    }
+  }
+}
+```
+
+并且加载时校验：
+
+```text
+defaultArtifact.cacheKey == 当前默认参数计算出的 cacheKey
+defaultArtifact.parameterHash == 当前默认参数哈希
+defaultArtifact.kernel == 当前内核
+defaultArtifact.artifactKey == 实际 default.cbf 文件哈希
+```
+
+否则标记为 stale，不能直接使用。
+
+---
+
+### 3. 生成器 `entry` 路径不在包内，存在悬空引用
+
+示例中：
+
+```json
+"entry": "generators/subgrade_slope.py"
+```
+
+但 `.rcif` 目录结构中没有 `generators/` 目录。
+
+这会导致两个问题：
+
+1. 如果生成器在 scripts-service 外部，`entry` 不应是包内路径，而应是 `generatorId` 或服务解析键；
+2. 如果生成器要随包分发，则包内必须包含 `generators/`，并加入 `checksums.json`，还要签名或哈希校验。
+
+建议明确二选一：
+
+**外部生成器：**
+
+```json
+"generator": {
+  "id": "SubgradeSlope",
+  "version": "1.2.0",
+  "resolver": "scripts-service",
+  "entryPoint": "subgrade_slope",
+  "codeHash": "sha256:..."
+}
+```
+
+**包内生成器：**
+
+```text
+.rcif
+  component.json
+  generators/subgrade_slope.py
+  checksums.json
+  signatures.json
+```
+
+并且 `checksums.json` 必须覆盖生成器脚本。
+
+---
+
+### 4. `placementMode` 是单值，但 SubgradeSlope 需要曲线布置
+
+规范在 `identity` 中写：
+
+```json
+"placementMode": "point"
+```
+
+但第 3.3 节又说 `curve` 是“预留扩展”，且示例构件是 `SubgradeSlope`。路基边坡通常是沿路线或空间曲线布置，不能只声明 `point`。
+
+建议改为：
+
+```json
+"placementSupport": {
+  "modes": ["point", "curve"],
+  "lengthPolicy": "fixedOrCurveDriven"
+}
+```
+
+项目实例再写实际模式：
+
+```json
+"placement": {
+  "mode": "curve",
+  "alignmentId": "road-centerline-01",
+  "stationStart": 1200.0,
+  "stationEnd": 1280.0,
+  "offset": 0.0,
+  "verticalOffset": 0.0,
+  "orientationRule": "tangent"
+}
+```
+
+构件定义声明“支持哪些布置模式”，实例声明“这次用哪种模式”。
+
+---
+
+### 5. `Width` 使用 `access: "output"` 和 `expr` 语义冲突
+
+示例中：
+
+```json
+{
+  "name": "Width",
+  "access": "output",
+  "expr": "Height * SlopeRatio"
+}
+```
+
+`expr` 表示生成前由表达式计算，`output` 表示生成后由建模服务回写。两者不能同时成立。
+
+建议：
+
+- 表达式参数使用 `access: "derived"`；
+- 只有生成器执行后才能得到的参数使用 `access: "out"` 或 `"output"`。
+
+同时，现有 [core-data-model.yaml](D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml:174) 使用的是 `"out"`，不是 `"output"`。规范必须统一：
+
+```text
+access: input | inout | out | derived
+```
+
+或明确：
+
+```text
+"output" 是 "out" 的别名，加载时统一归一化为 "out"
+```
+
+否则 component.json 和现有 YAML 会产生直接不兼容。
+
+---
+
+### 6. 用 `TDataStd_Name` 作为 `shapeKey` 不稳定
+
+规范第 4.2 节用：
+
+```text
+TDataStd_Name: "Body"
+TDataStd_Name: "ShoulderLine"
+TDataStd_Name: "ToeLine"
+```
+
+把这些名称当作 `shapeKey`。
+
+问题：
+
+- `TDataStd_Name` 是显示名称，可能被本地化、重命名或重复；
+- 它不是稳定技术键；
+- 同一个 CBF 中可能有多个同名标签；
+- 不适合作为长期语义绑定锚点。
+
+建议：
+
+- `TDataStd_Name` 只用于显示；
+- 使用专用 `TDataStd_AsciiString` 保存 `shapeKey`，例如：
+
+```text
+TDataStd_Name: "路肩特征线"
+TDataStd_AsciiString: "shapeKey=ShoulderLine"
+```
+
+或者定义专用属性：
+
+```text
+CBF_ShapeKey = "ShoulderLine"
+CBF_SubShapeId = "TopFace"
+```
+
+语义绑定和 2D 提取应读取 `shapeKey` 属性，不读取显示名称。
+
+---
+
+### 7. `.cbf` 方言没有可靠的头部标识
+
+规范要求“必须在清单与文件头使用层面严格区分 ACTBin 和 BinXCAF”。
+
+但 OCCT 的 `BINFILE` 头本身并不包含 ActiveData 与 BinXCAF 的方言标记。仅凭文件头无法区分：
+
+- `master.cbf` 的 ACTBin；
+- `geometry/default.cbf` 的 BinXCAF；
+- 其他同类 `.cbf`。
+
+建议：
+
+1. 每个 `.cbf` 引用必须带 `payloadKind`：
+
+```json
+{
+  "file": "geometry/default.cbf",
+  "payloadKind": "BinXCAF"
+}
+```
+
+2. 或在 CBF 根节点写最小 `CBFDocInfo`：
+
+```text
+documentKind = "BinXCAF" | "ACTBin"
+schemaVersion
+componentId
+revision
+cacheKey
+shapeKeys
+```
+
+3. 或使用不同扩展名，例如 `.cbfx` 表示 BinXCAF 几何工件。
+
+当前规范只写“必须区分”，但没有给出可执行的区分机制，这是不完整的。
+
+---
+
+### 8. `cacheKey` 字符串包含 `sha256:`，不能直接作为 Windows 文件名
+
+规范写：
+
+```text
+geometry/<cacheKey>.cbf
+```
+
+而 `cacheKey` 示例是：
+
+```text
+sha256:8f434346...
+```
+
+Windows 文件名不能包含冒号 `:`。
+
+建议：
+
+```text
+geometry/<hex>.cbf
+```
+
+例如：
+
+```text
+geometry/8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4.cbf
+```
+
+或使用目录：
+
+```text
+cache/<hex>/geometry.cbf
+cache/<hex>/artifact.json
+cache/<hex>/metrics.json
+```
+
+`sha256:` 前缀可以保留在 JSON 字段中，但不能进入文件路径。
+
+---
+
+### 9. `std::filesystem::rename` 不是 Windows 上的可靠原子替换
+
+阶段一建议：
+
+```text
+先写 .tmp，再 std::filesystem::rename 覆盖目标
+```
+
+在 Windows 上，`std::filesystem::rename` 对已存在目标文件的行为并不等同于 POSIX 的原子覆盖，可能失败。
+
+此外，现有 [ProjectPackage.cpp](D:/QtOCCTApp/src/ProjectPackage.cpp:1134) 已经使用 `QSaveFile` 实现 ZIP 原子写入，不需要重复实现。
+
+建议：
+
+- `.rde` 打包：继续使用 `QSaveFile`；
+- `.cbf` 单文件保存：使用 `QSaveFile` 或平台 API `ReplaceFile` / `MoveFileEx`；
+- 多文件工程保存：暂存目录 + 最后提交清单；
+- 不要统一使用裸 `std::filesystem::rename`。
+
+真正需要补的是 [ProjectManager.cpp](D:/QtOCCTApp/core-data-model/ProjectManager.cpp:202) 的 `SaveAll()`，它目前直接 `m_app->SaveAs()` 写目标文件。
+
+---
+
+## 三、P1：建议在 v1.1 补齐的问题
+
+### 1. `recipe` 缺少关键字段
+
+建议补充：
+
+```json
+"recipe": {
+  "mode": "generator",
+  "apiVersion": "cad_kernel_api/1.0",
+  "inputs": {
+    "Length": "Length",
+    "Height": "Height"
+  },
+  "kernelSupport": {
+    "supported": ["occt", "zw3d", "huatian"],
+    "requiredCapabilities": ["exactBrep", "booleans"]
+  },
+  "cachePolicy": "verify-cache",
+  "canonicalExport": "lazy",
+  "deterministic": true,
+  "timeoutSeconds": 60,
+  "sandbox": true
+}
+```
+
+当前规范提到了 `cad_kernel_api`，但 `component.json` 没有 `apiVersion`、`kernelSupport`、`canonicalExport` 等字段。
+
+### 2. 缺少工件元数据
+
+`.cbf` 只保存几何，不能保存：
+
+- `cacheKey`；
+- `artifactKey`；
+- 内核版本；
+- 生成器版本；
+- 参数哈希；
+- 几何指标；
+- 能力声明。
+
+建议每个工件增加 `artifact.json`：
+
+```text
+cache/<hex>/
+  artifact.json
+  geometry.cbf
+  display.glb
+  metrics.json
+```
+
+`artifact.json` 至少包含：
+
+```json
+{
+  "cacheKey": "sha256:...",
+  "artifactKey": "sha256:...",
+  "definitionId": "...",
+  "revision": "1.0.0",
+  "kernel": {
+    "id": "occt",
+    "version": "8.0.0",
+    "adapterVersion": "1.0.0"
+  },
+  "parameterHash": "sha256:...",
+  "metrics": {}
+}
+```
+
+否则项目只能靠路径猜工件，无法可靠校验。
+
+### 3. `access` 与现有 YAML 不一致
+
+现有 `core-data-model.yaml` 使用：
+
+```text
+access: input / inout / out
+```
+
+规范示例使用：
+
+```text
+access: input / inout / output
+```
+
+必须统一，或者在加载时把 `output` 归一化为 `out`。
+
+### 4. `IfcEarthworksFill` 过于具体
+
+示例把 `SubgradeSlope` 固定映射为：
+
+```text
+IfcEarthworksFill
+```
+
+但路堤和路堑的 IFC 映射可能不同，不能用一个类型覆盖所有功能类型。
+
+建议：
+
+```json
+"classification": [
+  {
+    "system": "IFC",
+    "code": "IfcEarthworksFill",
+    "appliesTo": "路堤边坡"
+  },
+  {
+    "system": "IFC",
+    "code": "IfcEarthworksCut",
+    "appliesTo": "路堑边坡"
+  }
+]
+```
+
+或者将其作为可配置映射，而不是硬编码。
+
+### 5. `originExpr` 不是已定义的表达式语法
+
+示例：
+
+```json
+"originExpr": ["Length", 0.0, 0.0]
+```
+
+这与 `expr: "Height * SlopeRatio"` 是两种不同语法。
+
+建议统一为：
+
+```json
+"origin": {
+  "expr": "[Length, 0, 0]",
+  "unit": "mm"
+}
+```
+
+或定义明确的表达式 AST，不要混用数组和字符串。
+
+### 6. IFC 的 `exactBrep: true` 不能无条件假设
+
+规范表中把 `imported-ifc` 的 `exactBrep` 固定为 `true`。
+
+但 IFC 可能包含：
+
+- 扫掠体；
+- 网格表达；
+- 多表示组合；
+- 不支持的几何类型。
+
+导入后是否得到精确 BRep，必须由实际导入结果决定，不能由来源格式假定。
+
+建议：
+
+- 按 representation 记录 `exact`、`mesh`、`approximate`；
+- 导入后写入 `import-report.json`；
+- 能力以实际工件为准。
+
+### 7. `256 MB` 限制过粗
+
+`.rcif` 可能包含：
+
+- 原始 IFC；
+- 原始 GLB；
+- 默认 CBF；
+- 预览 GLB。
+
+大型 IFC/GLB 很容易超过 256 MB。
+
+建议区分：
+
+- 定义 JSON 限制；
+- 预览文件限制；
+- 源文件限制；
+- 总解压大小限制；
+- 压缩比限制；
+- 单文件限制。
+
+并且这些限制应可配置，而不是写死在格式规范中。
+
+### 8. JHB 协议缺少错误、版本和大小约束
+
+建议补充：
+
+- `protocolVersion`；
+- `cacheKeyVersion`；
+- 最大 JSON 头长度；
+- 最大二进制长度；
+- `status` 错误码；
+- `cache_key` 不一致时的处理策略；
+- `args` 中哪些是 `inout/out` 回写值；
+- `outputs` 缺失时的错误策略。
+
+### 9. 国产内核扩展名不应写死
+
+规范中写：
+
+```text
+.z3prt / .zw
+.ht
+```
+
+这些扩展名是否准确取决于具体厂商和版本，不能写进通用格式规范。
+
+建议：
+
+```json
+"kernel": {
+  "id": "zw3d",
+  "version": "2026",
+  "format": "native",
+  "file": "native.zw"
+}
+```
+
+具体扩展名由 adapter 提供，不由规范硬编码。
+
+---
+
+## 四、P2：一致性和文档质量问题
+
+1. **“7 个顶级字段”与实际示例不符**
+   - 示例实际有 `format`、`formatVersion`、`schemaVersion`、`identity`、`environment`、`parameters`、`recipe`、`geometry`、`semantics` 共 9 个顶级字段。
+
+2. **`parametric` 与 `parametrics` 命名不统一**
+   - 建议统一为 `parametric` 或 `parametrics`，并在 Schema 中固定。
+
+3. **`checksums.json` 的覆盖范围未定义**
+   - 是否包含自身？
+   - 是否包含所有 `source/` 文件？
+   - 是否有签名文件？
+   - 建议明确规定“不包含自身，包含除签名外的所有文件”。
+
+4. **`preview.glb` 可能过期**
+   - 预览由默认参数生成，默认参数变化后需要重新生成；
+   - 建议记录 `previewHash` 和 `previewSourceCacheKey`。
+
+5. **`semantics` 中没有材料定义**
+   - 参数中有 `StrengthGrade`，但示例没有 `materials` 块；
+   - 建议补充材料对象及其到参数/几何的绑定。
+
+6. **`adSlopeIndication` 需要新增 `TargetShapeKey`**
+   - 规范说通过 `TargetObjectID + shapeKey` 提取路肩/坡脚线；
+   - 但当前 schema 只有 `TargetObjectID`，需要补充 `TargetShapeKey` 或在绑定表中表达。
+
+7. **`geometry.representations` 没有 `payloadKind`**
+   - `default-native` 是 `cbf-binxcaf`，但其他工件可能是 `cbf-actbin`；
+   - 建议每个 representation 明确 `payloadKind`。
+
+---
+
+## 五、建议的最小修订片段
+
+### 1. 修正缓存键精度
+
+```json
+"cacheKeyVersion": 2
+```
+
+```cpp
+std::to_chars(buffer, buffer + size, value,
+              std::chars_format::general);
+```
+
+不要使用 `%.9g`。
+
+### 2. 修正布置声明
+
+```json
+"placementSupport": {
+  "modes": ["point", "curve"],
+  "lengthPolicy": "fixedOrCurveDriven"
+}
+```
+
+### 3. 修正参数访问类型
+
+```json
+{
+  "name": "Width",
+  "access": "derived",
+  "expr": "Height * SlopeRatio"
+}
+```
+
+### 4. 修正默认工件
+
+```json
+"geometry": {
+  "defaultArtifact": {
+    "cacheKey": "sha256:...",
+    "artifactKey": "sha256:...",
+    "parameterHash": "sha256:...",
+    "kernel": {
+      "id": "occt",
+      "version": "8.0.0"
+    }
+  }
+}
+```
+
+### 5. 修正 `shapeKey` 存储
+
+```text
+TDataStd_Name: "路肩特征线"
+TDataStd_AsciiString: "shapeKey=ShoulderLine"
+```
+
+不要用显示名称作为稳定键。
+
+### 6. 修正缓存路径
+
+```text
+cache/<hex>/geometry.cbf
+cache/<hex>/artifact.json
+```
+
+不要使用：
+
+```text
+geometry/sha256:xxxx.cbf
+```
+
+### 7. 修正保存原子性
+
+```text
+.rde → QSaveFile
+.cbf → QSaveFile / ReplaceFile / MoveFileEx
+多文件工程 → 暂存目录 + 最后提交清单
+```
+
+不要统一使用裸 `std::filesystem::rename`。
+
+---
+
+## 六、最终审核结论
+
+| 维度 | 评价 |
+|---|---|
+| 架构方向 | 正确，8/10 |
+| 与现有项目代码的衔接 | 基本正确，7/10 |
+| 格式严谨性 | 需要修订，6/10 |
+| 多内核扩展性 | 方向正确，7/10 |
+| 领域适配性 | 已有明显改进，7.5/10 |
+| 是否可直接冻结 v1.0 | **不建议** |
+
+**结论：有条件通过。**
+
+建议保留当前规范的主体结构，先完成以下 P0 修订，再发布 **RCIF 1.1**：
+
+1. 缓存键改为 17 位有效数字或 `std::to_chars`，增加 `cacheKeyVersion`；
+2. 默认工件改为可选或增加完整 `defaultArtifact` 元数据；
+3. 生成器 `entry` 明确外部解析或包内分发；
+4. `placementMode` 改为 `placementSupport.modes`；
+5. `Width` 改为 `derived`，统一 `out/output` 命名；
+6. `shapeKey` 使用 `TDataStd_AsciiString`，不使用 `TDataStd_Name`；
+7. `.cbf` 引用必须带 `payloadKind`；
+8. 缓存路径去掉 `sha256:` 前缀；
+9. 原子保存使用 `QSaveFile` / 平台替换 API，并只改造 `ProjectManager::SaveAll()`；
+10. 补充工件元数据、`recipe.inputs`、`apiVersion`、`kernelSupport` 和 `canonicalExport`。
+
+完成这些修订后，这份规范可以作为 RCIF 的正式研发基线。

@@ -1,14 +1,14 @@
-# RCIF 构件数据格式与工程落地规范 v1.3.2（极简构件模板 + 外部语义映射架构版）
+# RCIF 构件数据格式与工程落地规范 v1.3.1（极简构件模板 + 外部语义映射架构版）
 
-- **版本**：1.3.2 (Refactored Clean Architecture & Verified Baseline)
+- **版本**：1.3.1 (Refactored Clean Architecture & Verified Baseline)
 - **状态**：正式标准基线（Approved Specification Baseline）
 - **日期**：2026-10-18
-- **前序版本**：[v1.0](file:///D:/QtOCCTApp/docs/cbf_c_component_format_spec_v1.0.md) | [v1.1](file:///D:/QtOCCTApp/docs/cbf_c_component_format_spec_v1.1.md) | [v1.2](file:///D:/QtOCCTApp/docs/cbf_c_component_format_spec_v1.2.md) | [v1.3](file:///D:/QtOCCTApp/docs/cbf_c_component_format_spec_v1.3.md) | [v1.3.1](file:///D:/QtOCCTApp/docs/cbf_c_component_format_spec_v1.3.1.md)
+- **前序版本**：[v1.0](file:///D:/QtOCCTApp/docs/rcif_component_format_spec_v1.0.md) | [v1.1](file:///D:/QtOCCTApp/docs/rcif_component_format_spec_v1.1.md) | [v1.2](file:///D:/QtOCCTApp/docs/rcif_component_format_spec_v1.2.md) | [v1.3](file:///D:/QtOCCTApp/docs/rcif_component_format_spec_v1.3.md)
 - **设计借鉴**：融合 **Autodesk Civil 3D (`.pkt` 点/线/面语义编码 `Code Set`)**、**Archicad GDL (`.gsm` 脚本逻辑内聚)**、**Autodesk Revit (`Subcategory` + 外部 `IFC Mapping Table` + `Type Catalog`)** 及 **Pixar OpenUSD (按需叠加 Schema)** 的成熟工业架构。
 
 ---
 
-## 0. v1.3.2 架构设计核心说明（三大减法重构与严密性闭环）
+## 0. v1.3.1 架构设计核心说明（三大减法重构与严密性闭环）
 
 针对早期版本将“几何参数定义”与“IFC 导出语法、多套国标分类码、算量公式、二维制图规则”全部混塞进单个 `component.json` 导致的膨胀问题，本规范对标了工业界 5 款同类成熟产品的核心架构：
 
@@ -32,14 +32,14 @@
    - `parameters.presets` 采用紧凑的扁平键值字典，支持同一族模板衍生任意多个标准图集型号；
    - 建模引擎输出支持 `<shapeKey>/<instanceTag>`（如 `"ShoulderLine/Left_1"`、`"ToeLine/Left_1"`），前缀查 `shapes` 获取语义码 `code`，后缀自动实现左右/多级边坡特征线的同名配对。
 
-### 0.2 v1.3.2 相对 v1.3 / v1.3.1 的严密性增量修正（保持极简前提下的 10 项加固）
+### 0.2 v1.3.1 相对 v1.3 的严密性增量修正（保持极简前提下的 10 项加固）
 
 1. **预烘焙几何缓存绑定（`geometry.defaultCacheKey`）**：在 `geometry` 节仅增加 1 行 `defaultCacheKey`，规定其必须等于默认参数（经默认 `ModelNumber` 规格展开后）计算的 `cacheKey`，杜绝 `default.cbf` 与默认参数不同步。
 2. **二元组能力推导真值表**：保持 `geometry` 仅声明 `exactBrep` 1 个布尔值，明确 `(identity.sourceMode, geometry.exactBrep)` 到运行时能力（变参、布尔、精确测量）的唯一推导矩阵，禁止 `mesh-only` 声明 `exactBrep: true`。
 3. **紧凑型默认端口快照字典（`ports`）**：将 `ports` 定义为紧凑键值字典（记录默认参数下的初始静态坐标系，引擎运行后由 JHB `anchors` 动态覆盖），兼顾免脚本轻量预览与曲线动态放样。
-4. **`CacheKeyPayload` 外部几何参数闭环与 `DeterministicJSON` 测试向量**：补齐 `inputParams` 中可选外部几何（未传时固定为 `null`，传入时为内容 SHA-256），定义 5 条无歧义的 `%.12g` + UTF-8 原生直出确定性序列化规则并附 3 条数学验证测试向量。
-5. **`semantic_profiles.json` 的 IFC 4.3 `IfcShapeAspect` 标准属性修正与算量动态单位换算**：移除 `IfcShapeAspect` 在 IFC 4.3 中不存在的 `predefinedType`/`curveType` 属性，改为标准的 `description` + `representation{identifier, type}` 结构；顶层新增 `quantityUnits`（`m`/`m2`/`m3`），按两侧单位动态计算换算因子 $(u_{\text{source}} / u_{\text{target}})^n$。
-6. **XCAF `AddSubShape` 注册与 $O(1)$ 子形状包围盒防错位恢复校验**：明确附录 A.2 使用 `XCAFDoc_ShapeTool::AddSubShape` 注册子形状，附录 A.3 采用 $O(1)$ 子形状数量、`TopAbs_ShapeEnum` 类型与生成期 `bbox` 包围盒校验，杜绝同类型子形状错位。
+4. **`CacheKeyPayload` 外部几何参数闭环与 `DeterministicJSON` 测试向量**：补齐 `inputParams` 中可选外部几何（未传时固定为 `null`，传入时为内容 SHA-256），定义 4 条无歧义的 `%.12g` 确定性序列化规则并附数学验证测试向量。
+5. **`semantic_profiles.json` 的 IFC 4.3 `IfcShapeAspect` 标准属性修正与算量单位换算**：移除 `IfcShapeAspect` 在 IFC 4.3 中不存在的 `predefinedType`/`curveType` 属性，改为标准的 `description` + `representation{identifier, type}` 结构；顶层新增 `quantityUnits`（`m`/`m2`/`m3`）自动完成毫米建模到米制算量的单位换算。
+6. **XCAF `AddSubShape` 注册与 $O(1)$ 子形状恢复校验**：明确附录 A.2 使用 `XCAFDoc_ShapeTool::AddSubShape` 注册子形状，附录 A.3 采用 $O(1)$ 子形状数量与 `TopAbs_ShapeEnum` 类型校验。
 
 ---
 
@@ -107,12 +107,12 @@ flowchart LR
 
 ### 3.1 完整示例（以目标规范示例构件“路基边坡 `SubgradeSlope`”为例）
 
-> **注**：当前项目代码库中既有 CadQuery 脚本位于仓库根目录 [`cq_script/`](file:///D:/QtOCCTApp/cq_script)（由 [`scripts-service/main.py`](file:///D:/QtOCCTApp/scripts-service/main.py#L224) 解析 `"service://<ModelType>"` 为 `<repo>/cq_script/<ModelType>.py`，现有脚本包括 [`Pile.py`](file:///D:/QtOCCTApp/cq_script/Pile.py)、[`PierBody.py`](file:///D:/QtOCCTApp/cq_script/PierBody.py)、[`PierTray.py`](file:///D:/QtOCCTApp/cq_script/PierTray.py)、[`BridgePier2.py`](file:///D:/QtOCCTApp/cq_script/BridgePier2.py)、[`Girder.py`](file:///D:/QtOCCTApp/cq_script/Girder.py)、[`PileCap.py`](file:///D:/QtOCCTApp/cq_script/PileCap.py) 等）。下文以路基边坡 `SubgradeSlope`（规划新增脚本 `subgrade_slope.py`）为完整示例，展示如何完整串联多规格型号、`<shapeKey>/<instanceTag>` 多子形状输出与 [`adSlopeIndication`](file:///D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml#L137-L148) 二维示坡线闭环。
+> **注**：当前项目代码库中既有 CadQuery 脚本位于 [`scripts-service/cq_script/`](file:///D:/QtOCCTApp/scripts-service/cq_script)（如 [`Wedge.py`](file:///D:/QtOCCTApp/scripts-service/cq_script/Wedge.py)、[`Pier.py`](file:///D:/QtOCCTApp/scripts-service/cq_script/Pier.py)、[`Pile.py`](file:///D:/QtOCCTApp/scripts-service/cq_script/Pile.py) 等）。下文以路基边坡 `SubgradeSlope` 为完整示例，展示如何完整串联多规格型号、`<shapeKey>/<instanceTag>` 多子形状输出与 [`adSlopeIndication`](file:///D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml#L137-L148) 二维示坡线闭环。
 
 ```json
 {
   "format": "cbf-component",
-  "schemaVersion": "1.3.2",
+  "schemaVersion": "1.3.1",
 
   "identity": {
     "componentId": "0199f3c2-7d5a-7c3e-9b1a-2f4d6e8a0b11",
@@ -198,7 +198,7 @@ flowchart LR
 > [!IMPORTANT]
 > **外部语义映射表提示（External Semantic Mapping Table Prompt）**：
 > 1. **为什么 `component.json` 中没有直接写 IFC 实体名、国标分类编码和二维制图样式？**
->    本规范借鉴 Civil 3D `Code Set Style` 与 Revit `IFC Export Mapping Table`，将易随行业/项目标准变化的映射规则剥离至外部的 **《语义标准映射表》（`semantic_profiles.json`，详见第 4.3 节）**。`component.json` 只需通过 `identity.semanticCode`（构件级）与 `shapes.<Key>.code`（几何部位级）声明稳定的语义码（格式满足 `^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)+$`，如 `"Subgrade.ShoulderLine"`），并通过 `identity.semanticProfileHint` 提示默认推荐的外部映射表 ID 及主次版本（如 `"Railway-CRBIM-IFC4X3@1.3"`，仅锁定 `major.minor`，补丁版本如 `1.3.1` 自动兼容）。
+>    本规范借鉴 Civil 3D `Code Set Style` 与 Revit `IFC Export Mapping Table`，将易随行业/项目标准变化的映射规则剥离至外部的 **《语义标准映射表》（`semantic_profiles.json`，详见第 4.3 节）**。`component.json` 只需通过 `identity.semanticCode`（构件级）与 `shapes.<Key>.code`（几何部位级）声明稳定的语义码（格式满足 `^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)+$`，如 `"Subgrade.ShoulderLine"`），并通过 `identity.semanticProfileHint` 提示默认推荐的外部映射表 ID 及主次版本（如 `"Railway-CRBIM-IFC4X3@1.3"`）。
 > 2. **外部语义映射表的三级解析优先级与覆盖规则**：
 >    - **优先级 1（构件内按需局部覆盖）**：若极少数非标构件在 `shapes.<Key>` 下直接书写了 `classifications` 或 `ifc` 字段，采用**整字段直接替换（Replace）**策略优先使用构件内定义；
 >    - **优先级 2（当前工程项目激活的外部映射表）**：宿主工程（`.rde` 项目配置）当前启用的 `semantic_profiles.json`（例如在铁路项目中激活 `"Railway-CRBIM-IFC4X3@1.3"`，在公路项目中一键切换为 `"Highway-JTG-IFC4X3@1.3"`，无需修改任何 `.rcif` 构件包）；
@@ -220,7 +220,7 @@ flowchart LR
   2. 若 `ModelNumber` 命中 `presets[ModelNumber]`，将其中的参数键值覆盖至对应参数；
   3. 应用工程实例的 `parameterOverrides`；
   4. 提取 `recipe.inputs` 中列出的参数计算 `cacheKey`，未命中缓存则调用建模引擎并将返回的 `args` 按 `%.17g` 无损回写至 `out` / `inout` 参数。
-- **连接端口（`ports`）**：`component.json` 中的 `ports` 字典记录默认参数（对应 `geometry.defaultCacheKey`）下的静态初始端口坐标系（供无脚本环境的轻量查看器或装配预览直接使用）；当参数化建模引擎执行后，若 JHB 响应的 `anchors` 中返回了更新后的端口坐标系（如沿弯道放样后的真实端面姿态），运行时以 `anchors` 为准。
+- **连接端口（`ports`）**：`component.json` 中的 `ports` 字典记录默认参数下的静态初始端口坐标系（供无脚本环境的轻量查看器或装配预览直接使用）；当参数化建模引擎执行后，若 JHB 响应的 `anchors` 中返回了更新后的端口坐标系（如沿弯道放样后的真实端面姿态），运行时以 `anchors` 为准。
 
 #### （2）多源几何能力推导矩阵与多建模引擎支持（`geometry` & `recipe`）
 - **预烘焙几何一致性校验（`geometry.defaultCacheKey`）**：若包内携带 `defaultFile`（如 `geometry/default.cbf`），则 `geometry.defaultCacheKey` 必须严格等于按默认参数（即 `schema[*].default` 经默认 `ModelNumber` 规格展开、可选外部几何取 `null`）计算得出的 `cacheKey`，否则包校验报错。
@@ -235,14 +235,14 @@ flowchart LR
 
 - **`recipe` 核心字段与 `engine` 明确枚举表**：
   - **`engine`**：明确指向具体的**建模框架/引擎标识**（见下表）；
-  - **`source`**：脚本或模板位置。存放在后端建模服务目录时写 `"service://<script_name>"`（解析为仓库根 `<repo>/cq_script/<script_name>.py`，见 [`scripts-service/main.py:224`](file:///D:/QtOCCTApp/scripts-service/main.py#L224)）；直接打包在当前 `.rcif` 包内时写包内相对路径（如 `"generators/subgrade_slope.py"`）；
+  - **`source`**：脚本或模板位置。存放在后端建模服务目录时写 `"service://<script_name>"`；直接打包在当前 `.rcif` 包内时写包内相对路径（如 `"generators/subgrade_slope.py"`）；
   - **`entry`**（可选）：脚本内的入口函数名（如 `"build"`，省略时直接执行脚本顶层代码）；
   - **`version`** & **`digest`**：脚本版本号与文件 SHA-256 摘要（纳入 `cacheKey` 计算）；
   - **`inputs`**：传给该建模引擎的输入参数名列表。
 
 | `recipe.engine` 明确枚举值 | 具体含义（建模框架 + 底层几何内核） | 对应生成物/脚本类型 |
 | :--- | :--- | :--- |
-| **`"cadquery"`** | **CadQuery 建模引擎**（基于 OCCT 内核，当前项目 [`cq_script/`](file:///D:/QtOCCTApp/cq_script) 使用的引擎） | Python 脚本 (`import cadquery as cq`) |
+| **`"cadquery"`** | **CadQuery 建模引擎**（基于 OCCT 内核，当前项目 [`scripts-service/cq_script/`](file:///D:/QtOCCTApp/scripts-service/cq_script) 使用的引擎） | Python 脚本 (`import cadquery as cq`) |
 | **`"build123d"`** | **build123d 建模引擎**（基于 OCCT 的新一代 Python 参数化建模库） | Python 脚本 (`import build123d`) |
 | **`"pythonocc"`** | **pythonOCC 引擎**（直接调用 OpenCASCADE C++ 绑定的底层建模） | Python 脚本 (`from OCC.Core...`) |
 | **`"occt-wasm"`** | **OCCT 原生 C++ 编译的 WebAssembly 建模插件** | `.wasm` 二进制模块 |
@@ -302,7 +302,7 @@ outputs = {
 ```json
 {
   "profileId": "Railway-CRBIM-IFC4X3",
-  "version": "1.3.2",
+  "version": "1.3.1",
   "description": "中国铁路 BIM 标准 (CRBIM 1002 + GB/T 51269 + IFC 4.3 ADD2) 语义映射配置表",
 
   "quantityUnits": {
@@ -358,7 +358,7 @@ outputs = {
       "ifc": {
         "entity": "IfcShapeAspect",
         "description": "SLOPE",
-        "representation": { "identifier": "Surface", "type": "Surface3D" }
+        "representation": { "identifier": "Surface", "type": "FaceSurface" }
       },
       "quantities": {
         "Qto_SlopeFace.NetArea": { "type": "IfcQuantityArea", "value": "$measure.area" }
@@ -398,13 +398,13 @@ outputs = {
 }
 ```
 
-> **算量绑定与动态单位换算约定**：
+> **算量绑定与单位换算约定**：
 > - `quantities` 中的 `value` 仅支持三个固定几何测量引用枚举：`"$measure.volume"`、 `"$measure.area"`、 `"$measure.length"`（直接读取当前子形状自身的几何测量值，非通用表达式）；
-> - **由两侧单位共同决定的动态换算因子**：构件建模长度单位 `environment.units.length` 与 `quantityUnits.length` 必须属于受支持的已知长度单位枚举 `{"mm": 0.001, "cm": 0.01, "dm": 0.1, "m": 1.0}`（未知单位在包校验或导出期直接报 `error`）。设构件长度单位对应的米制比例为 $u_{\text{source}}$、目标算量长度单位对应的米制比例为 $u_{\text{target}}$，则换算因子为 $\text{factor}(n) = (u_{\text{source}} / u_{\text{target}})^n$，其中维度指数 $n = 1$（长度）、$2$（面积）、$3$（体积）——例如 `mm` $\to$ `m` 时长度乘以 $10^{-3}$、面积乘以 $10^{-6}$、体积乘以 $10^{-9}$；`m` $\to$ `m` 时换算因子为 $1$，换算后按 `roundingDecimals` 四舍五入。
+> - 导出 IFC `IfcElementQuantity` 时，导出器根据顶层 `quantityUnits` 将构件建模单位（`mm` / `mm²` / `mm³`）自动换算为目标工程算量单位（`m` 除以 $10^3$、`m2` 除以 $10^6$、`m3` 除以 $10^9$），并按 `roundingDecimals` 四舍五入。
 
 ---
 
-## 5. 确定性缓存键（`cacheKey`）与 JHB 协议 v1.3.2
+## 5. 确定性缓存键（`cacheKey`）与 JHB 协议 v1.3.1
 
 ### 5.1 确定性 `cacheKey` 计算公式与测试向量
 
@@ -434,31 +434,27 @@ $$\text{cacheKey} = \text{HexLower}\left(\text{SHA256}\left(\text{DeterministicJ
 }
 ```
 
-#### `DeterministicJSON` 五条序列化规则（跨语言一致契约）
+#### `DeterministicJSON` 四条序列化规则（跨语言一致契约）
 1. **键序与空白符**：所有 JSON 对象的键名按 UTF-8 字节序递归升序排列；冒号与逗号后**不加任何空格或换行符**。
-2. **浮点数 `%.12g` 规范化**：所有数值参数若满足 `std::abs(val) < 1e-12` 统一置为 `0`；随后按 C 标准 `std::snprintf(buf, sizeof(buf), "%.12g", val)` 格式化为 JSON Number 字面量（例如 `8000.0` 输出为 `8000`，`1.5000` 输出为 `1.5`，彻底消除跨语言 `8000` vs `8000.0` 差异及第 16~17 位尾数噪声；严禁传入 `NaN` 或 `Inf`）。*（注：建模结果参数回写 `WriteBackParams` 时使用 `%.17g` 或 `std::to_chars` 保持双精度无损往返。）*
+2. **浮点数 `%.12g` 规范化**：所有数值参数若满足 `std::abs(val) < 1e-12` 统一置为 `0`；随后按 C 标准 `std::snprintf(buf, sizeof(buf), "%.12g", val)` 格式化为 JSON Number 字面量（例如 `8000.0` 输出为 `8000`，`1.5000` 输出为 `1.5`，徹底消除跨语言 `8000` vs `8000.0` 差异及第 16~17 位尾数噪声；严禁传入 `NaN` 或 `Inf`）。*（注：建模结果参数回写 `WriteBackParams` 时使用 `%.17g` 或 `std::to_chars` 保持双精度无损往返。）*
 3. **可选与外部几何参数表示**：`recipe.inputs` 中的所有参数必须全部出现在 `inputParams` 中。若某可选参数（如 `Alignment`、`GroundSurface`）未传入，值固定写为 `null`；若传入了外部几何对象，值写为其规范化几何数据的内容哈希字符串 `"sha256:<64位小写hex>"`。
-4. **字符串 UTF-8 原生直出（禁止 `\uXXXX` ASCII 转义）**：所有 JSON 键名与字符串值必须以 **UTF-8 原始字节**直接输出（即 Python 中必须指定 `ensure_ascii=False`，与 C++ `nlohmann::json::dump()` 默认行为严格一致）；**禁止**将非 ASCII 字符（如中文字符串 `"梅花形"`）转义为 `\uXXXX`；仅引号 `\"`、反斜杠 `\\` 及控制字符 `U+0000`–`U+001F` 按 RFC 8259 规则转义。
-5. **标准验证测试向量（Test Vectors）**：
+4. **标准验证测试向量（Test Vectors）**：
    - **向量 1（基础类型与 `%.12g` 归一化）**：
      - 序列化 UTF-8 字节流：`{"a":1,"b":1.5,"c":null,"d":[10,20]}`
      - 期望 `cacheKey`：`51a01f79a9ca9470a9d4373b8f06ab39e92a849bed2035ee58d92f7bc640cb0c`
    - **向量 2（第 3.1 节 `SubgradeSlope` 默认参数展开后的完整 `CacheKeyPayload`）**：
      - 序列化 UTF-8 字节流：`{"cacheKeyVersion":1,"digest":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","engine":"cadquery","inputParams":{"Alignment":null,"GroundSurface":null,"Height":8000,"Length":20000,"SlopeRatio":1.5,"Tiers":[]},"kernelId":"occt","kernelVersion":"8.0.0","source":"service://subgrade_slope","tolerance":{"angular":0.001,"linear":0.01},"units":{"angle":"rad","length":"mm"},"version":"1.0.0"}`
      - 期望 `cacheKey`（即 `geometry.defaultCacheKey`）：`0fee26374b7a518d8098da4ad6c1ad52716d9f33f5bf183fe0f75f90f4bafac0`
-   - **向量 3（非 ASCII 中文字符串 UTF-8 原始字节序列化，如 `Pile.Layout`）**：
-     - 序列化 UTF-8 字节流：`{"Layout":"梅花形"}`（22 字节 UTF-8：`7b 22 4c 61 79 6f 75 74 22 3a 22 e6 a2 85 e8 8a b1 e5 bd a2 22 7d`）
-     - 期望 `cacheKey`：`1135ce65b3a41eb7ab8e979d812eb41d730b8e0227d76c9dac782cb32497d647`
 
-### 5.2 建模服务 JHB（JSON-Header-Binary）协议 v1.3.2
+### 5.2 建模服务 JHB（JSON-Header-Binary）协议 v1.3.1
 
 二进制流格式：`[4字节 uint32 Little-Endian JSON长度][UTF-8 JSON元数据][几何二进制载荷]`。
-- 客户端可在请求中传入 `"acceptFormats": ["cbf-binxcaf", "step-ap242", "gltf-2.0"]` 协商返回格式（兼容单值 `format`）；
+- 客户端可在请求中传入 `"acceptFormats": ["cbf-binxcaf", "step-ap242", "gltf-2.0"]` 协商返回格式；
 - 建模引擎在脚本内部完成派生参数、体积/面积/长度指标及曲线端面端口坐标系（`anchors`）的计算，通过 JSON 响应头一次性返回：
 
 ```json
 {
-  "protocolVersion": "1.3.2",
+  "protocolVersion": "1.3.1",
   "status": "ok",
   "error": null,
   "cache_key": "0fee26374b7a518d8098da4ad6c1ad52716d9f33f5bf183fe0f75f90f4bafac0",
@@ -473,9 +469,9 @@ $$\text{cacheKey} = \text{HexLower}\left(\text{SHA256}\left(\text{DeterministicJ
   },
   "outputs": {
     "Body":                { "geomType": "solid", "volume": 960000000000.0, "area": 784444102.037, "bbox": [0, 0, 0, 20000, 12000, 8000] },
-    "SlopeFace/Left_1":    { "geomType": "face",  "area": 288444102.037, "bbox": [0, 0, 0, 20000, 12000, 8000] },
-    "ShoulderLine/Left_1": { "geomType": "wire",  "length": 20000.0,     "bbox": [0, 0, 8000, 20000, 0, 8000] },
-    "ToeLine/Left_1":      { "geomType": "wire",  "length": 20000.0,     "bbox": [0, 12000, 0, 20000, 12000, 0] }
+    "SlopeFace/Left_1":    { "geomType": "face",  "area": 288444102.037 },
+    "ShoulderLine/Left_1": { "geomType": "wire",  "length": 20000.0 },
+    "ToeLine/Left_1":      { "geomType": "wire",  "length": 20000.0 }
   },
   "anchors": {
     "StartSection": { "origin": [0.0, 0.0, 0.0],     "axis": [0.0, 0.0, 1.0], "refDirection": [1.0, 0.0, 0.0] },
@@ -513,8 +509,8 @@ public:
 ### A.1 `.cbf` 方言自描述与流式保存强制约定
 
 1. **内部自描述**：在保存 `.cbf` 时，在文档根标签 `0:1`（`doc->Main()`）写入 `TDataStd_Comment`：
-   - 构件几何缓存（`BinXCAF`）：`"CBF-Payload:BinXCAF;v1.3.2"`
-   - 项目/图纸主文档（`ACTBin`）：`"CBF-Payload:ACTBin;v1.3.2"`
+   - 构件几何缓存（`BinXCAF`）：`"CBF-Payload:BinXCAF;v1.3.1"`
+   - 项目/图纸主文档（`ACTBin`）：`"CBF-Payload:ACTBin;v1.3.1"`
    - *注：`.cbf` 二进制容器格式版本与 `component.json.schemaVersion` 相互独立，读取器支持向后兼容同主版本号（`v1.x`）的载荷。*
 2. **流式保存强制约定**：OCCT 的 `BinXCAFDrivers` 默认注册扩展名为 `.xbf`，若直接向 `m_app->SaveAs(doc, path)` 传入 `.cbf` 或 `.tmp` 文件路径，OCCT 可能自动追加 `.xbf` 后缀（见 [`scripts-service/main.py`](file:///D:/QtOCCTApp/scripts-service/main.py#L308)）。因此，C++ 中保存 `.cbf` 或 `.tmp` 临时文件时，**必须统一使用 `std::ofstream` 二进制流重载 `m_app->SaveAs(doc, ofs)`**。
 
@@ -524,7 +520,7 @@ public:
 
 ```text
 0:1 (Doc Main)
- ├── TDataStd_Comment: "CBF-Payload:BinXCAF;v1.3.2"
+ ├── TDataStd_Comment: "CBF-Payload:BinXCAF;v1.3.1"
  └── 0:1:1 (XCAFDoc_ShapeTool Root)
       └── 0:1:1:1 [protoLabel: Component Root Compound]
            │  ├── TNaming_NamedShape: TopoDS_Compound (按 _shapeKeys 顺序包含各子形状)
@@ -536,38 +532,37 @@ public:
            └── 0:1:1:1:4 [AddSubShape] -> TDataStd_AsciiString: "ToeLine/Left_1"
 ```
 
-### A.3 `adGeometricDef` 磁盘缓存恢复时的 `_shapeKeys` 保序重建与 $O(1)$ 包围盒防错位校验机制
+### A.3 `adGeometricDef` 磁盘缓存恢复时的 `_shapeKeys` 保序重建与 $O(1)$ 校验机制
 
 由于主文档 [`adGeometricDef`](file:///D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml#L42-L49) 的 `Shape` 参数只持久化 `TNaming_NamedShape` 而不包含 XCAF 子 Label 属性：
 1. **生成与打包期**：`scripts-service` 与 [`brep_to_cbf.cpp`](file:///D:/QtOCCTApp/core-data-model/tools/brep_to_cbf.cpp) 按有序技术键列表（`shapeKeys`）构造顶层 `TopoDS_Compound`，并在 `protoLabel` 下按相同顺序调用 `AddSubShape` 创建子 Label 写入 `TDataStd_AsciiString`。
-2. **写入 `adGeometricDef` 期**：在 [`GeometryService::CreateGeoDef`](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L411-L426) 中，直接复用 JHB `outputs` 已返回的生成期元数据，将有序条目数组 `"_shapeKeys": [{"key": "ShoulderLine/Left_1", "type": "wire", "bbox": [xmin,ymin,zmin,xmax,ymax,zmax]}, ...]` 写入 `adGeometricDef->SetGeoParameter(...)` 的 JSON 中。
-3. **重启恢复与 $O(1)$ 校验期**：当 `FindCachedGeoDef` 命中磁盘 `adGeometricDef` 时，通过 `TopoDS_Iterator` 遍历 `cachedGeoDef->GetShape()` 的直接子形状，执行 **$O(1)$ 零序列化开销一致性校验**（无需序列化 BRep 或计算 SHA-256）：
+2. **写入 `adGeometricDef` 期**：在 [`GeometryService::CreateGeoDef`](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L411-L426) 中，将有序技术键数组 `"_shapeKeys"`（含对应 `TopAbs_ShapeEnum` 类型简码）写入 `adGeometricDef->SetGeoParameter(...)` 的 JSON 中。
+3. **重启恢复与 $O(1)$ 校验期**：当 `FindCachedGeoDef` 命中磁盘 `adGeometricDef` 时，通过 `TopoDS_Iterator` 遍历 `cachedGeoDef->GetShape()` 的直接子形状，执行 **$O(1)$ 零开销一致性校验**：
    - 校验直接子形状总数是否严格等于 `_shapeKeys.size()`；
    - 校验每个位置子形状的 `ShapeType()`（`TopAbs_SOLID` / `TopAbs_FACE` / `TopAbs_WIRE`）是否与期望几何类型一致；
-   - 校验每个位置子形状的包围盒（`Bnd_Box` 6 个极值）是否与 `_shapeKeys[i].bbox` 在容差（`1e-2` mm）内一致（彻底杜绝同类型子形状如 `ShoulderLine/Left_1` 与 `ToeLine/Left_1` 发生顺序互换导致的静默语义错配）；
    - 校验通过后，依次调用 `shapeTool->AddSubShape(protoLabel, subShape, subLabel)` 并挂载 `TDataStd_AsciiString`；若校验不符，判定该缓存条目失效并触发重新生成。
 
 ---
 
 ## 附录 B. 现有代码库落地改造路线图
 
-### 阶段一：修复现有基础缺陷，打通 JHB v1.3.2 与 `<shapeKey>/<instanceTag>` 闭环（P0，立即执行）
+### 阶段一：修复现有基础缺陷，打通 JHB v1.3.1 与 `<shapeKey>/<instanceTag>` 闭环（P0，立即执行）
 
 1. **修复参数回写精度丢失**（[GeometryService.cpp](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L638-L645)）：
    - 将 `WriteBackParams` 中的 `std::to_string(val.get<double>())` 替换为 `%.17g`（或 `std::to_chars`）。
-2. **升级 `ComputeParamGeoID` 为 SHA-256（`%.12g` + UTF-8 原生直出）并统一前后端缓存键**（[GeometryService.cpp](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L501-L509)、[scripts-service/main.py](file:///D:/QtOCCTApp/scripts-service/main.py#L100-L108)）：
-   - 实现第 5.1 节的 `DeterministicJSON(CacheKeyPayload)` 五条规则及 64 字符小写 Hex SHA-256 计算，并通过第 5.1 节的三条标准测试向量验证前后端输出完全一致。
-3. **扩展 JHB v1.3.2 响应头并支持多命名子形状（`<shapeKey>/<instanceTag>`）打包与跨重启恢复**（[scripts-service/main.py](file:///D:/QtOCCTApp/scripts-service/main.py#L334-L350)、[brep_to_cbf.cpp](file:///D:/QtOCCTApp/core-data-model/tools/brep_to_cbf.cpp)、[GeometryService.cpp](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L300-L381)）：
-   - **JHB 协议扩展**：请求侧支持 `acceptFormats`（兼容单值 `format`），升级 `scripts-service/main.py` 返回第 5.2 节的 `protocolVersion`、`shapeKeys`、`outputs`（含 `bbox`）、`anchors` 元数据，并在 `GeometryService` 中解析；
+2. **升级 `ComputeParamGeoID` 为 SHA-256（`%.12g` 规范化）并统一前后端缓存键**（[GeometryService.cpp](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L501-L509)、[scripts-service/main.py](file:///D:/QtOCCTApp/scripts-service/main.py#L100-L108)）：
+   - 实现第 5.1 节的 `DeterministicJSON(CacheKeyPayload)` 规范化序列化及 64 字符小写 Hex SHA-256 计算，并通过第 5.1 节的两条标准测试向量验证前后端输出完全一致。
+3. **扩展 JHB v1.3.1 响应头并支持多命名子形状（`<shapeKey>/<instanceTag>`）打包与跨重启恢复**（[scripts-service/main.py](file:///D:/QtOCCTApp/scripts-service/main.py#L334-L350)、[brep_to_cbf.cpp](file:///D:/QtOCCTApp/core-data-model/tools/brep_to_cbf.cpp)、[GeometryService.cpp](file:///D:/QtOCCTApp/core-data-model/GeometryService.cpp#L300-L381)）：
+   - **JHB 协议扩展**：升级 `scripts-service/main.py` 返回第 5.2 节的 `protocolVersion`、`shapeKeys`、`outputs`、`anchors` 元数据，并在 `GeometryService` 中解析；
    - **多子形状打包**：升级 `brep_to_cbf.cpp` 支持按 `shapeKeys` 组装 `TopoDS_Compound` 并通过 `XCAFDoc_ShapeTool::AddSubShape` 写入子形状 `TDataStd_AsciiString`；
-   - **跨重启恢复与示坡线闭环**：在 `CreateGeoDef` 与 `FindCachedGeoDef` 中实现附录 A.3 的 `_shapeKeys`（含 `type` 与 `bbox`）保序持久化与 $O(1)$ 校验重建，打通 [`adSlopeIndication`](file:///D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml#L137-L148) 二维示坡线自动提取与同名 `<instanceTag>` 配对闭环。
+   - **跨重启恢复与示坡线闭环**：在 `CreateGeoDef` 与 `FindCachedGeoDef` 中实现附录 A.3 的 `_shapeKeys` 保序持久化与 $O(1)$ 校验重建，打通 [`adSlopeIndication`](file:///D:/QtOCCTApp/core-data-model/schema/core-data-model.yaml#L137-L148) 二维示坡线自动提取与同名 `<instanceTag>` 配对闭环。
 4. **补齐 `ProjectManager::SaveAll()` 的流式原子替换保护**（[ProjectManager.cpp](file:///D:/QtOCCTApp/core-data-model/ProjectManager.cpp#L202-L218)）：
    - 先通过 `std::ofstream` 二进制流调用 `m_app->SaveAs(doc, ofs)` 写入同目录 `<filename>.tmp`，成功后调用 `MoveFileExW` 原子替换目标文件。
 
 ### 阶段二：落地极简 `.rcif` 读写器与外部《语义标准映射表》（P1，中期迭代）
 
 1. **实现 `RcifPackageReader` 与 `SemanticProfileRegistry`**：读取极简 `component.json`（校验 `defaultCacheKey`、解析 `presets` 规格型号表与 `shapes[*].code`），并通过加载公共 `semantic_profiles.json` 自动关联行业分类编码、IFC 4.3 规则与二维制图角色。
-2. **升级 `IfcExportService`**：基于 `semantic_profiles.json` 的映射规则与 `quantityUnits` 动态单位换算，将 `presets` 导出为 `IfcTypeProduct`、主实体导出为 `IfcProduct`、具名子形状（`SlopeFace/*`、`ShoulderLine/*`、`ToeLine/*`）导出为 `IfcShapeAspect` 并挂载 `IfcClassificationReference` 与 `IfcElementQuantity`。
+2. **升级 `IfcExportService`**：基于 `semantic_profiles.json` 的映射规则与 `quantityUnits` 单位换算，将 `presets` 导出为 `IfcTypeProduct`、主实体导出为 `IfcProduct`、具名子形状（`SlopeFace/*`、`ShoulderLine/*`、`ToeLine/*`）导出为 `IfcShapeAspect` 并挂载 `IfcClassificationReference` 与 `IfcElementQuantity`。
 
 ### 阶段三：多建模引擎、多几何格式与多内核抽象演进（P2，长期演进）
 

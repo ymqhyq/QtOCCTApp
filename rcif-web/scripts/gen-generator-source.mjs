@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 
-const spec = fs.readFileSync('../docs/cbf_c_component_format_spec_v1.4.2.md', 'utf8');
+const spec = fs.readFileSync('../docs/rcif_component_format_spec_v1.4.2.md', 'utf8');
 const match = spec.match(/```python\r?\n([\s\S]*?)\r?\n```/);
 if (!match) throw new Error('未找到规范 §6.2 Python 代码块');
 const code = `${match[1].replace(/\r\n/g, '\n')}\n`;
