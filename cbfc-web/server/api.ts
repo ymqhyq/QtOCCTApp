@@ -1358,23 +1358,6 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (errors.length) return fail(res, 422, 'INVALID_PARAMETER', errors.join('；'), errors), true;
       const cacheKey = await cacheKeyFor(component, params);
       const legacy = url.searchParams.get('legacy') === '1' || component.legacyUnaligned === true;
-      let mesh = component.importedMesh
-        ? component.mesh
-        : buildMesh(component.geoKind, Object.fromEntries(
-            component.recipeInputs.map((key) => [key, Number(params[key])]),
-          ) as Record<string, number>);
-      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
-        const cqMesh = await generateAbutmentMesh(
-          params as Record<string, number | string | boolean>,
-          {
-            generatorPath: component.cqGenerator,
-            shapeKeys: Object.keys(component.shapes),
-          },
-        );
-        mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
-      }
-      const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;
-
       const cached = state.cache.get(cacheKey);
       if (cached && !url.searchParams.get('nocache')) {
         binary(res, 200, new Uint8Array(cached.buffer), 'application/x-cbf-jhb', undefined, {
@@ -1392,6 +1375,22 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         });
         return true;
       }
+      let mesh = component.importedMesh
+        ? component.mesh
+        : buildMesh(component.geoKind, Object.fromEntries(
+            component.recipeInputs.map((key) => [key, Number(params[key])]),
+          ) as Record<string, number>);
+      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
+        const cqMesh = await generateAbutmentMesh(
+          params as Record<string, number | string | boolean>,
+          {
+            generatorPath: component.cqGenerator,
+            shapeKeys: Object.keys(component.shapes),
+          },
+        );
+        mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
+      }
+      const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;
 
       if (isPreset || (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric')) {
         const jhb = makeJhb(component, params, cacheKey, mesh, legacy);
