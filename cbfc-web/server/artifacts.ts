@@ -592,7 +592,12 @@ export async function buildArtifact(
   params: Record<string, number | string | boolean> = {},
 ): Promise<{ data: Uint8Array; fileName: string; mime: string }> {
   const f = FORMATS.find((x) => x.id === format) ?? FORMATS[0];
-  const base = `${component.familyId}_${component.revision}`;
+  const modelNumber = String(params.ModelNumber ?? '').trim();
+  const safeModelNumber = modelNumber.replace(/[^A-Za-z0-9._-]/g, '_');
+  const base =
+    safeModelNumber && safeModelNumber !== 'CUSTOM'
+      ? `${component.familyId}_${safeModelNumber}`
+      : `${component.familyId}_${component.revision}`;
   let effectiveComponent = component;
   const usesCq = component.familyId === 'Abutment' || Boolean(component.cqGenerator);
   if (
