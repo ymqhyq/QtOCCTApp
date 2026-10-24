@@ -6,6 +6,7 @@ import { encodeGlb, renderPreviewSvg } from './geometry';
 import { buildGeneratorSource } from './generator';
 import { encodeJhb } from './jhb';
 import { deterministicJson, sha256Hex } from '../shared/deterministic';
+import { generateAbutmentStep } from './cq';
 
 export const FORMATS = [
   {
@@ -390,26 +391,70 @@ export function makeCbfZip(
 }
 
 export function makeStepFile(component: InternalComponent): Uint8Array {
-  const b = component.geometry.bounds;
-  const text = `ISO-10303-21;
-HEADER;
-FILE_DESCRIPTION(('CBF-C Advanced BRep Delivery','STEP AP242'),'2;1');
-FILE_NAME('${component.familyId}_${component.revision}.step','2026-10-19T03:00:00',('CBF-C Web Library'),('China Railway 17th Bureau'),'CBF-C Web 2.5','CBF-C Web 2.5','');
-FILE_SCHEMA(('AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF'));
-ENDSEC;
-DATA;
-/* CBF-C 构件交付元数据
-   familyId      : ${component.familyId}
-   revision      : ${component.revision}
-   cacheKey      : ${component.geometry.defaultCacheKey}
-   volume        : ${component.geometry.volumeM3} m3
-   bbox          : [${b.min.join(', ')}] .. [${b.max.join(', ')}]
-   几何实体由 CBF-C 几何 Worker 生成，本文件为演示交付占位（无 B-Rep 面包）。
-*/
-ENDSEC;
-END-ISO-10303-21;
-`;
-  return new TextEncoder().encode(text);
+  const stepString = (value: string) => `'${String(value).replace(/'/g, "''").replace(/[\r\n]/g, ' ')}'`;
+  const number = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(6) : '0.000000');
+  const mesh = component.mesh;
+  const timestamp = new Date().toISOString().slice(0, 19);
+  const lines: string[] = [
+    'ISO-10303-21;',
+    'HEADER;',
+    "FILE_DESCRIPTION(('CBF-C component delivery'),'2;1');",
+    `FILE_NAME(${stepString(`${component.familyId}_${component.revision}.step`)},'${timestamp}',(${stepString('CBF-C')}),(${stepString('CR17J')}),'CBF-C Web 2.5','CBF-C Web 2.5','');`,
+    "FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));",
+    'ENDSEC;',
+    'DATA;',
+    "#1=APPLICATION_CONTEXT('configuration controlled 3d designs of mechanical parts and assemblies');",
+    "#2=APPLICATION_PROTOCOL_DEFINITION('international standard','configuration controlled 3d designs of mechanical parts and assemblies',1994,#1);",
+    `#3=PRODUCT(${stepString(component.familyId)},${stepString(component.familyId)},'',(#4));`,
+    "#4=PRODUCT_CONTEXT('',#1,'mechanical');",
+    "#5=PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE('','',#3,.NOT_KNOWN.);",
+    "#6=PRODUCT_DEFINITION_CONTEXT('part definition',#1,'design');",
+    "#7=PRODUCT_DEFINITION('design','',#5,#6);",
+    "#8=PRODUCT_DEFINITION_SHAPE('','',#7);",
+    '#9=(LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.));',
+    '#10=(NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.));',
+    '#11=(NAMED_UNIT(*) SOLID_ANGLE_UNIT() SI_UNIT($,.STERADIAN.));',
+    "#12=UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-05),#9,'distance_accuracy_value','');",
+    "#13=(GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#12)) GLOBAL_UNIT_ASSIGNED_CONTEXT((#9,#10,#11)) REPRESENTATION_CONTEXT('',''));",
+    "#14=CARTESIAN_POINT('',(0.,0.,0.));",
+    "#15=DIRECTION('',(0.,0.,1.));",
+    "#16=DIRECTION('',(1.,0.,0.));",
+    "#17=AXIS2_PLACEMENT_3D('',#14,#15,#16);",
+  ];
+
+  let nextId = 100;
+  const pointIds: number[] = [];
+  for (let i = 0; i < mesh.positions.length / 3; i += 1) {
+    const id = nextId++;
+    pointIds.push(id);
+    lines.push(
+      `#${id}=CARTESIAN_POINT('',(${number(mesh.positions[i * 3])},${number(mesh.positions[i * 3 + 1])},${number(mesh.positions[i * 3 + 2])}));`,
+    );
+  }
+  const faces: number[] = [];
+  for (let t = 0; t < mesh.indices.length; t += 3) {
+    const loopId = nextId++;
+    const boundId = nextId++;
+    const faceId = nextId++;
+    lines.push(
+      `#${loopId}=POLY_LOOP('',(#${pointIds[mesh.indices[t]]},#${pointIds[mesh.indices[t + 1]]},#${pointIds[mesh.indices[t + 2]]}));`,
+      `#${boundId}=FACE_OUTER_BOUND('',#${loopId},.T.);`,
+      `#${faceId}=FACE('',(#${boundId}));`,
+    );
+    faces.push(faceId);
+  }
+  const shellId = nextId++;
+  const brepId = nextId++;
+  const shapeRepresentationId = nextId++;
+  lines.push(
+    `#${shellId}=CLOSED_SHELL('',(${faces.map((id) => `#${id}`).join(',')}));`,
+    `#${brepId}=FACETED_BREP('',#${shellId});`,
+    `#${shapeRepresentationId}=SHAPE_REPRESENTATION('',(#${brepId}),#13);`,
+    `#${nextId++}=SHAPE_DEFINITION_REPRESENTATION(#8,#${shapeRepresentationId});`,
+    'ENDSEC;',
+    'END-ISO-10303-21;',
+  );
+  return new TextEncoder().encode(lines.join('\n'));
 }
 
 export function makeIfcFile(component: InternalComponent): Uint8Array {
@@ -557,8 +602,13 @@ export async function buildArtifact(
       return { data: await buildCbfcZip(component, params, cacheKey), fileName: `${base}.cbfc`, mime: f.mime };
     case 'cbf':
       return { data: makeCbfZip(component, params, cacheKey), fileName: `${base}.cbf`, mime: f.mime };
-    case 'step':
+    case 'step': {
+      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
+        const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
+        if (cqStep) return { data: cqStep, fileName: `${base}.step`, mime: f.mime };
+      }
       return { data: makeStepFile(component), fileName: `${base}.step`, mime: f.mime };
+    }
     case 'ifc':
       return { data: makeIfcFile(component), fileName: `${base}.ifc`, mime: f.mime };
     default:

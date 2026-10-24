@@ -168,6 +168,46 @@ export async function generateAbutmentMesh(
   });
 }
 
+export async function generateAbutmentStep(
+  params: Record<string, number | string | boolean>,
+  options: { generatorPath?: string } = {},
+): Promise<Uint8Array | null> {
+  const python = pythonPath();
+  const worker = resolve(process.cwd(), 'server/cq/step_worker.py');
+  if (!python || unavailable || !existsSync(worker)) return null;
+  return new Promise((resolveStep) => {
+    const child = spawn(python, [worker], {
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    const chunks: Buffer[] = [];
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill();
+      resolveStep(null);
+    }, 120_000);
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolveStep(null);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code !== 0 || !chunks.length) {
+        if (stderr) console.warn('[cadquery step]', stderr.slice(0, 600));
+        resolveStep(null);
+        return;
+      }
+      resolveStep(new Uint8Array(Buffer.concat(chunks)));
+    });
+    child.stdin.end(JSON.stringify({ params, generatorPath: options.generatorPath }));
+  });
+}
+
 export function shutdownCqWorker() {
   stopChild();
 }
