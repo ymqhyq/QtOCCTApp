@@ -5,6 +5,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ExportFlowModal from '@/components/export/ExportFlowModal.vue';
 import { api } from '@/api/client';
 import type { ComponentDetail, ComponentSummary, DownloadFormat } from '@/api/types';
+import { useSessionStore } from '@/stores/session';
 import { useUiStore } from '@/stores/ui';
 import {
   componentStatusMeta,
@@ -16,6 +17,8 @@ import {
 type FormatRow = DownloadFormat & { available: boolean; reason: string | null };
 
 const ui = useUiStore();
+const session = useSessionStore();
+const isPartner = computed(() => session.user?.role === 'partner');
 
 const components = ref<ComponentSummary[]>([]);
 const selectedFamily = ref('');
@@ -276,7 +279,7 @@ onMounted(async () => {
               <div class="mt-auto pt-3">
                 <div class="flex flex-wrap gap-1.5">
                   <button class="btn btn-primary btn-sm" :title="formatHint('rcif')" @click="openExport('rcif')">
-                    <AppIcon name="package" :size="13" />下载 .rcif
+                    <AppIcon name="package" :size="13" />{{ isPartner ? '申请下载 .rcif' : '下载 .rcif' }}
                   </button>
                   <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="!detail.geometry.exactBrep" @click="openExport('ifc')">
                     <AppIcon name="globe" :size="13" />IFC 4.3

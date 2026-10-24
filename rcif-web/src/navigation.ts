@@ -16,7 +16,7 @@ export const HEADER_NAV: NavItem[] = [
   { to: '/library', label: '资产大厅', icon: 'grid' },
   { to: '/ingestion', label: '构件入库', icon: 'upload', permission: 'ingest' },
   { to: '/reviews', label: '审核质检', icon: 'shield', permission: 'review' },
-  { to: '/exports', label: '导出中心', icon: 'download', permission: 'internal' },
+  { to: '/exports', label: '导出中心', icon: 'download' },
 ];
 
 export const SIDEBAR_PRIMARY: NavItem[] = [
@@ -32,7 +32,7 @@ export const SIDEBAR_TOOLS: NavItem[] = [
   { to: '/reviews', label: '审核质检', icon: 'shield', permission: 'review' },
   { to: '/semantics', label: '构件语义', icon: 'layers', permission: 'semantics' },
   { to: '/analytics', label: '监控看板', icon: 'activity', permission: 'analytics' },
-  { to: '/exports', label: '导出中心', icon: 'download', permission: 'internal' },
+  { to: '/exports', label: '导出中心', icon: 'download' },
 ];
 
 export function canSeeNav(session: SessionStore, item: NavItem): boolean {

@@ -468,7 +468,7 @@ async function copyChecksum() {
             下一步：许可确认<AppIcon name="arrowRight" :size="13" />
           </button>
           <button v-else-if="step === 2" class="btn btn-primary btn-sm" @click="nextStep">
-            生成并签发凭据<AppIcon name="arrowRight" :size="13" />
+            {{ isPartner ? '提交访问审批申请' : '生成并签发凭据' }}<AppIcon name="arrowRight" :size="13" />
           </button>
           <button v-else-if="ticket" class="btn btn-primary btn-sm" @click="downloadNow">
             <AppIcon name="download" :size="13" />再次下载

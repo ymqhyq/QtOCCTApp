@@ -42,7 +42,7 @@ const routes = [
     path: '/exports',
     name: 'exports',
     component: () => import('@/views/ExportCenterView.vue'),
-    meta: { title: '导出中心', permission: 'internal' },
+    meta: { title: '导出中心' },
   },
   {
     path: '/ingestion',

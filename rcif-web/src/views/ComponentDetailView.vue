@@ -29,6 +29,7 @@ import {
 const route = useRoute();
 const router = useRouter();
 const ui = useUiStore();
+const isPartner = computed(() => session.user?.role === 'partner');
 const compare = useCompareStore();
 const session = useSessionStore();
 
@@ -474,7 +475,7 @@ onMounted(async () => {
 
             <div class="mt-3 grid gap-1.5">
               <button class="btn btn-primary btn-lg" @click="openExport('rcif')">
-                <AppIcon name="package" :size="15" />下载构件包 (.rcif)
+                <AppIcon name="package" :size="15" />{{ isPartner ? '申请下载构件包 (.rcif)' : '下载构件包 (.rcif)' }}
               </button>
               <button
                 class="btn btn-outline"
@@ -486,7 +487,7 @@ onMounted(async () => {
               </button>
               <button class="btn btn-outline" :disabled="!detail.geometry.exactBrep" @click="openExport('ifc')">
                 <AppIcon name="globe" :size="14" />
-                导出 IFC 4.3
+                {{ isPartner ? '申请导出 IFC 4.3' : '导出 IFC 4.3' }}
                 <span v-if="!detail.geometry.exactBrep" class="text-[9.5px] text-warning">（mesh-only）</span>
               </button>
               <div class="grid grid-cols-3 gap-1.5">
