@@ -11,7 +11,6 @@ import {
   formatDate,
   formatVolume,
   sourceModeMeta,
-  triggerDownload,
 } from '@/utils/format';
 
 type FormatRow = DownloadFormat & { available: boolean; reason: string | null };
@@ -30,7 +29,6 @@ const exportOpen = ref(false);
 const exportFormat = ref('rcif');
 const loading = ref(true);
 const history = ref<{ id: string; familyId: string; name: string; action: string; format?: string; at: string; detail?: string }[]>([]);
-const ifcBusy = ref(false);
 
 const categories = computed(() =>
   [...new Set(components.value.map((component) => component.category))].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')),
@@ -113,24 +111,6 @@ async function selectComponent(familyId: string) {  selectedFamily.value = famil
 function openExport(format = 'rcif') {
   exportFormat.value = format;
   exportOpen.value = true;
-}
-
-async function exportIfc() {
-  if (!detail.value) return;
-  ifcBusy.value = true;
-  try {
-    const result = await api.exportIfc(detail.value.familyId, selectedModel.value || undefined);
-    triggerDownload(result.downloadUrl, result.fileName);
-    ui.notify({
-      type: result.unmapped.length ? 'warning' : 'success',
-      title: result.unmapped.length ? `IFC 导出完成 · ${result.unmapped.length} 项 unmapped` : 'IFC 4.3 交付物已生成',
-      message: result.fileName,
-    });
-  } catch (error) {
-    ui.notify({ type: 'error', title: 'IFC 导出失败', message: String(error) });
-  } finally {
-    ifcBusy.value = false;
-  }
 }
 
 async function reExport(familyId: string) {
@@ -298,7 +278,7 @@ onMounted(async () => {
                   <button class="btn btn-primary btn-sm" :title="formatHint('rcif')" @click="openExport('rcif')">
                     <AppIcon name="package" :size="13" />下载 .rcif
                   </button>
-                  <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
+                  <button class="btn btn-outline btn-sm" :title="formatHint('ifc')" :disabled="!detail.geometry.exactBrep" @click="openExport('ifc')">
                     <AppIcon name="globe" :size="13" />IFC 4.3
                   </button>
                   <button class="btn btn-outline btn-sm" :title="formatHint('glb')" :disabled="!isFormatAvailable('glb')" @click="openExport('glb')">
