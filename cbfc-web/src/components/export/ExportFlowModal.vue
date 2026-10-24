@@ -21,8 +21,9 @@ const props = withDefaults(
     initialFormat?: string;
     autoHandoff?: boolean;
     modelNumber?: string;
+    parameterOverrides?: Record<string, number | string | boolean>;
   }>(),
-  { initialFormat: '', autoHandoff: false, modelNumber: '' },
+  { initialFormat: '', autoHandoff: false, modelNumber: '', parameterOverrides: () => ({}) },
 );
 const emit = defineEmits<{ close: [] }>();
 
@@ -152,7 +153,12 @@ async function createTicket() {
   error.value = '';
   requestState.value = false;
   try {
-    const result = await api.download(props.component.familyId, selected.value, props.modelNumber || undefined);
+    const result = await api.download(
+      props.component.familyId,
+      selected.value,
+      props.modelNumber || undefined,
+      props.parameterOverrides,
+    );
     if (result.permission === 'request-required') {
       requestState.value = true;
       ticket.value = null;

@@ -394,7 +394,7 @@ export function makeStepFile(component: InternalComponent): Uint8Array {
   const stepString = (value: string) => `'${String(value).replace(/'/g, "''").replace(/[\r\n]/g, ' ')}'`;
   const number = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(6) : '0.000000');
   const mesh = component.mesh;
-  const timestamp = new Date().toISOString().slice(0, 19);
+  const timestamp = `${(component.updatedAt || '2026-01-01').slice(0, 10)}T00:00:00`;
   const lines: string[] = [
     'ISO-10303-21;',
     'HEADER;',
@@ -471,7 +471,7 @@ export function makeIfcFile(component: InternalComponent): Uint8Array {
   };
   const ifcNumber = (value: number) => (Number.isFinite(value) ? Number(value).toFixed(3) : '0.000');
   const mesh = component.mesh;
-  const date = new Date().toISOString().slice(0, 19);
+  const date = `${(component.updatedAt || '2026-01-01').slice(0, 10)}T00:00:00`;
   const lines: string[] = [
     'ISO-10303-21;',
     'HEADER;',
@@ -594,8 +594,9 @@ export async function buildArtifact(
   const f = FORMATS.find((x) => x.id === format) ?? FORMATS[0];
   const base = `${component.familyId}_${component.revision}`;
   let effectiveComponent = component;
+  const usesCq = component.familyId === 'Abutment' || Boolean(component.cqGenerator);
   if (
-    component.recipe?.engine === 'cadquery' &&
+    usesCq &&
     component.sourceMode === 'parametric' &&
     Object.keys(params).length &&
     format !== 'step'
@@ -627,7 +628,7 @@ export async function buildArtifact(
     case 'cbf':
       return { data: makeCbfZip(effectiveComponent, params, cacheKey), fileName: `${base}.cbf`, mime: f.mime };
     case 'step': {
-      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
+      if (usesCq && component.sourceMode === 'parametric') {
         const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
         if (cqStep) return { data: cqStep, fileName: `${base}.step`, mime: f.mime };
       }

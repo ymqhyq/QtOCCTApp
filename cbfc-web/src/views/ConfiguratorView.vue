@@ -709,6 +709,7 @@ onBeforeUnmount(() => {
       :open="exportOpen"
       :component="detail"
       :model-number="String(values.ModelNumber ?? '')"
+      :parameter-overrides="currentModel === 'CUSTOM' ? numericOverrides() : {}"
       @close="exportOpen = false"
     />
   </div>

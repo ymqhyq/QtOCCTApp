@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createState } from './state';
-import { buildCbfcFiles, makeIfcFile, makeJhb } from './artifacts';
+import { buildCbfcFiles, makeIfcFile, makeJhb, makeStepFile } from './artifacts';
 import { decodeJhb } from '../src/jhb/decode';
 import { SPEC_PIER_GENERATOR_SOURCE } from './spec-generator';
 import { buildGeneratorSource } from './generator';
@@ -48,6 +48,24 @@ describe('.cbfc 制品包内部一致性', () => {
         );
       }
     }
+  });
+
+  it('STEP AP203 交付物包含可打开的 Faceted B-Rep', async () => {
+    const state = await createState();
+    const component = state.components.find((item) => item.familyId === 'Abutment')!;
+    const step = text(makeStepFile(component));
+    expect(step).toContain("FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'))");
+    expect(step).toContain('FACETED_BREP');
+    expect(step).toContain('CLOSED_SHELL');
+    expect(step).toContain('FACE_OUTER_BOUND');
+    expect(step).toContain('SHAPE_DEFINITION_REPRESENTATION');
+    expect(step).not.toContain('演示交付占位');
+  });
+
+  it('同一版本 IFC 连续导出字节级一致', async () => {
+    const state = await createState();
+    const component = state.components.find((item) => item.familyId === 'Abutment')!;
+    expect(Array.from(makeIfcFile(component))).toEqual(Array.from(makeIfcFile(component)));
   });
 
   it('IFC4 交付物包含可被浏览器加载的 B-Rep 三角面', async () => {

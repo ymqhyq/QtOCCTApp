@@ -27,8 +27,8 @@ import type {
   UserSession,
 } from '../shared/types';
 import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
-import { buildAbutmentFallbackMesh, buildMesh, type MeshData } from './geometry';
-import { generateAbutmentMesh } from './cq';
+import { buildMesh, type MeshData } from './geometry';
+import { generateAbutmentMesh, validateGeneratorSource } from './cq';
 import { renderProjectionSvg, type ProjectionView } from './projection';
 import {
   addPreset,
@@ -570,6 +570,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const body = await readJson(req);
       const template = findComponent(state, String(body.templateFamilyId ?? ''));
       if (!template) return fail(res, 422, 'TEMPLATE_NOT_FOUND', '目标模板族不存在'), true;
+      if (!accessible(user!, template)) return fail(res, 403, 'FORBIDDEN', '无权使用其他租户的模板族'), true;
       const familyId = String(body.familyId ?? '').trim();
       const familyError = validateFamilyId(familyId);
       if (familyError) return fail(res, 422, 'INVALID_FAMILY_ID', familyError), true;
@@ -627,11 +628,23 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       component.parameters.schema[0].default = component.parameters.presets[0].modelNumber;
       const generatorSource = String(body.generatorSource ?? '');
       if (generatorSource.trim()) {
+        const validation = await validateGeneratorSource(generatorSource);
+        if (!validation.ok) {
+          return fail(res, 422, 'UNSAFE_GENERATOR', `生成器未通过安全校验：${validation.errors.slice(0, 3).join('；')}`), true;
+        }
         const generatorDir = resolve(process.cwd(), 'server/imports/dynamic');
         mkdirSync(generatorDir, { recursive: true });
         const generatorPath = resolve(generatorDir, `${familyId}.py`);
         writeFileSync(generatorPath, generatorSource, 'utf8');
         component.cqGenerator = generatorPath;
+        component.recipe = {
+          engine: 'cadquery',
+          source: 'generators/generator.py',
+          entry: 'build_parts',
+          version: component.revision,
+          digest: await sha256Hex(generatorSource),
+          inputs: component.recipeInputs,
+        };
       }
       component.presetCacheKeys = {};
       for (const preset of component.parameters.presets) {
@@ -672,6 +685,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const body = await readJson(req);
       const template = findComponent(state, String(body.templateFamilyId ?? ''));
       if (!template) return fail(res, 422, 'TEMPLATE_NOT_FOUND', '模板族不存在'), true;
+      if (!accessible(user!, template)) return fail(res, 403, 'FORBIDDEN', '无权使用其他租户的模板族'), true;
       const familyId = String(body.familyId ?? '').trim();
       const name = String(body.name ?? '').trim();
       const familyError = validateFamilyId(familyId);
@@ -700,6 +714,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (user!.role !== 'asset-admin') return fail(res, 403, 'FORBIDDEN', '仅资产管理员可维护族定义'), true;
       const component = findComponent(state, decodeURIComponent(familyMatch[1]));
       if (!component) return fail(res, 404, 'FAMILY_NOT_FOUND', '族不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权维护其他租户的族'), true;
       if (method === 'DELETE') {
         component.status = 'archived';
         component.updatedAt = new Date().toISOString().slice(0, 10);
@@ -1375,12 +1390,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         });
         return true;
       }
+      const usesCq =
+        component.familyId === 'Abutment' || Boolean(component.cqGenerator);
       let mesh = component.importedMesh
         ? component.mesh
         : buildMesh(component.geoKind, Object.fromEntries(
             component.recipeInputs.map((key) => [key, Number(params[key])]),
           ) as Record<string, number>);
-      if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
+      if (usesCq) {
         const cqMesh = await generateAbutmentMesh(
           params as Record<string, number | string | boolean>,
           {
@@ -1388,11 +1405,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
             shapeKeys: Object.keys(component.shapes),
           },
         );
-        mesh = cqMesh ?? buildAbutmentFallbackMesh(params as Record<string, number>);
+        if (!cqMesh) {
+          return fail(res, 503, 'GEOMETRY_BACKEND_UNAVAILABLE', 'CadQuery 建模服务当前不可用，已拒绝返回默认几何'), true;
+        }
+        mesh = cqMesh;
       }
       const elapsedMs = isPreset ? 68 + (cacheKey.charCodeAt(0) % 40) : 900;
 
-      if (isPreset || (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric')) {
+      if (isPreset || usesCq) {
         const jhb = makeJhb(component, params, cacheKey, mesh, legacy);
         state.cache.set(cacheKey, jhb);
         binary(res, 200, new Uint8Array(jhb.buffer), 'application/x-cbf-jhb', undefined, {
@@ -1468,8 +1488,19 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const format = String(body.format ?? 'cbfc');
       const modelNumber = String(body.modelNumber ?? '');
       const preset = component.parameters.presets.find((item) => item.modelNumber === modelNumber);
-      const selectedParams = preset?.params ?? {};
-      const selectedCacheKey = preset?.cacheKey ?? component.geometry.defaultCacheKey;
+      const overrides =
+        body.parameterOverrides && typeof body.parameterOverrides === 'object'
+          ? (body.parameterOverrides as Record<string, number | string | boolean>)
+          : {};
+      const selectedParams = {
+        ...(preset?.params ?? component.parameters.presets[0]?.params ?? {}),
+        ...overrides,
+        ...(modelNumber ? { ModelNumber: modelNumber } : {}),
+      };
+      const selectedCacheKey =
+        preset?.cacheKey && !Object.keys(overrides).length
+          ? preset.cacheKey
+          : await cacheKeyFor(component, selectedParams);
       const exactRequired = ['step', 'cbf', 'ifc'].includes(format);
       if (exactRequired && !component.geometry.exactBrep) {
         return fail(res, 409, 'FORMAT_UNSUPPORTED', '该构件为 mesh-only 网格体，不提供精确 B-Rep 几何导出'), true;
@@ -1536,15 +1567,22 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const body = await readJson(req);
       const modelNumber = String(body.modelNumber ?? '');
       const preset = component.parameters.presets.find((item) => item.modelNumber === modelNumber);
-      const selectedParams = preset?.params ?? {};
+      const overrides =
+        body.parameterOverrides && typeof body.parameterOverrides === 'object'
+          ? (body.parameterOverrides as Record<string, number | string | boolean>)
+          : {};
+      const selectedParams = {
+        ...(preset?.params ?? component.parameters.presets[0]?.params ?? {}),
+        ...overrides,
+        ...(modelNumber ? { ModelNumber: modelNumber } : {}),
+      };
+      const selectedCacheKey =
+        preset?.cacheKey && !Object.keys(overrides).length
+          ? preset.cacheKey
+          : await cacheKeyFor(component, selectedParams);
       const profile = state.profiles.find((p) => p.isDefault);
       const mappings = resolveMappings(component, profile);
-      const artifact = await buildArtifact(
-        component,
-        'ifc',
-        preset?.cacheKey ?? component.geometry.defaultCacheKey,
-        selectedParams,
-      );
+      const artifact = await buildArtifact(component, 'ifc', selectedCacheKey, selectedParams);
       const token = `dl_${crypto.randomUUID().replace(/-/g, '')}`;
       state.tickets.set(token, {
         token,
@@ -1554,7 +1592,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         expiresAt: Date.now() + 15 * 60_000,
         sizeBytes: artifact.data.byteLength,
         checksum: await sha256Hex(artifact.data),
-        cacheKey: preset?.cacheKey ?? component.geometry.defaultCacheKey,
+        cacheKey: selectedCacheKey,
         params: selectedParams,
         modelNumber: modelNumber || undefined,
       });
@@ -1652,7 +1690,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (!['reviewer', 'asset-admin'].includes(user!.role)) {
         return fail(res, 403, 'FORBIDDEN', '审核队列仅对审查专家/资产管理员开放'), true;
       }
-      const items = state.reviews.map(reviewView);
+      const items = state.reviews
+        .filter((review) => {
+          const component = findComponent(state, review.componentFamilyId);
+          return Boolean(component && accessible(user!, component));
+        })
+        .map(reviewView);
       json(res, 200, { items, total: items.length });
       return true;
     }
@@ -1693,6 +1736,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       if (!review) return fail(res, 404, 'REVIEW_NOT_FOUND', '审核任务不存在'), true;
       const body = await readJson(req);
       const component = findComponent(state, review.componentFamilyId);
+      if (!component) return fail(res, 404, 'COMPONENT_NOT_FOUND', '审核构件不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权签批其他租户的审核任务'), true;
       if (decisionMatch[2] === 'reject') {
         const reason = String(body.reason ?? '').trim();
         if (reason.length < 5) return fail(res, 422, 'REASON_REQUIRED', '驳回必须填写结构化缺陷意见（不少于 5 个字）'), true;
@@ -1780,8 +1825,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
 
     const profileMatch = /^\/api\/v1\/semantic-profiles\/([^/]+)$/.exec(path);
     if (profileMatch && method === 'GET') {
+      if (!['asset-admin', 'designer', 'reviewer', 'standard-admin'].includes(user!.role)) {
+        return fail(res, 403, 'FORBIDDEN', '语义模板仅对内部用户开放'), true;
+      }
       const profile = state.profiles.find((p) => p.profileId === decodeURIComponent(profileMatch[1]));
       if (!profile) return fail(res, 404, 'PROFILE_NOT_FOUND', '语义模板不存在'), true;
+      if (profile.tenantId !== 'system' && profile.tenantId !== user!.tenantId) {
+        return fail(res, 403, 'FORBIDDEN', '无权访问其他租户的语义模板'), true;
+      }
       json(res, 200, profile);
       return true;
     }
@@ -1847,6 +1898,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       }
       const profile = state.profiles.find((p) => p.profileId === decodeURIComponent(profileMatch[1]));
       if (!profile) return fail(res, 404, 'PROFILE_NOT_FOUND', '语义模板不存在'), true;
+      if (profile.tenantId !== 'system' && profile.tenantId !== user!.tenantId) {
+        return fail(res, 403, 'FORBIDDEN', '无权编辑其他租户的语义模板'), true;
+      }
       const body = await readJson(req);
       const rules = Array.isArray(body.rules) ? (body.rules as SemanticProfile['rules']) : null;
       if (!rules) return fail(res, 422, 'INVALID_RULES', 'rules 必须为数组'), true;
@@ -2012,6 +2066,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       }
       const component = findComponent(state, familyId);
       if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
+      if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权推送该构件'), true;
       if (user!.role === 'partner') return fail(res, 403, 'FORBIDDEN', '外部合作方无桌面端推送权限'), true;
       const token = `htk_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
       const expiresAt = Date.now() + 45_000;

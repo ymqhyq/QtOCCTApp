@@ -208,6 +208,47 @@ export async function generateAbutmentStep(
   });
 }
 
+export async function validateGeneratorSource(source: string): Promise<{ ok: boolean; errors: string[] }> {
+  const python = pythonPath();
+  const validator = resolve(process.cwd(), 'server/cq/validate_generator.py');
+  if (!python || !existsSync(validator)) {
+    return { ok: false, errors: ['CadQuery/Python 校验器不可用，拒绝导入动态生成器'] };
+  }
+  return new Promise((resolveValidation) => {
+    const child = spawn(python, [validator], {
+      cwd: process.cwd(),
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill();
+      resolveValidation({ ok: false, errors: ['生成器安全检查超时'] });
+    }, 15_000);
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('error', () => {
+      clearTimeout(timer);
+      resolveValidation({ ok: false, errors: ['生成器安全检查启动失败'] });
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      try {
+        const parsed = JSON.parse(stdout) as { ok?: boolean; errors?: string[] };
+        resolveValidation({ ok: Boolean(parsed.ok), errors: parsed.errors ?? [] });
+      } catch {
+        resolveValidation({ ok: false, errors: [stderr.slice(0, 300) || '生成器安全检查无有效结果'] });
+      }
+    });
+    child.stdin.end(source);
+  });
+}
+
 export function shutdownCqWorker() {
   stopChild();
 }

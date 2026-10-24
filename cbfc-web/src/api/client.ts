@@ -127,13 +127,18 @@ export const api = {
       unmapped: SemanticMapping[];
     }>(`/api/v1/components/${encodeURIComponent(familyId)}/semantics${qs({ profile: profileCode })}`);
   },
-  download(familyId: string, format: string, modelNumber?: string) {
+  download(
+    familyId: string,
+    format: string,
+    modelNumber?: string,
+    parameterOverrides?: Record<string, number | string | boolean>,
+  ) {
     return request<DownloadTicket>(`/api/v1/components/${encodeURIComponent(familyId)}/download`, {
       method: 'POST',
-      body: JSON.stringify({ format, modelNumber }),
+      body: JSON.stringify({ format, modelNumber, parameterOverrides }),
     });
   },
-  exportIfc(familyId: string, modelNumber?: string) {
+  exportIfc(familyId: string, modelNumber?: string, parameterOverrides?: Record<string, number | string | boolean>) {
     return request<{
       downloadUrl: string;
       fileName: string;
@@ -142,7 +147,7 @@ export const api = {
       profile: string | null;
     }>(`/api/v1/components/${encodeURIComponent(familyId)}/export`, {
       method: 'POST',
-      body: JSON.stringify({ modelNumber }),
+      body: JSON.stringify({ modelNumber, parameterOverrides }),
     });
   },
   jobs() {
