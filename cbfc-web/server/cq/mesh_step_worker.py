@@ -16,11 +16,9 @@ from pathlib import Path
 from OCP.BRepBuilderAPI import (
     BRepBuilderAPI_MakeFace,
     BRepBuilderAPI_MakePolygon,
-    BRepBuilderAPI_MakeSolid,
     BRepBuilderAPI_Sewing,
 )
 from OCP.STEPControl import STEPControl_StepModelType, STEPControl_Writer
-from OCP.TopoDS import TopoDS
 from OCP.gp import gp_Pnt
 
 
@@ -43,10 +41,6 @@ def build_shell(payload: dict) -> object:
     shape = sewing.SewedShape()
     if shape.IsNull():
         raise RuntimeError("三角网格无法缝合为壳体")
-    if shape.ShapeType() == 2:  # TopAbs_SHELL
-        solid = BRepBuilderAPI_MakeSolid(TopoDS.Shell_s(shape))
-        if solid.IsDone():
-            return solid.Solid()
     return shape
 
 
