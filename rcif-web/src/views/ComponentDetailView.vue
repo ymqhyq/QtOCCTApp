@@ -76,7 +76,6 @@ const selectedProfile = ref('');
 const semanticsLoading = ref(false);
 const exportOpen = ref(false);
 const exportFormat = ref('rcif');
-const ifcBusy = ref(false);
 const selectedVersion = ref<string | null>(null);
 const versionCompareActive = ref(false);
 const versionCompareLoading = ref(false);
@@ -201,28 +200,6 @@ function selectShape(key: string) {
 function openExport(format = 'rcif') {
   exportFormat.value = format;
   exportOpen.value = true;
-}
-
-async function exportIfc() {
-  if (!detail.value) return;
-  ifcBusy.value = true;
-  try {
-    const result = await api.exportIfc(detail.value.familyId, selectedModel.value || undefined);
-    triggerDownload(result.downloadUrl, result.fileName);
-    if (result.unmapped.length) {
-      ui.notify({
-        type: 'warning',
-        title: `IFC 4.3 导出完成 · ${result.unmapped.length} 项 unmapped`,
-        message: result.unmapped.map((u) => `${u.shapeKey}: ${u.code}`).join('\n'),
-      });
-    } else {
-      ui.notify({ type: 'success', title: 'IFC 4.3 交付物已生成', message: `${result.fileName} · 语义映射全部命中（${result.profile}）` });
-    }
-  } catch (error) {
-    ui.notify({ type: 'error', title: 'IFC 导出失败', message: error instanceof Error ? error.message : String(error) });
-  } finally {
-    ifcBusy.value = false;
-  }
 }
 
 async function loadSemantics() {
@@ -507,9 +484,8 @@ onMounted(async () => {
               >
                 <AppIcon name="sliders" :size="14" />{{ isParametric ? '配置参数' : '规格配置' }}
               </button>
-              <button class="btn btn-outline" :disabled="ifcBusy || !detail.geometry.exactBrep" @click="exportIfc">
-                <span v-if="ifcBusy" class="h-3 w-3 animate-spin rounded-full border-2 border-[#CBD5E1] border-t-primary" />
-                <AppIcon v-else name="globe" :size="14" />
+              <button class="btn btn-outline" :disabled="!detail.geometry.exactBrep" @click="openExport('ifc')">
+                <AppIcon name="globe" :size="14" />
                 导出 IFC 4.3
                 <span v-if="!detail.geometry.exactBrep" class="text-[9.5px] text-warning">（mesh-only）</span>
               </button>
