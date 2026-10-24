@@ -6,7 +6,7 @@ import { encodeGlb, renderPreviewSvg } from './geometry';
 import { buildGeneratorSource } from './generator';
 import { encodeJhb } from './jhb';
 import { deterministicJson, sha256Hex } from '../shared/deterministic';
-import { generateAbutmentStep } from './cq';
+import { generateAbutmentMesh, generateAbutmentStep } from './cq';
 
 export const FORMATS = [
   {
@@ -593,15 +593,39 @@ export async function buildArtifact(
 ): Promise<{ data: Uint8Array; fileName: string; mime: string }> {
   const f = FORMATS.find((x) => x.id === format) ?? FORMATS[0];
   const base = `${component.familyId}_${component.revision}`;
+  let effectiveComponent = component;
+  if (
+    component.recipe?.engine === 'cadquery' &&
+    component.sourceMode === 'parametric' &&
+    Object.keys(params).length &&
+    format !== 'step'
+  ) {
+    const cqMesh = await generateAbutmentMesh(params, {
+      generatorPath: component.cqGenerator,
+      shapeKeys: Object.keys(component.shapes),
+    });
+    if (cqMesh) {
+      effectiveComponent = {
+        ...component,
+        mesh: cqMesh,
+        geometry: {
+          ...component.geometry,
+          volumeM3: Math.round((cqMesh.volumeMm3 / 1e9) * 1000) / 1000,
+          triangles: cqMesh.triangles,
+          vertices: cqMesh.vertices,
+        },
+      };
+    }
+  }
   switch (format) {
     case 'jhb':
-      return { data: new Uint8Array(makeJhb(component, params, cacheKey).buffer), fileName: `${base}.jhb`, mime: f.mime };
+      return { data: new Uint8Array(makeJhb(effectiveComponent, params, cacheKey).buffer), fileName: `${base}.jhb`, mime: f.mime };
     case 'glb':
-      return { data: encodeGlb(component.mesh, component.name), fileName: `${base}.glb`, mime: f.mime };
+      return { data: encodeGlb(effectiveComponent.mesh, effectiveComponent.name), fileName: `${base}.glb`, mime: f.mime };
     case 'cbfc':
-      return { data: await buildCbfcZip(component, params, cacheKey), fileName: `${base}.cbfc`, mime: f.mime };
+      return { data: await buildCbfcZip(effectiveComponent, params, cacheKey), fileName: `${base}.cbfc`, mime: f.mime };
     case 'cbf':
-      return { data: makeCbfZip(component, params, cacheKey), fileName: `${base}.cbf`, mime: f.mime };
+      return { data: makeCbfZip(effectiveComponent, params, cacheKey), fileName: `${base}.cbf`, mime: f.mime };
     case 'step': {
       if (component.recipe?.engine === 'cadquery' && component.sourceMode === 'parametric') {
         const cqStep = await generateAbutmentStep(params, { generatorPath: component.cqGenerator });
@@ -610,8 +634,8 @@ export async function buildArtifact(
       return { data: makeStepFile(component), fileName: `${base}.step`, mime: f.mime };
     }
     case 'ifc':
-      return { data: makeIfcFile(component), fileName: `${base}.ifc`, mime: f.mime };
+      return { data: makeIfcFile(effectiveComponent), fileName: `${base}.ifc`, mime: f.mime };
     default:
-      return { data: await buildCbfcZip(component), fileName: `${base}.cbfc`, mime: 'application/zip' };
+      return { data: await buildCbfcZip(effectiveComponent), fileName: `${base}.cbfc`, mime: 'application/zip' };
   }
 }

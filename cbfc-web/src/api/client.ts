@@ -133,7 +133,7 @@ export const api = {
       body: JSON.stringify({ format, modelNumber }),
     });
   },
-  exportIfc(familyId: string) {
+  exportIfc(familyId: string, modelNumber?: string) {
     return request<{
       downloadUrl: string;
       fileName: string;
@@ -142,7 +142,7 @@ export const api = {
       profile: string | null;
     }>(`/api/v1/components/${encodeURIComponent(familyId)}/export`, {
       method: 'POST',
-      body: JSON.stringify({}),
+      body: JSON.stringify({ modelNumber }),
     });
   },
   jobs() {

@@ -1501,6 +1501,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         expiresAt,
         sizeBytes: artifact.data.byteLength,
         checksum,
+        cacheKey: selectedCacheKey,
+        params: selectedParams,
+        modelNumber: preset?.modelNumber,
       });
       pushAudit(state, user!.name, `download_${format}`, component.familyId, `${artifact.fileName} ${(artifact.data.byteLength / 1024).toFixed(1)} KB`);
       pushHistory(state, user!.userId, {
@@ -1530,9 +1533,18 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const component = findComponent(state, decodeURIComponent(exportMatch[1]));
       if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
       if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权导出该构件'), true;
+      const body = await readJson(req);
+      const modelNumber = String(body.modelNumber ?? '');
+      const preset = component.parameters.presets.find((item) => item.modelNumber === modelNumber);
+      const selectedParams = preset?.params ?? {};
       const profile = state.profiles.find((p) => p.isDefault);
       const mappings = resolveMappings(component, profile);
-      const artifact = await buildArtifact(component, 'ifc', component.geometry.defaultCacheKey);
+      const artifact = await buildArtifact(
+        component,
+        'ifc',
+        preset?.cacheKey ?? component.geometry.defaultCacheKey,
+        selectedParams,
+      );
       const token = `dl_${crypto.randomUUID().replace(/-/g, '')}`;
       state.tickets.set(token, {
         token,
@@ -1542,6 +1554,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         expiresAt: Date.now() + 15 * 60_000,
         sizeBytes: artifact.data.byteLength,
         checksum: await sha256Hex(artifact.data),
+        cacheKey: preset?.cacheKey ?? component.geometry.defaultCacheKey,
+        params: selectedParams,
+        modelNumber: modelNumber || undefined,
       });
       pushAudit(state, user!.name, 'export_ifc', component.familyId, `${mappings.filter((m) => m.status === 'unmapped').length} 项 unmapped`);
       json(res, 200, {
@@ -2058,7 +2073,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       }
       const component = findComponent(state, ticket.familyId);
       if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
-      const artifact = await buildArtifact(component, ticket.format, component.geometry.defaultCacheKey);
+      const artifact = await buildArtifact(
+        component,
+        ticket.format,
+        ticket.cacheKey ?? component.geometry.defaultCacheKey,
+        ticket.params ?? {},
+      );
       binary(res, 200, artifact.data, artifact.mime, artifact.fileName);
       return true;
     }

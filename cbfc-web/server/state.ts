@@ -27,6 +27,9 @@ export interface DownloadTicketRecord {
   expiresAt: number;
   sizeBytes: number;
   checksum: string;
+  cacheKey?: string;
+  params?: Record<string, number | string | boolean>;
+  modelNumber?: string;
 }
 
 export interface HandoffRecord {

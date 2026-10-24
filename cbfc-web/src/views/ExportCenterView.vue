@@ -21,6 +21,7 @@ const ui = useUiStore();
 
 const components = ref<ComponentSummary[]>([]);
 const selectedFamily = ref('');
+const selectedModel = ref('');
 const detail = ref<ComponentDetail | null>(null);
 const formats = ref<FormatRow[]>([]);
 const search = ref('');
@@ -67,6 +68,10 @@ const visibleFormats = computed(() =>
     (format): format is FormatRow => Boolean(format),
   ),
 );
+const presetOptions = computed(() => detail.value?.parameters.presets ?? []);
+const selectedPreset = computed(
+  () => presetOptions.value.find((preset) => preset.modelNumber === selectedModel.value) ?? null,
+);
 function isFormatAvailable(id: string) {
   return formats.value.find((format) => format.id === id)?.available ?? true;
 }
@@ -85,6 +90,11 @@ async function selectComponent(familyId: string) {  selectedFamily.value = famil
     ]);
     detail.value = component;
     formats.value = formatResponse.formats;
+    const defaultModel = String(component.parameters.schema[0]?.default ?? '');
+    selectedModel.value =
+      component.parameters.presets.find((preset) => preset.modelNumber === defaultModel)?.modelNumber ??
+      component.parameters.presets[0]?.modelNumber ??
+      '';
   } catch (error) {
     ui.notify({ type: 'error', title: '构件加载失败', message: String(error) });
   }
@@ -99,7 +109,7 @@ async function exportIfc() {
   if (!detail.value) return;
   ifcBusy.value = true;
   try {
-    const result = await api.exportIfc(detail.value.familyId);
+    const result = await api.exportIfc(detail.value.familyId, selectedModel.value || undefined);
     triggerDownload(result.downloadUrl, result.fileName);
     ui.notify({
       type: result.unmapped.length ? 'warning' : 'success',
@@ -249,6 +259,20 @@ onMounted(async () => {
               </div>
               <p class="mt-2 line-clamp-2 text-[11px] leading-relaxed text-[#4B5563]">{{ detail.description }}</p>
 
+              <div v-if="presetOptions.length" class="mt-3 rounded border border-line bg-[#FAFBFC] px-2.5 py-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  <label class="text-[10px] font-medium text-[#374151]" for="export-model">导出型号</label>
+                  <select id="export-model" v-model="selectedModel" class="select !w-auto min-w-[230px] !py-1 !text-[11px]">
+                    <option v-for="preset in presetOptions" :key="preset.modelNumber" :value="preset.modelNumber">
+                      {{ preset.modelNumber }} · {{ preset.label }}
+                    </option>
+                  </select>
+                </div>
+                <p v-if="selectedPreset" class="mt-1 text-[9px] text-muted">
+                  {{ selectedPreset.label }} · {{ selectedPreset.isPrebaked ? '预烘焙' : '按需求解' }}
+                </p>
+              </div>
+
               <div class="mt-3 flex flex-wrap gap-1.5">
                 <button class="btn btn-primary btn-sm" @click="openExport('cbfc')">
                   <AppIcon name="package" :size="13" />下载 .cbfc
@@ -331,6 +355,7 @@ onMounted(async () => {
       :open="exportOpen"
       :component="detail"
       :initial-format="exportFormat"
+      :model-number="selectedModel"
       @close="exportOpen = false"
     />
   </div>
