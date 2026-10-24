@@ -388,15 +388,19 @@ function collapseTree() {
   expandedTree.value = new Set();
 }
 
+function toggleTreeExpand(code: string) {
+  const next = new Set(expandedTree.value);
+  if (next.has(code)) next.delete(code);
+  else next.add(code);
+  expandedTree.value = next;
+}
+
 function selectTaxonomy(code: string, label: string) {
   taxonomyFilter.value = code;
   taxonomyFilterLabel.value = label;
   familyFilter.value = '';
   selectedModel.value = '';
   status.value = 'all';
-  const next = new Set(expandedTree.value);
-  next.add(code);
-  expandedTree.value = next;
   page.value = 1;
   reload();
 }
@@ -688,20 +692,29 @@ onBeforeUnmount(() => {
           </button>
 
           <template v-for="row in treeRows" :key="`${row.type}-${row.code}-${row.depth}`">
-            <button
+            <div
               v-if="row.type === 'category'"
               :data-taxonomy-code="row.code"
+              role="button"
+              tabindex="0"
               class="flex w-full items-center gap-1 rounded-[4px] px-1 py-1.5 text-left transition-colors hover:bg-[#F3F6F8]"
               :class="taxonomyFilter === row.code ? 'bg-[#EDF4F8] font-semibold text-primary' : 'text-[#4B5563]'"
               :style="{ paddingLeft: `${6 + row.depth * 12}px` }"
               @click="selectTaxonomy(row.code, row.label)"
+              @keydown.enter="selectTaxonomy(row.code, row.label)"
+              @keydown.space.prevent="selectTaxonomy(row.code, row.label)"
             >
-              <span class="flex h-4 w-4 shrink-0 items-center justify-center text-[#9CA3AF]">
+              <button
+                class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[#9CA3AF] hover:bg-[#E8EFF4] hover:text-primary"
+                :aria-label="expandedTree.has(row.code) ? '收起分类' : '展开分类'"
+                :aria-expanded="expandedTree.has(row.code)"
+                @click.stop="toggleTreeExpand(row.code)"
+              >
                 <AppIcon :name="expandedTree.has(row.code) ? 'chevronDown' : 'chevronRight'" :size="10" />
-              </span>
+              </button>
               <span class="min-w-0 flex-1 truncate text-[10.5px] font-medium text-[#4B5563]">{{ row.label }}</span>
               <span class="mono shrink-0 text-[8.5px] text-[#B0BAC3]">{{ row.familyCount }}族</span>
-            </button>
+            </div>
 
             <div
               v-else-if="row.type === 'family'"
