@@ -1,4 +1,4 @@
-# CBF-C 构件数据格式与工程落地规范 v1.3.2（极简构件模板 + 外部语义映射架构版）
+# RCIF 构件数据格式与工程落地规范 v1.3.2（极简构件模板 + 外部语义映射架构版）
 
 - **版本**：1.3.2 (Refactored Clean Architecture & Verified Baseline)
 - **状态**：正式标准基线（Approved Specification Baseline）
@@ -24,7 +24,7 @@
 
 1. **借鉴 Civil 3D `Code Set` 与 Revit `Subcategory`：将“行业标准映射”从构件包中彻底剥离至外部《语义标准映射表》**
    - **构件包（`component.json`）只贴语义码（Semantic Code）并提供映射表提示（`semanticProfileHint`）**：构件内的几何部位（`shapes`）只声明一个轻量的语义编码 `code`（例如 `"Subgrade.SlopeBody"`、`"Subgrade.SlopeFace"`、`"Subgrade.ShoulderLine"`、`"Subgrade.ToeLine"`），不再在每个构件包里重复书写 `CRBIM` / `GB/T 51269` 分类码、`IfcShapeAspect` 语法或 `Qto_*` 算量绑定。
-   - **系统级/项目级《语义标准映射表》（`semantic_profiles.json`）集中管理标准映射**：所有与行业分类编码标准、IFC 4.3 导出实体、标准算量集（`Qto_*`）及二维制图样式（如示坡线角色 `SlopeIndication`）相关的映射规则，统一抽离到宿主系统的公共配置文件 `semantic_profiles.json` 中。**切换行业标准（如铁路标准切换为公路标准）只需切换外部映射表，成千上万个 `.cbfc` 构件包无需改动一行！**
+   - **系统级/项目级《语义标准映射表》（`semantic_profiles.json`）集中管理标准映射**：所有与行业分类编码标准、IFC 4.3 导出实体、标准算量集（`Qto_*`）及二维制图样式（如示坡线角色 `SlopeIndication`）相关的映射规则，统一抽离到宿主系统的公共配置文件 `semantic_profiles.json` 中。**切换行业标准（如铁路标准切换为公路标准）只需切换外部映射表，成千上万个 `.rcif` 构件包无需改动一行！**
 2. **借鉴 Archicad GDL：计算逻辑内聚于建模引擎，废除 JSON 表达式造轮子**
    - 彻底移除 `component.json` 中的前端公式求值（`derived.expr`）、复杂约束表达式（`constraints.expr`）及连接端口坐标公式。
    - 所有派生参数计算、参数合法性校验、曲线自适应连接端口坐标（`anchors`）统一由建模引擎内部计算并通过 JHB 协议返回，`component.json` 回归纯粹的静态数据结构。
@@ -49,7 +49,7 @@
 
 ```mermaid
 flowchart LR
-    subgraph CBFC ["1. 极简构件定义包 (.cbfc)"]
+    subgraph RCIF ["1. 极简构件定义包 (.rcif)"]
         CJ["component.json<br/>(参数 + 型号表 + 配方 + shapes<br/>+ semanticProfileHint)"]
         GEN["建模引擎<br/>(cadquery / zw3d / occt-wasm)"]
         CBF["几何载体 (.cbf / .step / .glb)<br/>含命名锚点: ShoulderLine/Left_1"]
@@ -71,19 +71,19 @@ flowchart LR
 
 | 载体名称 | 扩展名 / 格式 | 定位与职责 |
 | :--- | :--- | :--- |
-| **构件定义包** | **`.cbfc`** (ZIP) | **构件库中的“族模板”**。文件名为 `<familyId>_<revision>.cbfc`（同一构件库内 `familyId` 唯一且满足 `^[A-Za-z0-9_-]+$`）。内含极简清单 `component.json`、预览网格 `display/preview.glb`、可选预烘焙几何 `geometry/default.*` 及校验清单 `checksums.json`。 |
+| **构件定义包** | **`.rcif`** (ZIP) | **构件库中的“族模板”**。文件名为 `<familyId>_<revision>.rcif`（同一构件库内 `familyId` 唯一且满足 `^[A-Za-z0-9_-]+$`）。内含极简清单 `component.json`、预览网格 `display/preview.glb`、可选预烘焙几何 `geometry/default.*` 及校验清单 `checksums.json`。 |
 | **外部语义标准映射表** | **`semantic_profiles.json`** | **宿主系统/项目级公共配置（Code Set Style）**。定义各语义码（`code`）到国标/行标分类编码、IFC 4.3 实体与算量集、二维制图角色及标准物理材质库的映射规则。 |
 | **几何缓存制品** | **`.cbf` / `.step` / `.glb`** | **运行时按 `<cacheKey>` 寻址的几何快照**。存储精确 BRep 或网格，并在子形状上携带 `<shapeKey>[/<instanceTag>]` 命名锚点。 |
 | **项目交付包** | **`.rde`** (ZIP) | **工程项目容器**。存储主模型树（实例引用 + 型号选择/参数覆盖 + 空间布置）、当前项目绑定的 `semantic_profiles.json` 快照、二维工程图纸及去重几何缓存池（`geometry/<cacheKey>.*`）。 |
 
 ---
 
-## 2. `.cbfc` 构件定义包物理结构
+## 2. `.rcif` 构件定义包物理结构
 
-每个 `.cbfc` 为标准 Deflate ZIP 归档包（UTF-8 文件名编码），内部结构极简固定：
+每个 `.rcif` 为标准 Deflate ZIP 归档包（UTF-8 文件名编码），内部结构极简固定：
 
 ```text
-<familyId>_<revision>.cbfc (ZIP 容器)
+<familyId>_<revision>.rcif (ZIP 容器)
 ├── component.json          # [必须] 极简权威清单（身份、参数表、规格型号、建模配方、命名几何槽位）
 ├── geometry/               # [可选] 默认参数下的预烘焙几何制品（支持多格式并存）
 │   ├── default.cbf         #        OCCT BinXCAF 原生精确几何（与 defaultCacheKey 严格同源）
@@ -201,8 +201,8 @@ flowchart LR
 >    本规范借鉴 Civil 3D `Code Set Style` 与 Revit `IFC Export Mapping Table`，将易随行业/项目标准变化的映射规则剥离至外部的 **《语义标准映射表》（`semantic_profiles.json`，详见第 4.3 节）**。`component.json` 只需通过 `identity.semanticCode`（构件级）与 `shapes.<Key>.code`（几何部位级）声明稳定的语义码（格式满足 `^[A-Z][A-Za-z0-9]*(\.[A-Z][A-Za-z0-9]*)+$`，如 `"Subgrade.ShoulderLine"`），并通过 `identity.semanticProfileHint` 提示默认推荐的外部映射表 ID 及主次版本（如 `"Railway-CRBIM-IFC4X3@1.3"`，仅锁定 `major.minor`，补丁版本如 `1.3.1` 自动兼容）。
 > 2. **外部语义映射表的三级解析优先级与覆盖规则**：
 >    - **优先级 1（构件内按需局部覆盖）**：若极少数非标构件在 `shapes.<Key>` 下直接书写了 `classifications` 或 `ifc` 字段，采用**整字段直接替换（Replace）**策略优先使用构件内定义；
->    - **优先级 2（当前工程项目激活的外部映射表）**：宿主工程（`.rde` 项目配置）当前启用的 `semantic_profiles.json`（例如在铁路项目中激活 `"Railway-CRBIM-IFC4X3@1.3"`，在公路项目中一键切换为 `"Highway-JTG-IFC4X3@1.3"`，无需修改任何 `.cbfc` 构件包）；
->    - **优先级 3（`identity.semanticProfileHint` 默认回退）**：当脱离工程项目独立预览或导出单个 `.cbfc` 构件时，宿主系统自动加载 `semanticProfileHint` 指向的内置语义映射表。若某 `code` 在映射表中未找到，导出报告将其标记为 `unmapped` 并保留基础几何。
+>    - **优先级 2（当前工程项目激活的外部映射表）**：宿主工程（`.rde` 项目配置）当前启用的 `semantic_profiles.json`（例如在铁路项目中激活 `"Railway-CRBIM-IFC4X3@1.3"`，在公路项目中一键切换为 `"Highway-JTG-IFC4X3@1.3"`，无需修改任何 `.rcif` 构件包）；
+>    - **优先级 3（`identity.semanticProfileHint` 默认回退）**：当脱离工程项目独立预览或导出单个 `.rcif` 构件时，宿主系统自动加载 `semanticProfileHint` 指向的内置语义映射表。若某 `code` 在映射表中未找到，导出报告将其标记为 `unmapped` 并保留基础几何。
 
 ### 3.2 核心字段设计规范
 
@@ -235,7 +235,7 @@ flowchart LR
 
 - **`recipe` 核心字段与 `engine` 明确枚举表**：
   - **`engine`**：明确指向具体的**建模框架/引擎标识**（见下表）；
-  - **`source`**：脚本或模板位置。存放在后端建模服务目录时写 `"service://<script_name>"`（解析为仓库根 `<repo>/cq_script/<script_name>.py`，见 [`scripts-service/main.py:224`](file:///D:/QtOCCTApp/scripts-service/main.py#L224)）；直接打包在当前 `.cbfc` 包内时写包内相对路径（如 `"generators/subgrade_slope.py"`）；
+  - **`source`**：脚本或模板位置。存放在后端建模服务目录时写 `"service://<script_name>"`（解析为仓库根 `<repo>/cq_script/<script_name>.py`，见 [`scripts-service/main.py:224`](file:///D:/QtOCCTApp/scripts-service/main.py#L224)）；直接打包在当前 `.rcif` 包内时写包内相对路径（如 `"generators/subgrade_slope.py"`）；
   - **`entry`**（可选）：脚本内的入口函数名（如 `"build"`，省略时直接执行脚本顶层代码）；
   - **`version`** & **`digest`**：脚本版本号与文件 SHA-256 摘要（纳入 `cacheKey` 计算）；
   - **`inputs`**：传给该建模引擎的输入参数名列表。
@@ -564,12 +564,12 @@ public:
 4. **补齐 `ProjectManager::SaveAll()` 的流式原子替换保护**（[ProjectManager.cpp](file:///D:/QtOCCTApp/core-data-model/ProjectManager.cpp#L202-L218)）：
    - 先通过 `std::ofstream` 二进制流调用 `m_app->SaveAs(doc, ofs)` 写入同目录 `<filename>.tmp`，成功后调用 `MoveFileExW` 原子替换目标文件。
 
-### 阶段二：落地极简 `.cbfc` 读写器与外部《语义标准映射表》（P1，中期迭代）
+### 阶段二：落地极简 `.rcif` 读写器与外部《语义标准映射表》（P1，中期迭代）
 
-1. **实现 `CbfcPackageReader` 与 `SemanticProfileRegistry`**：读取极简 `component.json`（校验 `defaultCacheKey`、解析 `presets` 规格型号表与 `shapes[*].code`），并通过加载公共 `semantic_profiles.json` 自动关联行业分类编码、IFC 4.3 规则与二维制图角色。
+1. **实现 `RcifPackageReader` 与 `SemanticProfileRegistry`**：读取极简 `component.json`（校验 `defaultCacheKey`、解析 `presets` 规格型号表与 `shapes[*].code`），并通过加载公共 `semantic_profiles.json` 自动关联行业分类编码、IFC 4.3 规则与二维制图角色。
 2. **升级 `IfcExportService`**：基于 `semantic_profiles.json` 的映射规则与 `quantityUnits` 动态单位换算，将 `presets` 导出为 `IfcTypeProduct`、主实体导出为 `IfcProduct`、具名子形状（`SlopeFace/*`、`ShoulderLine/*`、`ToeLine/*`）导出为 `IfcShapeAspect` 并挂载 `IfcClassificationReference` 与 `IfcElementQuantity`。
 
 ### 阶段三：多建模引擎、多几何格式与多内核抽象演进（P2，长期演进）
 
 1. **下沉 `OcctKernelAdapter` 与 `STEP AP242` / `glTF 2.0` 命名锚点读写器**：实现第 4.2 节的跨格式命名锚点映射。
-2. **构建 `catalog.sqlite` 本地构件库索引**：扫描 `.cbfc` 包内的 `component.json` 提供按语义码、分类编码和预定义规格型号的快速检索。
+2. **构建 `catalog.sqlite` 本地构件库索引**：扫描 `.rcif` 包内的 `component.json` 提供按语义码、分类编码和预定义规格型号的快速检索。
