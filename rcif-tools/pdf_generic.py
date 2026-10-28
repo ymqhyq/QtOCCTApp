@@ -237,9 +237,9 @@ def build(params=None):
 '''
 
 
-def _component(kind, dims, params, name, family_id, revision, source_pdf, page_count, text_layer, confidence, missing, warnings, evidence, stage_dir, pkg_sha):
+def _component(kind, dims, params, name, family_id, revision, source_pdf, page_count, text_layer, confidence, missing, warnings, evidence, stage_dir):
     parts = _parts(kind, dims)
-    bounds = {"x": [0.0, 0.0], "y": [0.0, 0.0], "z": [0.0, 0.0]}
+    bounds = {"x": [float("inf"), float("-inf")], "y": [float("inf"), float("-inf")], "z": [float("inf"), float("-inf")]}
     shape_meta = OrderedDict()
     total_volume = 0.0
     for key, shape in parts.items():
@@ -257,6 +257,8 @@ def _component(kind, dims, params, name, family_id, revision, source_pdf, page_c
             "node": key,
             "volumeM3": volume,
         }
+    for axis in ("x", "y", "z"):
+        bounds[axis] = [round(bounds[axis][0], 3), round(bounds[axis][1], 3)]
     schema = [
         {"name": "ModelNumber", "label": "草稿型号", "type": "enum", "default": f"{kind.upper()}-DRAFT"},
         {"name": "ComponentType", "label": "构件类型", "type": "enum", "default": kind},
@@ -275,6 +277,7 @@ def _component(kind, dims, params, name, family_id, revision, source_pdf, page_c
     }
     with open(os.path.join(stage_dir, "generators", "generator.py"), "rb") as handle:
         generator_digest = hashlib.sha256(handle.read()).hexdigest()
+    cache_key = rcifc.compute_cache_key(generator_digest, preset_params)
     component = {
         "format": "cbf-component",
         "schemaVersion": "1.4.2",
@@ -294,8 +297,8 @@ def _component(kind, dims, params, name, family_id, revision, source_pdf, page_c
         },
         "description": f"由 {source_pdf['name']} 通用解析生成的可审阅体量草稿；类型={TYPE_NAMES.get(kind, kind)}，需工程师复核尺寸与剖面。",
         "environment": {"units": {"length": "mm", "angle": "rad", "mass": "t"}, "upAxis": "Z", "forwardAxis": "X", "tolerance": {"linear": 0.01, "angular": 0.001}},
-        "parameters": {"schema": schema, "presets": [{"modelNumber": preset_params["ModelNumber"], "label": "通用草稿", "drawingCode": source_pdf["name"], "params": preset_params, "isPrebaked": True, "cacheKey": hashlib.sha256(json.dumps(preset_params, sort_keys=True).encode()).hexdigest()}]},
-        "geometry": {"exactBrep": True, "defaultFormat": "step", "file": "geometry/default.step", "defaultFile": "geometry/default.step", "display": "display/preview.glb", "bounds": bounds, "volumeM3": round(total_volume, 3), "defaultCacheKey": hashlib.sha256(json.dumps(preset_params, sort_keys=True).encode()).hexdigest()},
+        "parameters": {"schema": schema, "presets": [{"modelNumber": preset_params["ModelNumber"], "label": "通用草稿", "drawingCode": source_pdf["name"], "params": preset_params, "isPrebaked": True, "cacheKey": cache_key}]},
+        "geometry": {"exactBrep": True, "defaultFormat": "step", "file": "geometry/default.step", "defaultFile": "geometry/default.step", "display": "display/preview.glb", "bounds": bounds, "volumeM3": round(total_volume, 3), "defaultCacheKey": cache_key},
         "shapes": shape_meta,
         "ports": [{"name": "Origin", "type": "reference", "position": [0.0, 0.0, 0.0]}],
         "recipe": {"engine": "cadquery", "source": "generators/generator.py", "entry": "build_parts", "version": "1.4.2", "digest": generator_digest, "inputs": ["ComponentType", "Length", "Width", "Height", "Diameter", "WallThickness"]},
@@ -310,7 +313,6 @@ def _component(kind, dims, params, name, family_id, revision, source_pdf, page_c
             "missingParameters": missing,
             "warnings": warnings,
             "dimensionEvidence": evidence,
-            "packageSha256": pkg_sha,
             "note": "通用草稿不是精确图纸识别；必须通过 3D 截图/脚本批注/助手多轮对话复核。",
         },
         "changelog": [{"version": revision, "date": date.today().isoformat(), "author": "RCIF-DSH-Studio", "type": "initial", "changes": ["通用 PDF 解析生成体量草稿", f"类型 {kind}，置信度 {confidence:.2f}"]}],
@@ -375,12 +377,7 @@ def convert_generic_pdf(pdf_path: str, output_rcif: str, family_id: str = "Gener
         # component needs the generated script digest, so build it after writing.
         component, _ = _component(kind, dims, params_for_script, resolved_name, family_id, revision,
                                   {"name": filename, "sha256": _sha256(pdf_path)}, page_count,
-                                  bool(text.strip()), confidence, missing, warnings, evidence, stage_dir, "")
-        pkg, pkg_sha = rcifc.build_rcif_package(stage_dir, output_rcif, component)
-        component["qa"]["packageSha256"] = pkg_sha
-        with open(os.path.join(stage_dir, "component.json"), "w", encoding="utf-8") as handle:
-            json.dump(component, handle, ensure_ascii=False, indent=2)
-        # Rebuild once so component.json inside the package carries the final sha.
+                                  bool(text.strip()), confidence, missing, warnings, evidence, stage_dir)
         pkg, pkg_sha = rcifc.build_rcif_package(stage_dir, output_rcif, component)
         return pkg, {
             "packageSha256": pkg_sha,

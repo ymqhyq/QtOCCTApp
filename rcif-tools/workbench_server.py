@@ -608,7 +608,7 @@ async def command(request: Request):
     return {
         "ok": True,
         "delivered": False,
-        "deliveryReason": "FastAPI 调试后端没有 Agent 会话；请在 DSH 实例（3080）中使用工作台",
+        "deliveryReason": "FastAPI 调试后端没有 Agent 会话；请在 DSH 实例（3090）中使用工作台",
         "prompt": text,
     }
 
@@ -623,7 +623,7 @@ async def feedback(request: Request):
     return {
         "ok": True,
         "delivered": False,
-        "deliveryReason": "FastAPI 调试后端不具备 Agent 会话注入能力；请在 DSH 实例（3080）中使用",
+        "deliveryReason": "FastAPI 调试后端不具备 Agent 会话注入能力；请在 DSH 实例（3090）中使用",
         "annotationCount": len(annotations),
         "screenshotPath": None,
     }

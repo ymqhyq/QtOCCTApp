@@ -75,7 +75,7 @@ rcif-studio-plugin  Error: cannot get property "sidebarRightTabs" without inject
 
 **修改**：`dsh-rcif/dist/index.js` 全量重写为真实 Host 插件（`inject: ['webServer','connection','tools']`、`ctx.effect(() => ctx.webServer.register(...))`、`connection.requestRejection` + owner Peer、`ctx.tools.register` 合规定义、总线式 `child` 看门狗、路径收敛、结构化错误）。新增 `dsh-rcif/test/plugin-contract.test.mjs`（11 项，全部通过）。
 
-**诚实边界**：原生 React 右栏 Tab 需要独立客户端插件（`dsh.client` + `slots` React 组件），本次未伪造一个未经运行时验证的客户端 bundle；现阶段工作台通过 DSH 内置 `ui-sidebar-browser`（profile 已启用）访问 `http://127.0.0.1:3080/rcif-studio/workbench/`。插件已提供 `rcif:init` / `?sessionId=` 握手，后续替换为原生 Tab 时前端无需改动。
+**诚实边界**：原生 React 右栏 Tab 需要独立客户端插件（`dsh.client` + `slots` React 组件），本次未伪造一个未经运行时验证的客户端 bundle；现阶段工作台通过 DSH 内置 `ui-sidebar-browser`（profile 已启用）访问 `http://127.0.0.1:3090/rcif-studio/workbench/`。插件已提供 `rcif:init` / `?sessionId=` 握手，后续替换为原生 Tab 时前端无需改动。
 
 ### P0-2 工作台与宿主契约互相错位
 
@@ -292,7 +292,7 @@ Node(Ed25519) 签发审批单 → Python 验签通过（NODE_SIGNATURE_VERIFIED_
 - **七功能区工作台**：元数据 / 3D / 参数 / 脚本 / 部位 / 型号 / 入库；自然语言、行批注、3D 截图统一经 `/api/feedback` 送达 Agent；工作台 2.5s 轮询 `/api/state` 自动加载新包。
 - **Agent 工具扩充**：`rcif_ingest_ifc`、`rcif_open_package`，所有 `rcif_ingest_*` 完成后自动推送工作台。
 - **入库**：`POST /api/library/ingest` + `rcif-web /api/v1/components/import-rcif`，实测生成 `RV-2026-324`（PdfUi，49 型号，8 shapes，reviewing）。
-- **验证**：宿主契约 19/19、Python 12/12、rcif-web 39/39、headless Chrome 八功能区 0 JS 异常、真实 GLB/截图/入库全链路通过；多会话下 `sessionId → package` 隔离已实测（A 有包、B 为空）。
+- **验证**：宿主契约 19/19、Python 13/13、rcif-web 39/39、headless Chrome 八功能区 0 JS 异常、真实 GLB/截图/入库全链路通过；多会话下 `sessionId → package` 隔离已实测（A 有包、B 为空）。
 
 ## 9. 增量：固定工作目录 → 工作区 → 会话（同日实施）
 

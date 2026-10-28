@@ -26,7 +26,6 @@
       <div class="header-status">
         <button class="tool-btn" id="btnToggleTree" type="button" title="收起/展开左侧工作区与会话">☰</button>
         <button class="tool-btn" id="btnFullscreen" type="button" title="工作台全屏">全屏</button>
-        <button class="tool-btn" id="btnCopySession" type="button">复制会话 ID</button>
         <button class="primary-btn" id="btnOpenAssistant" type="button">打开智能助手</button>
         <span id="sessionStatus" class="status-pill disconnected">未连接</span>
       </div>
@@ -39,12 +38,12 @@
             <strong>工作区与会话</strong>
             <span id="assistantRootLabel" class="tree-root">-</span>
           </div>
-          <button class="tool-btn" id="btnNewWorkspace" type="button">＋工作区</button>
+          <div class="tree-head-actions">
+            <button class="tool-btn" id="btnNewWorkspace" type="button">＋ 工作区</button>
+            <button class="tool-btn" id="btnNewSession" type="button">新会话</button>
+          </div>
         </div>
         <div id="treeRoot" class="tree-scroll"></div>
-        <div class="tree-foot">
-          <button class="action-btn-small" id="btnNewSession" type="button">＋ 当前工作区新会话</button>
-        </div>
       </aside>
 
       <div class="wb-main">
@@ -66,6 +65,9 @@
               <div>
                 <h2>当前会话</h2>
                 <p class="panel-sub">每个工作台操作都属于一个工作区会话；源文件、构件名称、输出路径随会话保存</p>
+              </div>
+              <div class="panel-actions">
+                <button class="action-btn-small" id="btnCopySession" type="button">复制会话 ID</button>
               </div>
             </div>
             <div id="sessionEmpty" class="empty-state">
@@ -165,31 +167,94 @@
               <div class="view3d-main">
                 <div class="viewport-toolbar">
                   <div class="preset-selector"><label>型号:</label><select id="presetSelect"><option value="">（从型号列表选择）</option></select></div>
-                  <div class="view-controls">
-                    <button class="tool-btn" id="btnViewIso">等轴测</button>
-                    <button class="tool-btn" id="btnViewFront">正视</button>
-                    <button class="tool-btn" id="btnViewSide">侧视</button>
-                    <button class="tool-btn" id="btnViewPlan">俯视</button>
-                    <button class="tool-btn" id="btnWireframe">棱线</button>
-                    <button class="tool-btn" id="btnResetCamera">重置</button>
-                    <button class="tool-btn" id="btnFullscreen3D">全屏</button>
-                    <button class="tool-btn" id="btnScreenshot">📷 截图</button>
+                  <div class="view-popover" id="viewPopover">
+                    <button class="tool-btn" id="btnViewMenu" title="视图与投影">视图 轴测 ▾</button>
+                    <div class="popover-menu" id="viewMenu" hidden>
+                      <div class="popover-title">视图</div>
+                      <button class="menu-item" id="btnViewIso" data-view="iso">轴测</button>
+                      <button class="menu-item" id="btnViewFront" data-view="front">正视</button>
+                      <button class="menu-item" id="btnViewSide" data-view="side">侧视</button>
+                      <button class="menu-item" id="btnViewPlan" data-view="plan">俯视</button>
+                      <div class="popover-divider"></div>
+                      <button class="menu-item" id="btnProjection" title="切换透视/正交投影">投影 透视</button>
+                      <button class="menu-item" id="btnFit" title="适配视口">适配视口</button>
+                      <button class="menu-item" id="btnResetCamera" title="回到轴测视图">重置视图</button>
+                    </div>
                   </div>
-                  <button class="tool-btn" id="btnToggleScreenshots" title="收起截图栏">
-                    <svg class="tool-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"></rect>
-                      <path d="M16 4v16" stroke="currentColor" stroke-width="2"></path>
-                    </svg>
-                    <span id="screenshotToggleLabel">收起</span>
-                  </button>
+                  <div class="view-popover" id="displayPopover">
+                    <button class="tool-btn" id="btnRenderMode" title="显示与渲染设置">显示 着色 ▾</button>
+                    <div class="popover-menu" id="displayMenu" hidden>
+                      <div class="popover-title">渲染模式</div>
+                      <button class="menu-item" data-render-mode="shaded">着色</button>
+                      <button class="menu-item" data-render-mode="wireframe">线框</button>
+                      <button class="menu-item" data-render-mode="xray">X-Ray</button>
+                      <div class="popover-divider"></div>
+                      <button class="menu-item" id="btnEdges">黑边</button>
+                      <button class="menu-item" id="btnLineWidth">线宽 1.0</button>
+                    </div>
+                  </div>
+                  <div class="view-popover" id="clipPopover">
+                    <button class="tool-btn" id="btnClipMenu" title="剖切">剖切 ▾</button>
+                    <div class="popover-menu" id="clipMenu" hidden>
+                      <div class="popover-title">剖切轴</div>
+                      <div class="clip-axes">
+                        <button class="tool-btn clip-axis" data-clip-axis="x">X</button>
+                        <button class="tool-btn clip-axis" data-clip-axis="y">Y</button>
+                        <button class="tool-btn clip-axis" data-clip-axis="z">Z</button>
+                        <button class="tool-btn" id="btnClipClear" title="关闭剖切">✕</button>
+                      </div>
+                      <div id="clipSliderWrap" class="clip-slider" hidden>
+                        <input type="range" id="clipRange" min="2" max="98" value="76" />
+                        <span class="mono" id="clipValue">76%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button class="tool-btn" id="btnMeasure" title="点对点测距">测距</button>
+                  <button class="tool-btn" id="btnViewerParts" title="显示/隐藏命名部位">部位</button>
+                  <button class="tool-btn toolbar-spacer-btn" id="btnFullscreen3D" title="3D 全屏">全屏</button>
+                  <button class="tool-btn" id="btnScreenshot" title="3D 截图">📷</button>
+                  <div class="view-popover" id="morePopover">
+                    <button class="tool-btn" id="btnMoreMenu">更多 ▾</button>
+                    <div class="popover-menu" id="moreMenu" hidden>
+                      <button class="menu-item" id="btnHideViewTools">收起工具条</button>
+                    </div>
+                  </div>
                 </div>
+                <button class="screenshot-edge-tab" id="btnToggleScreenshots" title="收起截图栏">
+                  <svg class="tool-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"></rect>
+                    <path d="M16 4v16" stroke="currentColor" stroke-width="2"></path>
+                  </svg>
+                </button>
+                <button class="tool-btn view-tools-restore" id="btnShowViewTools" hidden>显示工具条</button>
                 <div class="viewport-container" id="cadCanvasContainer">
                   <canvas id="cadCanvas"></canvas>
+                  <canvas id="viewerAxes" class="viewer-axes" width="92" height="92" aria-label="坐标系"></canvas>
                   <div class="hud-info" id="hudInfo">
                     <div class="hud-item"><strong>部位:</strong> <span id="hudPartName">点击 3D 实体</span></div>
                     <div class="hud-item"><strong>材质:</strong> <span id="hudMaterial">-</span></div>
                     <div class="hud-item"><strong>体积:</strong> <span id="hudVolume">-</span></div>
                     <div class="hud-item"><strong>语义码:</strong> <span id="hudCode">-</span></div>
+                    <div class="hud-item"><strong>面:</strong> <span id="hudFace">-</span></div>
+                    <div class="hud-item"><strong>点:</strong> <span id="hudPoint">-</span></div>
+                  </div>
+                  <div class="viewer-parts-panel" id="viewerPartsPanel" hidden>
+                    <div class="viewer-parts-head">
+                      <strong>命名部位</strong>
+                      <span class="mono" id="viewerPartsCount">0</span>
+                      <button class="action-btn-small" id="btnCloseViewerParts">×</button>
+                    </div>
+                    <div id="viewerPartsList" class="viewer-parts-list"></div>
+                  </div>
+                  <div class="measure-hint" id="measureHint" hidden>点击模型拾取 A 点，再次点击拾取 B 点</div>
+                  <div class="measure-result" id="measureResult" hidden>
+                    <div class="measure-head">
+                      <span>端点吸附测距</span>
+                      <button class="action-btn-small" id="btnClearMeasure">×</button>
+                    </div>
+                    <div class="measure-distance"><span id="measureDistance">0</span> <small>mm</small></div>
+                    <div class="measure-row"><span>水平投影</span><span><b id="measureHorizontal">0</b> mm</span></div>
+                    <div class="measure-row"><span>高差 ΔZ</span><span><b id="measureDeltaZ">0</b> mm</span></div>
                   </div>
                   <div class="viewport-empty" id="viewportEmpty"><span>当前会话尚未加载 preview.glb</span></div>
                 </div>
@@ -242,13 +307,6 @@
                   <span class="file-path" id="sourcePathLabel">📄 无构建脚本</span>
                   <div class="code-actions">
                     <button class="action-btn-small" id="btnRefreshSource">重新加载脚本</button>
-                    <button class="action-btn-small" id="btnToggleAnnotations" hidden title="收起批注栏">
-                      <svg class="tool-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"></rect>
-                        <path d="M16 4v16" stroke="currentColor" stroke-width="2"></path>
-                      </svg>
-                      <span id="annotationToggleLabel">收起</span>
-                    </button>
                     <button class="action-btn-small" id="btnEditSource" hidden>编辑源码并重建</button>
                     <span class="mono" id="selectedLinesDisplay">L1-L1</span>
                   </div>
@@ -267,6 +325,12 @@
                     <span id="sourceRebuildStatus" class="feedback-text"></span>
                   </div>
                 </div>
+                <button class="screenshot-edge-tab annotation-edge-tab" id="btnToggleAnnotations" hidden title="收起批注栏">
+                  <svg class="tool-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"></rect>
+                    <path d="M16 4v16" stroke="currentColor" stroke-width="2"></path>
+                  </svg>
+                </button>
               </div>
               <aside class="annotation-sidebar" id="annotationSidebar" hidden>
                 <div class="annotation-side-head">
@@ -352,22 +416,30 @@
             </div>
           </section>
         </div>
+
+        <footer class="wb-chat">
+          <div class="chat-head">
+            <div class="chat-title">💬 向智能助手发送 · 批注 <span id="chatAnnotationCount">0</span> · 截图 <span id="chatScreenshotCount">0</span></div>
+            <div class="chat-context" id="chatContext">尚未绑定会话</div>
+          </div>
+          <div class="chat-row">
+            <textarea id="feedbackInput" placeholder="描述修改意见，例如：台身加宽 200mm、垫石下移 50mm、把前墙收坡改为 1:4……"></textarea>
+            <div class="chat-actions">
+              <button class="primary-btn" id="btnSendFeedback">发送给助手</button>
+            </div>
+          </div>
+          <div class="chat-foot"><span id="feedbackStatus" class="feedback-text"></span></div>
+          <div id="screenshotModal" class="image-modal" hidden>
+            <div class="image-modal-card">
+              <img id="screenshotModalImg" alt="3D 截图大图" />
+              <button class="action-btn-small" id="btnCloseScreenshotModal">关闭</button>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
 
-    <footer class="wb-chat">
-      <div class="chat-head">
-        <div class="chat-title">💬 向智能助手发送 · 批注 <span id="chatAnnotationCount">0</span> · 截图 <span id="chatScreenshotCount">0</span></div>
-        <div class="chat-context" id="chatContext">尚未绑定会话</div>
-      </div>
-      <div class="chat-row">
-        <textarea id="feedbackInput" placeholder="描述修改意见，例如：台身加宽 200mm、垫石下移 50mm、把前墙收坡改为 1:4……"></textarea>
-        <div class="chat-actions">
-          <button class="primary-btn" id="btnSendFeedback">发送给助手</button>
-        </div>
-      </div>
-      <div class="chat-foot"><span id="feedbackStatus" class="feedback-text"></span></div>
-    </footer>
+
   </div>
 
   <script type="module" src="workbench.js"></script>

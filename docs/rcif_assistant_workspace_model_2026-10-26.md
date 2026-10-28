@@ -257,7 +257,7 @@ DSH 的 `uiWorkspace` 会把主视图、会话选择持久化键 `dsh.sessions.c
 | 验证 | 结果 |
 | :--- | :--- |
 | 宿主契约 | 19/19 PASS（含工作区/会话树、sidecar、上传、会话绑定、PDF 禁止直接转换） |
-| Python 契约 | 12/12 OK（含 FACETED_BREP STEP 回退、未登记 PDF 通用草稿、参数/源码重建） |
+| Python 契约 | 13/13 OK（含 FACETED_BREP STEP 回退、未登记 PDF 通用草稿、参数/源码重建、GATE-01 安全拒绝） |
 | 工作区创建 | `桥台工作区`、`UI新建工作区` 注册成功；中文名正常 |
 | 会话创建 | DSH 返回 `session-…`，自动写 sidecar，标题“构件会话 xxxx” |
 | 工作台建工作区 | 点击按钮 + 输入名称 → 工作区 + 会话自动创建并选中 |

@@ -927,6 +927,36 @@ class RcifStudioPlugin {
     }
   }
 
+  uniqueSessionTitle(workspace, sessionId, desired) {
+    const clean = String(desired || '')
+      .replace(/[\u0000-\u001f<>:"/\\|?*]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 60) || '未命名构件';
+    const used = new Set();
+    for (const id of Array.from(workspace.sessionIds || [])) {
+      if (id === sessionId) continue;
+      const meta = this.readSessionMeta(id, workspace.path);
+      if (typeof meta?.title === 'string' && meta.title.trim()) used.add(meta.title.trim());
+    }
+    if (!used.has(clean)) return clean;
+    let sequence = 2;
+    while (used.has(`${clean} ${sequence}`)) sequence += 1;
+    return `${clean} ${sequence}`;
+  }
+
+  async renameSessionTitle(sessionId, title) {
+    const controller = this.safeService('sessionController');
+    if (!controller || typeof controller.rename !== 'function') return false;
+    try {
+      await controller.rename({ sessionId, title });
+      return true;
+    } catch (error) {
+      this.log('warn', `session title rename skipped: ${error.message}`);
+      return false;
+    }
+  }
+
   writeSessionMeta(sessionId, patch, workspaceOverride) {
     const id = this.normalizeSessionId(sessionId);
     const workspace = workspaceOverride || this.workspaceForSession(id);
@@ -943,9 +973,15 @@ class RcifStudioPlugin {
       workspacePath: workspace.path,
       updatedAt: new Date().toISOString(),
     };
-    for (const key of ['inputFile', 'componentName', 'familyId', 'outputPath', 'packagePath', 'sourceKind', 'revision', 'title']) {
+    for (const key of ['inputFile', 'componentName', 'familyId', 'outputPath', 'packagePath', 'sourceKind', 'revision']) {
       if (typeof patch?.[key] === 'string') next[key] = patch[key].slice(0, 1000);
     }
+    const explicitTitle = typeof patch?.title === 'string' ? patch.title.trim() : '';
+    const componentName = typeof patch?.componentName === 'string'
+      ? patch.componentName.trim()
+      : String(current.componentName || '').trim();
+    if (explicitTitle) next.title = explicitTitle.slice(0, 60);
+    else if (componentName) next.title = this.uniqueSessionTitle(workspace, id, componentName);
     const temp = `${file}.tmp`;
     fs.writeFileSync(temp, JSON.stringify(next, null, 2), 'utf8');
     fs.renameSync(temp, file);
@@ -967,7 +1003,7 @@ class RcifStudioPlugin {
       return rel && !rel.startsWith('..') ? rel : String(value);
     };
     try {
-      return this.writeSessionMeta(sessionId, {
+      const next = this.writeSessionMeta(sessionId, {
         inputFile: relative(patch.inputFile),
         componentName,
         familyId,
@@ -976,6 +1012,10 @@ class RcifStudioPlugin {
         sourceKind: patch.sourceKind,
         revision: patch.revision,
       }, workspace);
+      if (next.title && next.title !== existing.title) {
+        void this.renameSessionTitle(sessionId, next.title);
+      }
+      return next;
     } catch (error) {
       this.log('warn', `failed to record session artifacts: ${error.message}`);
       return null;
@@ -1120,7 +1160,11 @@ class RcifStudioPlugin {
     const body = await readJsonBody(req);
     if (!this.guard(req, res, { requireToken: false })) return;
     const sessionId = this.normalizeSessionId(body.sessionId);
+    const previous = this.readSessionMeta(sessionId);
     const meta = this.writeSessionMeta(sessionId, body);
+    if (meta.title && meta.title !== previous.title) {
+      await this.renameSessionTitle(sessionId, meta.title);
+    }
     sendJson(res, 200, { ok: true, meta });
   }
 
@@ -2181,7 +2225,18 @@ class RcifStudioPlugin {
         required: ['packagePath'],
       },
       run: async (args, exec) => {
-        const meta = this.setCurrentPackage(args.packagePath, this.sessionIdFromExec(exec));
+        const sessionId = this.sessionIdFromExec(exec);
+        const meta = this.setCurrentPackage(args.packagePath, sessionId);
+        const existing = this.readSessionMeta(sessionId) || {};
+        this.recordSessionArtifacts(sessionId, {
+          inputFile: existing.inputFile,
+          componentName: existing.componentName || meta.metadata?.name,
+          familyId: meta.metadata?.familyId,
+          outputPath: meta.packagePath,
+          packagePath: meta.packagePath,
+          sourceKind: existing.sourceKind,
+          revision: meta.metadata?.revision,
+        });
         return {
           ok: true,
           summary: `已推送到工作台: ${meta.packagePath}`,

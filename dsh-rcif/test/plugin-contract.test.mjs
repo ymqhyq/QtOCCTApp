@@ -734,6 +734,47 @@ test('workspace/session tree, creation and session metadata round-trip', async (
   assert.equal(files.inputsDir, 'inputs');
   assert.equal(files.files[0].path, 'inputs/model.ifc');
 
+  const openTool = ctx.tools.registered.find((tool) => tool.name === 'rcif_open_package');
+  assert.ok(openTool);
+  const openResult = await openTool.execute(
+    { packagePath: 'sample.rcif' },
+    { agent: { session: { id: createdSession.sessionId } } },
+  );
+  assert.equal(openResult.ok, true);
+  const persisted = await (await fetch(
+    `${baseUrl}/rcif-studio/api/session-meta?sessionId=${createdSession.sessionId}`,
+  )).json();
+  assert.match(persisted.meta.packagePath, /sample\.rcif$/);
+
+  const siblingResponse = await jsonPost(
+    '/rcif-studio/api/sessions',
+    { workspaceId: createdWorkspace.workspace.workspaceId },
+  );
+  const siblingText = await siblingResponse.text();
+  assert.equal(siblingResponse.status, 200, siblingText);
+  const sibling = JSON.parse(siblingText);
+  const putMeta = (body) => fetch(`${baseUrl}/rcif-studio/api/session-meta`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const firstTitleResponse = await putMeta({
+    sessionId: createdSession.sessionId,
+    componentName: '同名构件',
+  });
+  const firstTitleText = await firstTitleResponse.text();
+  assert.equal(firstTitleResponse.status, 200, firstTitleText);
+  const firstTitle = JSON.parse(firstTitleText).meta.title;
+  const secondTitleResponse = await putMeta({
+    sessionId: sibling.sessionId,
+    componentName: '同名构件',
+  });
+  const secondTitleText = await secondTitleResponse.text();
+  assert.equal(secondTitleResponse.status, 200, secondTitleText);
+  const secondTitle = JSON.parse(secondTitleText).meta.title;
+  assert.equal(firstTitle, '同名构件');
+  assert.equal(secondTitle, '同名构件 2');
+
   response = await jsonPost(
     '/rcif-studio/api/feedback',
     {

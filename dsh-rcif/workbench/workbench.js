@@ -9,6 +9,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/controls/OrbitControls.js';
 import { GLTFLoader } from './vendor/loaders/GLTFLoader.js';
+import { LineSegments2 } from './vendor/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from './vendor/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from './vendor/lines/LineMaterial.js';
 
 const API = '/rcif-studio/api';
 
@@ -39,12 +42,29 @@ const state = {
   selectedPreset: null,
   selectedPart: null,
   screenshots: [],
+  projection: 'perspective',
+  renderMode: 'shaded',
+  edgesVisible: true,
+  lineWidth: 1.0,
+  clipAxis: null,
+  clipRatio: 76,
+  clippingPlane: null,
+  edgeLines: [],
+  viewToolsHidden: false,
+  modelRadius: 20000,
+  measureMode: false,
+  measurePoints: [],
+  measureObjects: [],
+  measureResult: null,
+  faceHighlights: [],
+  viewerPartsOpen: false,
   scene: null,
   camera: null,
   renderer: null,
   controls: null,
   meshParts: {},
   modelRoot: null,
+  axesHelper: null,
   pollTimer: null,
   loading: false,
   lastError: '',
@@ -107,7 +127,7 @@ function mono(text) {
   return code;
 }
 
-async function api(path, options = {}) {
+async function api(path, options = {}, allowTokenRetry = true) {
   const method = options.method || 'GET';
   let target = path;
   if (method === 'GET' && (target.startsWith('/state') || target.startsWith('/package'))) {
@@ -125,6 +145,9 @@ async function api(path, options = {}) {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : await response.text();
   if (!response.ok) {
+    if (allowTokenRetry && response.status === 403 && data?.code === 'CAP_TOKEN_INVALID') {
+      if (await connectSession(state.sessionId)) return api(path, options, false);
+    }
     const message = typeof data === 'object' && data ? data.error || data.message : String(data);
     throw new Error(message || `HTTP ${response.status}`);
   }
@@ -230,14 +253,123 @@ function switchView(viewId) {
 
 // ---------------------------------------------------------------------- 3D
 
+function cameraAspect() {
+  const container = byId('cadCanvasContainer');
+  return container ? container.clientWidth / Math.max(1, container.clientHeight) : 1;
+}
+
+function createCamera(mode) {
+  const aspect = cameraAspect();
+  const radius = Math.max(state.modelRadius || 20000, 1);
+  let camera;
+  if (mode === 'orthographic') {
+    const frustum = radius * 1.15;
+    camera = new THREE.OrthographicCamera(-frustum * aspect, frustum * aspect, frustum, -frustum, 1, radius * 100);
+  } else {
+    camera = new THREE.PerspectiveCamera(45, aspect, Math.max(radius / 500, 1), radius * 100);
+  }
+  camera.up.set(0, 0, 1);
+  return camera;
+}
+
+function updateOrthoFrustum() {
+  if (!state.camera?.isOrthographicCamera) return;
+  const aspect = cameraAspect();
+  const frustum = Math.max(state.modelRadius || 20000, 1) * 1.15;
+  state.camera.left = -frustum * aspect;
+  state.camera.right = frustum * aspect;
+  state.camera.top = frustum;
+  state.camera.bottom = -frustum;
+  state.camera.updateProjectionMatrix();
+}
+
+function setProjection(mode) {
+  if (!state.camera || state.projection === mode) return;
+  const old = state.camera;
+  const target = state.controls?.target.clone() || new THREE.Vector3();
+  const position = old.position.clone();
+  state.projection = mode;
+  state.camera = createCamera(mode);
+  state.camera.position.copy(position);
+  state.camera.up.copy(old.up);
+  state.controls?.dispose();
+  state.controls = new OrbitControls(state.camera, byId('cadCanvas'));
+  state.controls.enableDamping = true;
+  state.controls.dampingFactor = 0.05;
+  state.controls.target.copy(target);
+  state.controls.update();
+  updateOrthoFrustum();
+  onWindowResize();
+  setText('btnProjection', mode === 'orthographic' ? '投影 正交' : '投影 透视');
+  byId('btnProjection')?.classList.toggle('active', mode === 'orthographic');
+}
+
+function raycastAt(event) {
+  const canvas = byId('cadCanvas');
+  if (!canvas || !state.camera) return [];
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(pointer, state.camera);
+  const meshes = Object.values(state.meshParts).filter((mesh) => mesh.visible);
+  return meshes.length ? raycaster.intersectObjects(meshes, false) : [];
+}
+
+function updateAxesHelper() {
+  if (!state.axesHelper) return;
+  state.axesHelper.scale.setScalar(Math.max(state.modelRadius || 20000, 1) * 0.8);
+}
+
+function drawAxesGizmo() {
+  const canvas = byId('viewerAxes');
+  if (!canvas || !state.camera) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const width = canvas.width;
+  const height = canvas.height;
+  const center = width / 2;
+  ctx.clearRect(0, 0, width, height);
+  const inverse = state.camera.quaternion.clone().invert();
+  const axes = [
+    { axis: new THREE.Vector3(1, 0, 0), color: '#f87171', label: 'X' },
+    { axis: new THREE.Vector3(0, 1, 0), color: '#4ade80', label: 'Y' },
+    { axis: new THREE.Vector3(0, 0, 1), color: '#60a5fa', label: 'Z' },
+  ];
+  ctx.lineCap = 'round';
+  for (const item of axes) {
+    const direction = item.axis.clone().applyQuaternion(inverse);
+    const dx = direction.x;
+    const dy = -direction.y;
+    const endX = center + dx * 29;
+    const endY = center + dy * 29;
+    ctx.strokeStyle = item.color;
+    ctx.lineWidth = Math.max(1.4, 2.2 - Math.abs(direction.z));
+    ctx.beginPath();
+    ctx.moveTo(center, center);
+    ctx.lineTo(endX, endY);
+    ctx.stroke();
+    ctx.fillStyle = item.color;
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.label, endX + dx * 9, endY + dy * 9);
+  }
+  ctx.fillStyle = '#94a3b8';
+  ctx.beginPath();
+  ctx.arc(center, center, 2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function init3D() {
   const container = byId('cadCanvasContainer');
   const canvas = byId('cadCanvas');
   if (!container || !canvas) return;
 
   state.scene = new THREE.Scene();
-  state.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 10, 500000);
-  state.camera.up.set(0, 0, 1);
+  state.camera = createCamera('perspective');
   try {
     state.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
   } catch (error) {
@@ -246,7 +378,8 @@ function init3D() {
     return;
   }
   state.renderer.setSize(container.clientWidth, container.clientHeight);
-  state.renderer.setPixelRatio(window.devicePixelRatio || 1);
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  state.renderer.localClippingEnabled = true;
 
   state.controls = new OrbitControls(state.camera, canvas);
   state.controls.enableDamping = true;
@@ -263,35 +396,60 @@ function init3D() {
   const grid = new THREE.GridHelper(60000, 30, 0x334455, 0x223344);
   grid.rotation.x = Math.PI / 2;
   state.scene.add(grid);
+  const axesHelper = new THREE.AxesHelper(1);
+  if (axesHelper.material) {
+    axesHelper.material.depthTest = false;
+    axesHelper.material.transparent = true;
+    axesHelper.material.opacity = 0.95;
+  }
+  axesHelper.renderOrder = 100;
+  state.scene.add(axesHelper);
+  state.axesHelper = axesHelper;
 
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
   canvas.addEventListener('pointerdown', (event) => {
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(pointer, state.camera);
-    const meshes = Object.values(state.meshParts).filter((mesh) => mesh.visible);
-    if (!meshes.length) return;
-    const hits = raycaster.intersectObjects(meshes, false);
-    if (hits.length) selectPart(hits[0].object.userData?.name);
+    if (event.button !== 0) return;
+    if (state.measureMode) {
+      handleMeasureClick(event);
+      return;
+    }
+    const hits = raycastAt(event);
+    if (!hits.length) return;
+    const hit = hits[0];
+    selectPart(hit.object.userData?.name || hit.object.name);
+    setText('hudFace', hit.faceIndex != null ? `#${hit.faceIndex}` : '—');
+    setText('hudPoint', `P(${Math.round(hit.point.x)}, ${Math.round(hit.point.y)}, ${Math.round(hit.point.z)})`);
   });
 
   window.addEventListener('resize', onWindowResize);
   setCameraView('iso');
   (function animate() {
     requestAnimationFrame(animate);
-    state.controls.update();
-    state.renderer.render(state.scene, state.camera);
+    if (document.hidden || !byId('view-3d')?.classList.contains('active')) return;
+    state.controls?.update();
+    drawAxesGizmo();
+    if (state.renderer && state.scene && state.camera) state.renderer.render(state.scene, state.camera);
   })();
 }
 
 function onWindowResize() {
   const container = byId('cadCanvasContainer');
-  if (!container || !state.renderer) return;
-  state.camera.aspect = container.clientWidth / Math.max(1, container.clientHeight);
-  state.camera.updateProjectionMatrix();
+  if (!container || !state.renderer || !state.camera) return;
+  state.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   state.renderer.setSize(container.clientWidth, container.clientHeight);
+  if (state.camera.isPerspectiveCamera) {
+    state.camera.aspect = container.clientWidth / Math.max(1, container.clientHeight);
+  } else {
+    updateOrthoFrustum();
+  }
+  state.camera.updateProjectionMatrix();
+  const resolution = new THREE.Vector2(
+    Math.max(1, container.clientWidth) * Math.min(window.devicePixelRatio || 1, 2),
+    Math.max(1, container.clientHeight) * Math.min(window.devicePixelRatio || 1, 2),
+  );
+  for (const edge of state.edgeLines) {
+    if (edge.material?.resolution) edge.material.resolution.copy(resolution);
+  }
+  drawAxesGizmo();
 }
 
 function disposeObject(object) {
@@ -305,6 +463,9 @@ function disposeObject(object) {
 }
 
 function clearModel() {
+  resetMeasure();
+  clearFaceHighlight();
+  clearEdges();
   if (state.modelRoot) {
     state.scene.remove(state.modelRoot);
     disposeObject(state.modelRoot);
@@ -314,6 +475,316 @@ function clearModel() {
     if (mesh.parent === state.scene) state.scene.remove(mesh);
   }
   state.meshParts = {};
+  state.clippingPlane = null;
+  setHidden('viewerPartsPanel', true);
+  setHidden('clipSliderWrap', true);
+  setText('btnClipMenu', '剖切 ▾');
+  byId('btnClipMenu')?.classList.remove('active');
+  state.clipAxis = null;
+  document.querySelectorAll('.clip-axis').forEach((button) => button.classList.remove('active'));
+}
+
+function materialsOf(mesh) {
+  if (!mesh?.material) return [];
+  return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+}
+
+function renderResolution() {
+  const container = byId('cadCanvasContainer');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  return new THREE.Vector2(
+    Math.max(1, container?.clientWidth || 1) * dpr,
+    Math.max(1, container?.clientHeight || 1) * dpr,
+  );
+}
+
+function clearEdges() {
+  for (const line of state.edgeLines) {
+    line.parent?.remove(line);
+    line.geometry?.dispose();
+    line.material?.dispose();
+  }
+  state.edgeLines = [];
+}
+
+function buildEdges() {
+  clearEdges();
+  const resolution = renderResolution();
+  for (const mesh of Object.values(state.meshParts)) {
+    if (!mesh.geometry) continue;
+    let edgeGeometry;
+    try {
+      const source = new THREE.EdgesGeometry(mesh.geometry, 28);
+      const positions = source.attributes.position;
+      if (!positions?.count) {
+        source.dispose();
+        continue;
+      }
+      edgeGeometry = new LineSegmentsGeometry();
+      edgeGeometry.setPositions(Array.from(positions.array));
+      source.dispose();
+    } catch {
+      continue;
+    }
+    const material = new LineMaterial({
+      color: 0x0b0f14,
+      linewidth: state.lineWidth,
+      resolution,
+    });
+    if (state.clippingPlane) {
+      material.clippingPlanes = [state.clippingPlane];
+      material.clipping = true;
+    }
+    const line = new LineSegments2(edgeGeometry, material);
+    line.userData.isEdge = true;
+    line.raycast = () => {};
+    mesh.add(line);
+    state.edgeLines.push(line);
+  }
+  applyRenderMode(state.renderMode);
+}
+
+function applyRenderMode(mode) {
+  state.renderMode = mode;
+  const edgeColor = mode === 'wireframe' ? 0x9cc7e8 : mode === 'xray' ? 0xa8bfd4 : 0x0b0f14;
+  for (const mesh of Object.values(state.meshParts)) {
+    for (const material of materialsOf(mesh)) {
+      material.visible = mode !== 'wireframe';
+      material.wireframe = false;
+      material.transparent = mode === 'xray';
+      material.opacity = mode === 'xray' ? 0.18 : 1;
+      material.depthWrite = mode !== 'xray';
+      material.needsUpdate = true;
+    }
+  }
+  for (const line of state.edgeLines) {
+    line.material.color.setHex(edgeColor);
+    line.material.linewidth = state.lineWidth;
+    line.material.needsUpdate = true;
+    line.visible = mode === 'wireframe' || state.edgesVisible;
+  }
+  const labels = { shaded: '着色', wireframe: '线框', xray: 'X-Ray' };
+  setText('btnRenderMode', `显示 ${labels[mode] || mode} ▾`);
+  byId('btnRenderMode')?.classList.toggle('active', mode !== 'shaded');
+  document.querySelectorAll('[data-render-mode]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.renderMode === mode);
+  });
+  if (byId('btnEdges')) {
+    byId('btnEdges').disabled = mode === 'wireframe';
+    byId('btnEdges').textContent = state.edgesVisible ? '黑边 ✓' : '黑边';
+    byId('btnEdges').classList.toggle('active', state.edgesVisible || mode === 'wireframe');
+  }
+}
+
+function toggleEdges() {
+  state.edgesVisible = !state.edgesVisible;
+  for (const line of state.edgeLines) {
+    line.visible = state.renderMode === 'wireframe' || state.edgesVisible;
+  }
+  if (byId('btnEdges')) byId('btnEdges').textContent = state.edgesVisible ? '黑边 ✓' : '黑边';
+  byId('btnEdges')?.classList.toggle('active', state.edgesVisible || state.renderMode === 'wireframe');
+}
+
+function cycleRenderMode() {
+  const order = ['shaded', 'wireframe', 'xray'];
+  const index = order.indexOf(state.renderMode);
+  applyRenderMode(order[(index + 1) % order.length]);
+}
+
+function cycleLineWidth() {
+  const options = [1.0, 1.5, 2.0];
+  const index = options.indexOf(state.lineWidth);
+  state.lineWidth = options[(index + 1) % options.length];
+  setText('btnLineWidth', `线宽 ${state.lineWidth.toFixed(1)}`);
+  for (const line of state.edgeLines) {
+    line.material.linewidth = state.lineWidth;
+    line.material.needsUpdate = true;
+  }
+}
+
+function modelBounds() {
+  if (!state.modelRoot) return null;
+  const box = new THREE.Box3().setFromObject(state.modelRoot);
+  return box.isEmpty() ? null : box;
+}
+
+function applyClipping() {
+  if (!state.renderer) return;
+  if (!state.clipAxis) {
+    state.clippingPlane = null;
+    for (const mesh of Object.values(state.meshParts)) {
+      for (const material of materialsOf(mesh)) {
+        material.clippingPlanes = [];
+        material.needsUpdate = true;
+      }
+    }
+    for (const line of state.edgeLines) {
+      line.material.clippingPlanes = [];
+      line.material.needsUpdate = true;
+    }
+    setHidden('clipSliderWrap', true);
+    setText('btnClipMenu', '剖切 ▾');
+    byId('btnClipMenu')?.classList.remove('active');
+    document.querySelectorAll('.clip-axis').forEach((button) => button.classList.remove('active'));
+    return;
+  }
+  const box = modelBounds();
+  if (!box) return;
+  const axisIndex = state.clipAxis === 'x' ? 0 : state.clipAxis === 'y' ? 1 : 2;
+  const min = box.min.getComponent(axisIndex);
+  const max = box.max.getComponent(axisIndex);
+  const value = min + (max - min) * (state.clipRatio / 100);
+  const normal = new THREE.Vector3();
+  normal.setComponent(axisIndex, -1);
+  state.clippingPlane = new THREE.Plane(normal, value);
+  for (const mesh of Object.values(state.meshParts)) {
+    for (const material of materialsOf(mesh)) {
+      material.clippingPlanes = [state.clippingPlane];
+      material.clipShadows = true;
+      material.needsUpdate = true;
+    }
+  }
+  for (const line of state.edgeLines) {
+    line.material.clippingPlanes = [state.clippingPlane];
+    line.material.clipping = true;
+    line.material.needsUpdate = true;
+  }
+  setHidden('clipSliderWrap', false);
+  setText('btnClipMenu', `剖切 ${state.clipAxis.toUpperCase()} ▾`);
+  byId('btnClipMenu')?.classList.add('active');
+  setText('clipValue', `${state.clipRatio}%`);
+  byId('clipRange').value = String(state.clipRatio);
+  document.querySelectorAll('.clip-axis').forEach((button) => {
+    button.classList.toggle('active', button.dataset.clipAxis === state.clipAxis);
+  });
+}
+
+function setClipAxis(axis) {
+  state.clipAxis = axis;
+  applyClipping();
+  if (!axis) setHidden('clipSliderWrap', true);
+}
+
+function setClipRatio(value) {
+  state.clipRatio = Math.min(98, Math.max(2, Number(value) || 76));
+  setText('clipValue', `${state.clipRatio}%`);
+  applyClipping();
+}
+
+function clearMeasure() {
+  state.measurePoints = [];
+  state.measureResult = null;
+  for (const object of state.measureObjects) {
+    object.parent?.remove(object);
+    object.geometry?.dispose();
+    object.material?.dispose();
+  }
+  state.measureObjects = [];
+  setHidden('measureResult', true);
+  setHidden('measureHint', Boolean(!state.measureMode));
+  const holder = byId('measureResult');
+  if (holder) holder.hidden = true;
+}
+
+function snapPoint(hit) {
+  const mesh = hit.object;
+  const position = mesh?.geometry?.attributes?.position;
+  const face = hit.face;
+  if (!position || !face) return hit.point.clone();
+  const candidates = [face.a, face.b, face.c]
+    .filter((index) => Number.isInteger(index))
+    .map((index) => new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld));
+  if (!candidates.length) return hit.point.clone();
+  candidates.sort((a, b) => a.distanceToSquared(hit.point) - b.distanceToSquared(hit.point));
+  return candidates[0];
+}
+
+function addMeasureMarker(point, color = 0x38bdf8) {
+  const radius = Math.max(state.modelRadius * 0.008, 20);
+  const marker = new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 12, 12),
+    new THREE.MeshBasicMaterial({ color, depthTest: false }),
+  );
+  marker.position.copy(point);
+  marker.renderOrder = 10;
+  state.scene.add(marker);
+  state.measureObjects.push(marker);
+}
+
+function handleMeasureClick(event) {
+  const hits = raycastAt(event);
+  if (!hits.length) return;
+  const point = snapPoint(hits[0]);
+  if (!state.measurePoints.length) {
+    state.measurePoints = [point];
+    addMeasureMarker(point);
+    setHidden('measureHint', false);
+    return;
+  }
+  const first = state.measurePoints[0];
+  const second = point;
+  state.measurePoints.push(second);
+  addMeasureMarker(second, 0xf59e0b);
+  const geometry = new THREE.BufferGeometry().setFromPoints([first, second]);
+  const line = new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: 0x38bdf8, depthTest: false }));
+  line.renderOrder = 9;
+  state.scene.add(line);
+  state.measureObjects.push(line);
+  const distance = first.distanceTo(second);
+  state.measureResult = {
+    distance,
+    horizontal: Math.hypot(second.x - first.x, second.y - first.y),
+    deltaZ: Math.abs(second.z - first.z),
+  };
+  setText('measureDistance', Math.round(distance).toLocaleString());
+  setText('measureHorizontal', state.measureResult.horizontal.toFixed(1));
+  setText('measureDeltaZ', state.measureResult.deltaZ.toFixed(1));
+  setHidden('measureResult', false);
+  setHidden('measureHint', true);
+}
+
+function toggleMeasure() {
+  state.measureMode = !state.measureMode;
+  byId('view-3d')?.classList.toggle('measuring', state.measureMode);
+  byId('btnMeasure')?.classList.toggle('active', state.measureMode);
+  if (state.controls) state.controls.enabled = !state.measureMode;
+  if (state.measureMode) {
+    clearMeasure();
+    setHidden('measureHint', false);
+  } else {
+    setHidden('measureHint', true);
+  }
+}
+
+function resetMeasure() {
+  clearMeasure();
+  state.measureMode = false;
+  if (state.controls) state.controls.enabled = true;
+  byId('view-3d')?.classList.remove('measuring');
+  byId('btnMeasure')?.classList.remove('active');
+  setHidden('measureHint', true);
+}
+
+function fitCamera() {
+  if (!state.camera || !state.controls) return;
+  const box = modelBounds();
+  if (!box) return;
+  const sphere = box.getBoundingSphere(new THREE.Sphere());
+  state.modelRadius = Math.max(sphere.radius, 1);
+  state.controls.target.copy(sphere.center);
+  const direction = state.camera.position.clone().sub(sphere.center);
+  if (direction.lengthSq() < 1e-6) direction.set(1, 1, 0.86);
+  direction.normalize();
+  const distance = state.modelRadius * 2.6;
+  state.camera.position.copy(sphere.center).addScaledVector(direction, distance);
+  state.camera.near = Math.max(state.modelRadius / 500, 1);
+  state.camera.far = state.modelRadius * 100;
+  state.camera.updateProjectionMatrix();
+  updateOrthoFrustum();
+  updateAxesHelper();
+  drawAxesGizmo();
+  state.controls.update();
+  if (state.clippingPlane) applyClipping();
 }
 
 function setGeometryStatus(text, kind = 'pending') {
@@ -324,7 +795,7 @@ function setGeometryStatus(text, kind = 'pending') {
 }
 
 function partMetadata(name) {
-  const shape = state.shapes.find((item) => item.key === name || item.node === name);
+  const shape = shapeForName(name);
   if (!shape) return { name, materialName: '未标注材质', vol: '—', code: '—' };
   return {
     name: shape.key || name,
@@ -357,7 +828,7 @@ async function loadPreviewMesh() {
     (gltf) => {
       clearModel();
       const root = gltf.scene;
-      root.rotation.x = -Math.PI / 2; // RCIF GLB 为 Z-up
+      root.rotation.x = 0; // RCIF GLB 与 STEP 均为 Z-up，不再转到 Y-up
       root.updateMatrixWorld(true);
       state.modelRoot = root;
       state.scene.add(root);
@@ -365,7 +836,16 @@ async function loadPreviewMesh() {
       root.traverse((child) => {
         if (!child.isMesh) return;
         const key = child.name || `Part${count + 1}`;
-        child.userData = partMetadata(key);
+        const extras = child.userData || {};
+        child.userData = { ...extras, ...partMetadata(key) };
+        child.material = Array.isArray(child.material)
+          ? child.material.map((material) => material?.clone?.() || material)
+          : (child.material?.clone?.() || child.material);
+        child.userData.materialState = materialsOf(child).map((material) => ({
+          opacity: material.opacity,
+          transparent: material.transparent,
+          depthWrite: material.depthWrite,
+        }));
         if (child.material && 'metalness' in child.material) {
           child.material.metalness = 0.05;
           child.material.roughness = 0.78;
@@ -375,7 +855,13 @@ async function loadPreviewMesh() {
       });
       setHidden('viewportEmpty', true);
       setGeometryStatus(`真实 GLB · ${count} 个部位`, 'ok');
+      buildEdges();
+      renderViewerParts();
+      applyRenderMode(state.renderMode);
       setCameraView('iso');
+      updateAxesHelper();
+      updatePresetPreviewNotice();
+      if (state.clipAxis) applyClipping();
       const first = state.shapes[0];
       if (first) selectPart(first.key);
     },
@@ -398,6 +884,7 @@ function setCameraView(viewType) {
     if (!box.isEmpty()) {
       const sphere = box.getBoundingSphere(new THREE.Sphere());
       target.copy(sphere.center);
+      state.modelRadius = Math.max(sphere.radius, 1);
       distance = Math.max(sphere.radius * 2.6, 1000);
     }
   }
@@ -406,36 +893,195 @@ function setCameraView(viewType) {
   else if (viewType === 'side') state.camera.position.set(target.x + distance, target.y, target.z);
   else if (viewType === 'plan') state.camera.position.set(target.x, target.y, target.z + distance);
   else state.camera.position.set(target.x - distance * 0.7, target.y - distance * 0.8, target.z + distance * 0.7);
+  state.camera.up.set(0, viewType === 'plan' ? 1 : 0, viewType === 'plan' ? 0 : 1);
   state.camera.near = Math.max(1, distance / 500);
   state.camera.far = distance * 80;
   state.camera.updateProjectionMatrix();
+  updateOrthoFrustum();
+  updateAxesHelper();
   state.controls.update();
+  drawAxesGizmo();
+  for (const [id, value] of [['btnViewIso', 'iso'], ['btnViewFront', 'front'], ['btnViewSide', 'side'], ['btnViewPlan', 'plan']]) {
+    byId(id)?.classList.toggle('active', viewType === value);
+  }
+  const labels = { iso: '轴测', front: '正视', side: '侧视', plan: '俯视' };
+  setText('btnViewMenu', `视图 ${labels[viewType] || '轴测'} ▾`);
+  if (state.clippingPlane) applyClipping();
+}
+
+function nameMatchesBase(name, base) {
+  return name === base || name.startsWith(`${base}/`) || name.startsWith(`${base}_`);
+}
+
+function shapeForName(name) {
+  return state.shapes.find((item) => {
+    const bases = [item.key, item.node].filter(Boolean);
+    return bases.some((base) => nameMatchesBase(name, base));
+  });
+}
+
+function meshesForShape(shape) {
+  if (!shape) return [];
+  const bases = [shape.key, shape.node].filter(Boolean);
+  return Object.entries(state.meshParts)
+    .filter(([key, mesh]) => (
+      mesh.userData?.shapeKey === shape.key
+      || mesh.userData?.shapeKey === shape.node
+      || bases.some((base) => nameMatchesBase(key, base))
+    ))
+    .map(([, mesh]) => mesh);
+}
+
+function meshForShape(shape) {
+  return meshesForShape(shape)[0] || null;
+}
+
+function clearFaceHighlight() {
+  for (const group of state.faceHighlights) {
+    if (group.parent) group.parent.remove(group);
+    group.traverse((child) => {
+      child.geometry?.dispose();
+      child.material?.dispose();
+    });
+  }
+  state.faceHighlights = [];
+}
+
+function createFaceHighlight(shape) {
+  const parent = shapeForName(shape?.parent || '');
+  const parents = meshesForShape(parent);
+  if (!parents.length) return false;
+  const group = new THREE.Group();
+  group.name = `face-highlight:${shape.key}`;
+  for (const mesh of parents) {
+    if (!mesh.visible) continue;
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (box.isEmpty()) continue;
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const geometry = new THREE.PlaneGeometry(Math.max(size.x, 1), Math.max(size.y, 1));
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.42,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      depthTest: false,
+    });
+    const face = new THREE.Mesh(geometry, material);
+    face.position.set(center.x, center.y, box.max.z + 1.0);
+    face.renderOrder = 20;
+    face.userData.isFaceHighlight = true;
+    group.add(face);
+    const border = new THREE.LineSegments(
+      new THREE.EdgesGeometry(geometry),
+      new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.95, depthTest: false }),
+    );
+    border.position.copy(face.position);
+    border.renderOrder = 21;
+    group.add(border);
+  }
+  if (!group.children.length) return false;
+  state.scene.add(group);
+  state.faceHighlights.push(group);
+  return true;
 }
 
 function selectPart(name) {
   if (!name) return;
-  const mesh = state.meshParts[name];
-  const info = mesh?.userData || partMetadata(name);
-  state.selectedPart = name;
-  setText('hudPartName', info.name || name);
+  const shape = shapeForName(name);
+  const isFace = Boolean(shape && (shape.geomType === 'face' || shape.selector));
+  const meshes = isFace ? [] : meshesForShape(shape);
+  const info = partsInfo(shape, name);
+  const canonical = shape?.key || info.name || name;
+  const selectedKeys = new Set(Object.entries(state.meshParts)
+    .filter(([, mesh]) => meshes.includes(mesh))
+    .map(([key]) => key));
+  clearFaceHighlight();
+  if (isFace) createFaceHighlight(shape);
+  state.selectedPart = canonical;
+  setText('hudPartName', info.name || canonical);
   setText('hudMaterial', info.materialName);
   setText('hudVolume', info.vol);
   setText('hudCode', info.code);
   for (const [key, item] of Object.entries(state.meshParts)) {
-    if (item.material && 'emissive' in item.material) {
-      item.material.emissive = new THREE.Color(key === name ? 0x388bfd : 0x000000);
-      item.material.emissiveIntensity = key === name ? 0.4 : 0;
+    for (const material of materialsOf(item)) {
+      if (material && 'emissive' in material) {
+        material.emissive = new THREE.Color(selectedKeys.has(key) ? 0x388bfd : 0x000000);
+        material.emissiveIntensity = selectedKeys.has(key) ? 0.4 : 0;
+        material.needsUpdate = true;
+      }
     }
   }
   const rows = document.querySelectorAll('#partsTableBody tr');
-  rows.forEach((row) => row.classList.toggle('selected', row.dataset.part === name));
+  rows.forEach((row) => row.classList.toggle('selected', row.dataset.part === canonical));
+  renderViewerParts();
+}
+
+function partsInfo(shape, fallbackName) {
+  if (!shape) return partMetadata(fallbackName);
+  return {
+    name: shape.key || fallbackName,
+    materialName: shape.material || shape.geomType || '—',
+    vol: shape.volumeM3 ? `${shape.volumeM3} m³` : '—',
+    code: shape.code || '—',
+  };
+}
+
+function renderViewerParts() {
+  const panel = byId('viewerPartsPanel');
+  const list = byId('viewerPartsList');
+  if (!panel || !list) return;
+  const shapes = Array.isArray(state.shapes) ? state.shapes : [];
+  setText('viewerPartsCount', String(shapes.length));
+  panel.hidden = !state.viewerPartsOpen || !shapes.length;
+  byId('btnViewerParts')?.classList.toggle('active', state.viewerPartsOpen);
+  list.textContent = '';
+  for (const shape of shapes) {
+    const key = shape.key || shape.node;
+    if (!key) continue;
+    const isFace = shape.geomType === 'face' || Boolean(shape.selector);
+    const parent = isFace ? shapeForName(shape.parent || '') : null;
+    const meshes = isFace ? meshesForShape(parent) : meshesForShape(shape);
+    const row = document.createElement('label');
+    row.className = `viewer-part-row${state.selectedPart === key ? ' active' : ''}`;
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = !isFace && meshes.length > 0 && meshes.every((mesh) => mesh.visible);
+    checkbox.disabled = isFace || !meshes.length;
+    checkbox.addEventListener('change', (event) => {
+      event.stopPropagation();
+      meshes.forEach((mesh) => { mesh.visible = checkbox.checked; });
+      selectPart(key);
+    });
+    const label = document.createElement('span');
+    label.textContent = shape.label || shape.key || key;
+    label.title = isFace
+      ? `语义面，引用 ${parent?.label || shape.parent || '父级'}`
+      : (meshes.length ? label.textContent : `${label.textContent}（GLB 中未建模）`);
+    row.append(checkbox, label);
+    if (isFace) {
+      const kind = document.createElement('span');
+      kind.className = 'part-kind';
+      kind.textContent = '面';
+      kind.title = '语义面，选中时在运行时高亮';
+      row.appendChild(kind);
+    }
+    row.addEventListener('click', (event) => {
+      if (event.target === checkbox) return;
+      if (meshes.length) selectPart(key);
+    });
+    list.appendChild(row);
+  }
+}
+
+function toggleViewerParts() {
+  state.viewerPartsOpen = !state.viewerPartsOpen;
+  renderViewerParts();
 }
 
 function toggleWireframe() {
-  for (const mesh of Object.values(state.meshParts)) {
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials) if (material) material.wireframe = !material.wireframe;
-  }
+  cycleRenderMode();
 }
 
 // ------------------------------------------------------------------ package
@@ -471,6 +1117,8 @@ function clearViewerState() {
   setText('hudMaterial', '-');
   setText('hudVolume', '-');
   setText('hudCode', '-');
+  setText('hudFace', '-');
+  setText('hudPoint', '-');
   for (const id of ['metaFamily', 'metaName', 'metaRevision', 'metaSourceMode', 'metaEngine', 'metaVolume', 'metaBounds', 'metaCounts', 'metaPackageSha', 'ingestFamily', 'ingestPackage']) {
     setText(id, '-');
   }
@@ -723,6 +1371,16 @@ async function rebuildGenericDraft(options = {}) {
   }
 }
 
+function updatePresetPreviewNotice() {
+  const first = state.presets[0];
+  if (!first || !state.metadata?.preview?.available) return;
+  if (state.selectedPreset && state.selectedPreset !== first.modelNumber) {
+    setGeometryStatus(`3D 为默认型号 ${first.modelNumber} 预览；${state.selectedPreset} 需转换/重建`, 'warn');
+  } else {
+    setGeometryStatus(`真实 GLB · ${Object.keys(state.meshParts).length} 个部位`, 'ok');
+  }
+}
+
 function renderPresetJson() {
   const preset = state.presets.find((item) => item.modelNumber === byId('paramPresetSelect')?.value)
     || state.presets.find((item) => item.modelNumber === state.selectedPreset)
@@ -747,10 +1405,11 @@ function renderParts() {
     const visibleCell = document.createElement('td');
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
-    checkbox.checked = true;
+    const meshes = meshesForShape(shape);
+    checkbox.checked = meshes.length > 0 && meshes.every((mesh) => mesh.visible);
+    checkbox.disabled = !meshes.length;
     checkbox.addEventListener('change', () => {
-      const mesh = state.meshParts[shape.key];
-      if (mesh) mesh.visible = checkbox.checked;
+      meshes.forEach((mesh) => { mesh.visible = checkbox.checked; });
     });
     visibleCell.appendChild(checkbox);
 
@@ -785,6 +1444,10 @@ function renderParts() {
 
 function renderModels() {
   badge('modelsCount', `${state.presets.length} 个型号`);
+  const preselect = byId('presetSelect');
+  if (preselect) preselect.textContent = '';
+  const paramSelect = byId('paramPresetSelect');
+  if (paramSelect) paramSelect.textContent = '';
   if (!state.presets.length) {
     setHidden('modelsEmpty', false);
     setHidden('modelsContent', true);
@@ -1268,8 +1931,7 @@ function applyAnnotationCollapse() {
   if (toolbar) {
     toolbar.hidden = !state.source?.available;
     toolbar.title = state.annotationCollapsed ? '展开批注栏' : '收起批注栏';
-    const label = byId('annotationToggleLabel');
-    if (label) label.textContent = state.annotationCollapsed ? '展开' : '收起';
+    toolbar.classList.toggle('collapsed', state.annotationCollapsed);
   }
   writeUiFlag('rcif:annotation-collapsed', state.annotationCollapsed);
   requestAnimationFrame(positionAnnotationButton);
@@ -1286,8 +1948,7 @@ function renderAnnotationSidebar() {
   if (toolbarButton) {
     toolbarButton.hidden = !state.source?.available;
     toolbarButton.title = state.annotationCollapsed ? '展开批注栏' : '收起批注栏';
-    const label = byId('annotationToggleLabel');
-    if (label) label.textContent = state.annotationCollapsed ? '展开' : '收起';
+    toolbarButton.classList.toggle('collapsed', state.annotationCollapsed);
   }
   setText('annotationSidebarCount', String(state.annotationDrafts.length));
   list.textContent = '';
@@ -1340,8 +2001,7 @@ function applyScreenshotCollapse() {
   const toolbar = byId('btnToggleScreenshots');
   if (toolbar) {
     toolbar.title = state.screenshotCollapsed ? '展开截图栏' : '收起截图栏';
-    const label = byId('screenshotToggleLabel');
-    if (label) label.textContent = state.screenshotCollapsed ? '展开' : '收起';
+    toolbar.classList.toggle('collapsed', state.screenshotCollapsed);
   }
   writeUiFlag('rcif:screenshot-collapsed', state.screenshotCollapsed);
   requestAnimationFrame(onWindowResize);
@@ -1365,10 +2025,13 @@ function renderScreenshotList() {
     const img = document.createElement('img');
     img.src = dataUrl;
     img.alt = `3D 截图 ${index + 1}`;
-    img.title = '点击在新标签页查看大图';
+    img.title = '点击查看大图';
     img.addEventListener('click', () => {
-      const win = window.open();
-      if (win) win.document.write(`<title>3D 截图 ${index + 1}</title><img src="${dataUrl}" style="max-width:100%;height:auto">`);
+      const modal = byId('screenshotModal');
+      const viewer = byId('screenshotModalImg');
+      if (!modal || !viewer) return;
+      viewer.src = dataUrl;
+      modal.hidden = false;
     });
     const actions = document.createElement('div');
     actions.className = 'row-actions';
@@ -1496,6 +2159,7 @@ function renderSessionPage() {
   const hasSession = Boolean(state.sessionId && state.workspace);
   setHidden('sessionEmpty', hasSession);
   setHidden('sessionContent', !hasSession);
+  setHidden('btnCopySession', !hasSession);
   if (!hasSession) return;
   setText('sessionWorkspaceLabel', `${state.workspace.title || ''} · ${state.workspace.path || ''}`);
   setText('sessionIdLabel', state.sessionId);
@@ -1608,7 +2272,12 @@ async function saveSessionMeta() {
     });
     state.sessionInfo = data.meta;
     state.sessionDirty = false;
-    setStatus('sessionStatusText', '✅ 会话信息已保存', 'ok');
+    try {
+      await loadTree();
+    } catch {
+      /* 会话已保存，树刷新失败不改变保存结果 */
+    }
+    setStatus('sessionStatusText', `✅ 会话信息已保存（会话名：${data.meta?.title || '—'}）`, 'ok');
     return true;
   } catch (error) {
     setStatus('sessionStatusText', `❌ 保存失败：${error.message}`, 'error');
@@ -1624,7 +2293,7 @@ async function uploadSessionFile(file) {
   if (!file) return;
   setStatus('sessionStatusText', `正在上传 ${file.name}…`, 'pending');
   try {
-    const response = await fetch(
+    const upload = () => fetch(
       `${API}/upload?sessionId=${encodeURIComponent(state.sessionId)}&name=${encodeURIComponent(file.name)}`,
       {
         method: 'POST',
@@ -1635,7 +2304,14 @@ async function uploadSessionFile(file) {
         body: file,
       },
     );
-    const data = await response.json();
+    let response = await upload();
+    let data = await response.json();
+    if (!response.ok && response.status === 403 && data?.code === 'CAP_TOKEN_INVALID') {
+      if (await connectSession(state.sessionId)) {
+        response = await upload();
+        data = await response.json();
+      }
+    }
     if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
     byId('sessionSourceFile').value = data.path;
     byId('sessionSourceFile').dispatchEvent(new Event('input', { bubbles: true }));
@@ -2119,7 +2795,7 @@ async function refreshState() {
     if (!state.lastError || Date.now() - (state.lastErrorAt || 0) > 15000) {
       state.lastError = error.message;
       state.lastErrorAt = Date.now();
-      setFeedback(`后端未就绪：${error.message}。请使用 DSH 实例 http://127.0.0.1:3080/rcif-studio/workbench/`, 'error');
+      setFeedback(`后端未就绪：${error.message}。请使用 DSH 实例 http://127.0.0.1:3090/rcif-studio/workbench/`, 'error');
     }
   }
 }
@@ -2166,12 +2842,14 @@ function bindEvents() {
     setHidden('codeEditorWrap', true);
     setHidden('btnFloatAnnotation', true);
     setHidden('annotationSidebar', true);
+    setHidden('btnToggleAnnotations', true);
     setHidden('sourceEditorWrap', false);
   });
   byId('btnCancelSource')?.addEventListener('click', () => {
     setHidden('sourceEditorWrap', true);
     setHidden('codeEditorWrap', false);
     setHidden('annotationSidebar', !state.source?.available);
+    setHidden('btnToggleAnnotations', !state.source?.available);
     positionAnnotationButton();
   });
   byId('btnRebuildSource')?.addEventListener('click', () => {
@@ -2213,16 +2891,86 @@ function bindEvents() {
     if (event.target === byId('annotationDialog')) closeAnnotationDialog();
   });
 
-  byId('btnViewIso')?.addEventListener('click', () => setCameraView('iso'));  byId('btnViewFront')?.addEventListener('click', () => setCameraView('front'));
-  byId('btnViewSide')?.addEventListener('click', () => setCameraView('side'));
-  byId('btnViewPlan')?.addEventListener('click', () => setCameraView('plan'));
-  byId('btnResetCamera')?.addEventListener('click', () => setCameraView('iso'));
-  byId('btnWireframe')?.addEventListener('click', toggleWireframe);
+  document.querySelectorAll('[data-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      setCameraView(button.dataset.view);
+      closeViewMenus();
+    });
+  });
+  byId('btnViewMenu')?.addEventListener('click', () => toggleViewMenu('viewMenu'));
+  byId('btnResetCamera')?.addEventListener('click', () => {
+    setCameraView('iso');
+    closeViewMenus();
+  });
+  byId('btnFit')?.addEventListener('click', () => {
+    fitCamera();
+    closeViewMenus();
+  });
+  byId('btnProjection')?.addEventListener('click', () => {
+    setProjection(state.projection === 'perspective' ? 'orthographic' : 'perspective');
+    closeViewMenus();
+  });
+  byId('btnEdges')?.addEventListener('click', toggleEdges);
+  byId('btnRenderMode')?.addEventListener('click', () => toggleViewMenu('displayMenu'));
+  byId('btnLineWidth')?.addEventListener('click', cycleLineWidth);
+  document.querySelectorAll('[data-render-mode]').forEach((button) => {
+    button.addEventListener('click', () => {
+      applyRenderMode(button.dataset.renderMode);
+      setHidden('displayMenu', true);
+    });
+  });
+  document.querySelectorAll('[data-clip-axis]').forEach((button) => {
+    button.addEventListener('click', () => {
+      setClipAxis(state.clipAxis === button.dataset.clipAxis ? null : button.dataset.clipAxis);
+    });
+  });
+  byId('btnClipMenu')?.addEventListener('click', () => toggleViewMenu('clipMenu'));
+  byId('btnMoreMenu')?.addEventListener('click', () => toggleViewMenu('moreMenu'));
+  byId('btnClipClear')?.addEventListener('click', () => setClipAxis(null));
+  byId('clipRange')?.addEventListener('input', (event) => setClipRatio(event.target.value));
+  byId('btnMeasure')?.addEventListener('click', toggleMeasure);
+  byId('btnClearMeasure')?.addEventListener('click', resetMeasure);
+  byId('btnViewerParts')?.addEventListener('click', toggleViewerParts);
+  byId('btnCloseViewerParts')?.addEventListener('click', () => {
+    state.viewerPartsOpen = false;
+    renderViewerParts();
+  });
+  byId('btnHideViewTools')?.addEventListener('click', () => {
+    closeViewMenus();
+    state.viewToolsHidden = true;
+    document.querySelector('.viewport-toolbar')?.setAttribute('hidden', '');
+    setHidden('btnShowViewTools', false);
+  });
+  byId('btnShowViewTools')?.addEventListener('click', () => {
+    state.viewToolsHidden = false;
+    document.querySelector('.viewport-toolbar')?.removeAttribute('hidden');
+    setHidden('btnShowViewTools', true);
+  });
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('.view-popover')) return;
+    closeViewMenus();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeViewMenus();
+      setHidden('screenshotModal', true);
+    }
+  });
   byId('btnScreenshot')?.addEventListener('click', () => captureScreenshot());
   byId('btnClearScreenshots')?.addEventListener('click', () => {
     state.screenshots = [];
     renderScreenshotList();
     updateChatCounts();
+  });
+  byId('btnCloseScreenshotModal')?.addEventListener('click', () => {
+    setHidden('screenshotModal', true);
+    byId('screenshotModalImg').src = '';
+  });
+  byId('screenshotModal')?.addEventListener('click', (event) => {
+    if (event.target === byId('screenshotModal')) {
+      setHidden('screenshotModal', true);
+      byId('screenshotModalImg').src = '';
+    }
   });
   byId('btnToggleScreenshots')?.addEventListener('click', () => {
     state.screenshotCollapsed = !state.screenshotCollapsed;
@@ -2240,6 +2988,7 @@ function bindEvents() {
   byId('lineNumbers')?.addEventListener('mousemove', trackCodeSelection);
   byId('codeEditorWrap')?.addEventListener('scroll', positionAnnotationButton);
   window.addEventListener('resize', positionAnnotationButton);
+  window.addEventListener('resize', closeViewMenus);
   document.addEventListener('fullscreenchange', handleFullscreenChange);
   window.addEventListener('mouseup', () => { state.dragSelecting = false; });
   byId('btnLibraryIngest')?.addEventListener('click', ingestToLibrary);
@@ -2252,12 +3001,42 @@ function bindEvents() {
     state.selectedPreset = event.target.value;
     if (byId('paramPresetSelect')) byId('paramPresetSelect').value = event.target.value;
     renderPresetJson();
+    updatePresetPreviewNotice();
   });
   byId('paramPresetSelect')?.addEventListener('change', (event) => {
     state.selectedPreset = event.target.value;
     if (byId('presetSelect')) byId('presetSelect').value = event.target.value;
     renderPresetJson();
+    updatePresetPreviewNotice();
   });
+}
+
+function closeViewMenus() {
+  for (const id of ['viewMenu', 'displayMenu', 'clipMenu', 'moreMenu']) setHidden(id, true);
+}
+
+function positionPopoverMenu(menu) {
+  const trigger = menu.parentElement?.querySelector('button');
+  if (!trigger) return;
+  const rect = trigger.getBoundingClientRect();
+  const width = menu.offsetWidth || 160;
+  const height = menu.offsetHeight || 120;
+  const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
+  let top = rect.bottom + 5;
+  if (top + height > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - height - 5);
+  }
+  menu.style.left = `${Math.round(left)}px`;
+  menu.style.top = `${Math.round(top)}px`;
+}
+
+function toggleViewMenu(menuId) {
+  const menu = byId(menuId);
+  if (!menu) return;
+  const willOpen = menu.hidden;
+  closeViewMenus();
+  menu.hidden = !willOpen;
+  if (willOpen) requestAnimationFrame(() => positionPopoverMenu(menu));
 }
 
 function init() {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import unittest
@@ -58,6 +59,11 @@ class GenericRebuildTest(unittest.TestCase):
         self.assertGreater(info["bounds"]["z"][1], before["bounds"]["z"][1])
         after = package_api.read_package(pkg)
         self.assertEqual(after["metadata"]["revision"], "0.1.1")
+        self.assertEqual(
+            after["metadata"]["packageSha256"],
+            hashlib.sha256(Path(pkg).read_bytes()).hexdigest(),
+        )
+        self.assertNotIn("packageSha256", after["metadata"].get("qa", {}))
         preset = after["component"]["parameters"]["presets"][0]["params"]
         self.assertEqual(preset["Height"], 9000.0)
         self.assertEqual(preset["Width"], 3500.0)
@@ -82,6 +88,18 @@ class GenericRebuildTest(unittest.TestCase):
         after = package_api.read_package(pkg)["metadata"]
         self.assertEqual(after["revision"], "0.1.2")
         self.assertTrue(after["preview"]["available"])
+
+    def test_unsafe_generator_source_is_rejected_by_ast_gate(self) -> None:
+        malicious = (
+            "import os\n\n"
+            "def build_parts(params=None):\n"
+            "    os.system('echo sandbox-bypass')\n"
+            "    return {}\n"
+        )
+        with self.assertRaises(ValueError) as ctx:
+            generic_rebuild.rebuild(str(BASE), str(NEW), source_text=malicious)
+        self.assertIn("GATE-01", str(ctx.exception))
+        self.assertFalse(NEW.exists())
 
 
 if __name__ == "__main__":

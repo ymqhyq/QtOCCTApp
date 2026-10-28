@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
 import unittest
@@ -59,6 +60,11 @@ class GenericPdfTest(unittest.TestCase):
         self.assertGreater(md["volumeM3"], 0.0)
         self.assertTrue(md["preview"]["available"])
         self.assertTrue(meta["checksums"]["verified"])
+        self.assertEqual(
+            md["packageSha256"],
+            hashlib.sha256(Path(pkg).read_bytes()).hexdigest(),
+        )
+        self.assertNotIn("packageSha256", md.get("qa", {}))
         self.assertEqual(md["qa"]["extractionMode"], "generic_heuristic_draft")
         self.assertEqual(md["qa"]["genericType"], "pier")
 
