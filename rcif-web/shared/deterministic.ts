@@ -10,19 +10,30 @@
 
 const encoder = new TextEncoder();
 
-/** %.12g 规范化：12 位有效数字、无多余尾零、指数按需 */
+/**
+ * `%.12g` 规范化（RCIF v1.4.2 §5.1 规则 2）。
+ *
+ * 必须与 `rcif-tools/rcifc.py:format_number` 逐字节一致：
+ * 先四舍五入到 12 位有效数字；指数 < -4 或 >= 12 时使用科学计数法
+ * （指数至少两位、带符号），否则使用定点小数并去掉尾零。
+ * 注意 `Number.prototype.toPrecision` 的指数切换阈值是 -6，不是 -4，
+ * 直接用它会与 Python/C 的 `%g` 产生不同字节流。
+ */
 export function formatNumber(value: number): string {
   if (!Number.isFinite(value)) throw new Error('DeterministicJSON: NaN/Inf 不允许');
-  if (Object.is(value, -0) || Math.abs(value) < 1e-12) return '0';
-  if (Number.isInteger(value) && Math.abs(value) < 1e15) return String(value);
-  let s = value.toPrecision(12);
-  if (s.includes('e') || s.includes('E')) {
-    const [mantissa, exponent] = s.toLowerCase().split('e');
-    const m = mantissa.includes('.') ? mantissa.replace(/0+$/, '').replace(/\.$/, '') : mantissa;
-    return `${m}e${Number(exponent) >= 0 ? '+' : '-'}${String(Math.abs(Number(exponent))).padStart(2, '0')}`;
+  if (Object.is(value, -0) || value === 0 || Math.abs(value) < 1e-12) return '0';
+  const [mantissaRaw, exponentRaw] = value.toExponential(11).split('e');
+  const exponent = Number(exponentRaw);
+  const mantissa = mantissaRaw.includes('.')
+    ? mantissaRaw.replace(/0+$/, '').replace(/\.$/, '')
+    : mantissaRaw;
+  if (exponent < -4 || exponent >= 12) {
+    const sign = exponent >= 0 ? '+' : '-';
+    return `${mantissa}e${sign}${String(Math.abs(exponent)).padStart(2, '0')}`;
   }
-  if (s.includes('.')) s = s.replace(/0+$/, '').replace(/\.$/, '');
-  return s;
+  const fractionDigits = Math.max(0, 11 - exponent);
+  const fixed = value.toFixed(fractionDigits).replace(/0+$/, '').replace(/\.$/, '');
+  return fixed === '-0' ? '0' : fixed;
 }
 
 function isAscii(text: string): boolean {

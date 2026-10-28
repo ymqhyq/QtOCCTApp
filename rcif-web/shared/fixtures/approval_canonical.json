@@ -1,0 +1,25 @@
+{
+  "spec": "RCIF Host/CLI Ed25519 approval canonical payload",
+  "fields": [
+    "approvalId",
+    "approvedBy",
+    "approvedExactBrep",
+    "approvedParamsSha256",
+    "approvedSourceMode",
+    "approvedTableTruthSha256",
+    "sessionId",
+    "signedAt"
+  ],
+  "payload": {
+    "approvalId": "appr-0123456789ab",
+    "approvedBy": "u_bridge_01",
+    "approvedExactBrep": true,
+    "approvedParamsSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "approvedSourceMode": "parametric",
+    "approvedTableTruthSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sessionId": "session-rcif-authoring-default",
+    "signedAt": "2026-10-26T00:00:00.000Z"
+  },
+  "canonical": "{\"approvalId\":\"appr-0123456789ab\",\"approvedBy\":\"u_bridge_01\",\"approvedExactBrep\":true,\"approvedParamsSha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"approvedSourceMode\":\"parametric\",\"approvedTableTruthSha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"sessionId\":\"session-rcif-authoring-default\",\"signedAt\":\"2026-10-26T00:00:00.000Z\"}",
+  "sha256": "cae61fadb342c10dbbb6689e03e3f0499335841434114360da275d3f5629c43e"
+}

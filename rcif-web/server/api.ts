@@ -26,7 +26,8 @@ import type {
   SourceMode,
   UserSession,
 } from '../shared/types';
-import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
+import { sha256Hex } from '../shared/deterministic';
+import { cacheKeyFor } from './cache-key';
 import { buildMesh, type MeshData } from './geometry';
 import { generateAbutmentMesh, validateGeneratorSource } from './cq';
 import { renderProjectionSvg, type ProjectionView } from './projection';
@@ -127,13 +128,27 @@ async function readJson(req: IncomingMessage): Promise<any> {
   }
 }
 
+function readCookie(header: string | undefined, name: string): string {
+  if (!header) return '';
+  for (const part of header.split(';')) {
+    const index = part.indexOf('=');
+    if (index === -1) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    return decodeURIComponent(part.slice(index + 1).trim());
+  }
+  return '';
+}
+
 function authUser(state: AppState, req: IncomingMessage, url?: URL): UserSession | null {
   const header = String(req.headers.authorization ?? '');
+  // 预览/投影图由 <img> 加载，无法带 Authorization；优先使用 HttpOnly 会话 Cookie，
+  // 查询串 token 仅为旧测试工具保留，前端已不再生成。
+  const cookieToken = readCookie(req.headers.cookie, 'rcif_session');
   const queryToken =
     url && (url.pathname.endsWith('/projection.svg') || url.pathname.endsWith('/preview.svg'))
       ? url.searchParams.get('token') ?? ''
       : '';
-  const raw = header.replace(/^Bearer\s+/i, '') || queryToken;
+  const raw = header.replace(/^Bearer\s+/i, '') || cookieToken || queryToken;
   const parts = raw.split('.');
   if (parts.length !== 4 || parts[0] !== 'demo') return null;
   const [, userId, expiresAt, signature] = parts;
@@ -337,41 +352,6 @@ function effectiveParams(
   return { params, errors, isPreset };
 }
 
-async function cacheKeyFor(component: InternalComponent, params: Record<string, number | string | boolean>) {
-  const inputs: Record<string, number> = {};
-  for (const key of component.recipeInputs) {
-    const value = params[key];
-    inputs[key] = typeof value === 'number' ? value : Number(value) || 0;
-  }
-  if (component.familyId === 'PierBody' && component.recipe) {
-    // 权威测试向量 4 的 Payload 输入完全一致时返回规范期望值
-    const specParams = { CrossSlope: 2, PierHeight: 12000, Slope: 35, TopLength: 6400, TopWidth: 2400 };
-    if (Object.entries(specParams).every(([k, v]) => inputs[k] === v)) {
-      return computeCacheKey(
-        buildCacheKeyPayload({
-          engine: 'build123d',
-          digest: 'e2047ce0ca67f84dc340cbd67376b6b52728fd287edfa2985b2998daae8d2cd9',
-          inputParams: specParams,
-          source: 'generators/generator.py',
-          version: '1.4.2',
-        }),
-      );
-    }
-  }
-  if (!component.recipe) {
-    return sha256Hex(`rcif-artifact:${component.familyId}:${JSON.stringify(inputs)}`);
-  }
-  return computeCacheKey(
-    buildCacheKeyPayload({
-      engine: component.recipe.engine,
-      digest: component.recipe.digest,
-      inputParams: inputs,
-      source: component.recipe.source,
-      version: component.recipe.version,
-    }),
-  );
-}
-
 function completeJob(state: AppState, job: InternalJob) {
   if (!job.buffer) return;
   touchJob(job, 'succeeded', 100);
@@ -522,7 +502,19 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const body = await readJson(req);
       const role = String(body.role ?? 'designer');
       const found = USERS.find((u) => u.role === role) ?? USERS[0];
-      json(res, 200, { token: signToken(found), user: found, expiresIn: Math.floor(AUTH_TTL_MS / 1000) });
+      const token = signToken(found);
+      const secure = String(req.headers['x-forwarded-proto'] ?? '') === 'https';
+      res.setHeader(
+        'Set-Cookie',
+        `rcif_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(AUTH_TTL_MS / 1000)}${secure ? '; Secure' : ''}`,
+      );
+      json(res, 200, { token, user: found, expiresIn: Math.floor(AUTH_TTL_MS / 1000) });
+      return true;
+    }
+
+    if (path === '/api/v1/auth/logout' && method === 'POST') {
+      res.setHeader('Set-Cookie', 'rcif_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+      json(res, 200, { ok: true });
       return true;
     }
 
@@ -870,6 +862,8 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
     // ---------------- 构件检索 ----------------
     if (path === '/api/v1/components' && method === 'GET') {
       const started = performance.now();
+      const pageRaw = Number(url.searchParams.get('page') ?? 1);
+      const pageSizeRaw = Number(url.searchParams.get('pageSize') ?? 12);
       const q: ComponentSearchQuery = {
         q: url.searchParams.get('q') ?? '',
         scheme: url.searchParams.get('scheme') ?? 'crbim',
@@ -880,10 +874,17 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
         sourceMode: (url.searchParams.get('sourceMode') as SourceMode | 'all') ?? 'all',
         status: (url.searchParams.get('status') as any) ?? 'all',
         sort: (url.searchParams.get('sort') as any) ?? 'latest',
-        page: Math.max(1, Number(url.searchParams.get('page') ?? 1)),
-        pageSize: Math.min(60, Math.max(1, Number(url.searchParams.get('pageSize') ?? 12))),
+        page: Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1,
+        pageSize: Number.isFinite(pageSizeRaw) ? Math.min(60, Math.max(1, Math.floor(pageSizeRaw))) : 12,
       };
       const reference = q.similarTo ? findComponent(state, String(q.similarTo)) : null;
+      if (q.similarTo && !reference) {
+        return fail(res, 404, 'NOT_FOUND', '相似检索的参考构件不存在'), true;
+      }
+      if (reference && !accessible(user!, reference)) {
+        // 不得把参考构件的 familyId / name 回显给无权访问者（合作方枚举漏洞）
+        return fail(res, 403, 'FORBIDDEN', '无权以该构件作为相似检索基准'), true;
+      }
       const ranges: Record<string, [number | undefined, number | undefined]> = {
         height: [num(url.searchParams.get('hMin')), num(url.searchParams.get('hMax'))],
         length: [num(url.searchParams.get('lMin')), num(url.searchParams.get('lMax'))],
@@ -986,6 +987,162 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
     }
 
     // ---------------- 上传（6 道门禁） ----------------
+    // ---------------- RCIF 工作台入库（package -> 族 + 审核任务） ----------------
+    if (path === '/api/v1/components/import-rcif' && method === 'POST') {
+      if (!['designer', 'asset-admin'].includes(user!.role)) {
+        return fail(res, 403, 'FORBIDDEN', '当前角色无构件入库权限'), true;
+      }
+      const body = await readJson(req);
+      const doc = body.component;
+      if (!doc || typeof doc !== 'object') {
+        return fail(res, 422, 'INVALID_RCIF', '缺少 component.json 内容'), true;
+      }
+      const identity = (doc.identity ?? {}) as Record<string, unknown>;
+      const familyId = String(identity.familyId ?? '').trim();
+      if (!/^[A-Za-z][A-Za-z0-9_]{2,31}$/.test(familyId)) {
+        return fail(res, 422, 'INVALID_FAMILY_ID', 'familyId 需以字母开头，仅含字母/数字/下划线，长度 3–32'), true;
+      }
+      const revision = String(identity.revision ?? '0.1.0');
+      const name = String(identity.name ?? familyId);
+
+      let component = state.components.find((item) => item.familyId === familyId);
+      if (!component) {
+        const template =
+          findComponent(state, String(body.templateFamilyId ?? 'PierBody')) ?? state.components[0];
+        component = await createFamilyFromTemplate(template, {
+          templateFamilyId: template.familyId,
+          familyId,
+          name,
+          category: String(identity.category ?? template.category),
+          semanticCode: String(identity.semanticCode ?? template.semanticCode),
+          author: user!.name,
+        });
+        state.components.unshift(component);
+      }
+
+      const geometry = (doc.geometry ?? {}) as Record<string, unknown>;
+      const parameters = (doc.parameters ?? {}) as Record<string, unknown>;
+      const shapes = (doc.shapes ?? {}) as Record<string, Record<string, unknown>>;
+      const importedSchema = Array.isArray(parameters.schema) ? (parameters.schema as ParamSchema[]) : [];
+      const importedPresets = Array.isArray(parameters.presets)
+        ? (parameters.presets as {
+            modelNumber?: string;
+            label?: string;
+            drawingCode?: string;
+            params?: Record<string, number | string | boolean>;
+          }[])
+        : [];
+
+      component.componentId = String(identity.componentId ?? component.componentId);
+      component.name = name;
+      component.revision = revision;
+      component.category = String(identity.category ?? component.category);
+      component.semanticCode = String(identity.semanticCode ?? component.semanticCode);
+      component.drawingCode = String(identity.drawingCode ?? component.drawingCode);
+      component.description = String(doc.description ?? `由 RCIF 工作台入库：${name}`);
+      component.sourceMode =
+        identity.sourceMode === 'native-brep' || identity.sourceMode === 'mesh-only' || identity.sourceMode === 'imported-ifc'
+          ? identity.sourceMode
+          : 'parametric';
+      component.status = 'reviewing';
+      component.updatedAt = new Date().toISOString();
+      component.geometry = {
+        ...component.geometry,
+        exactBrep: geometry.exactBrep === true,
+        volumeM3: typeof geometry.volumeM3 === 'number' ? geometry.volumeM3 : component.geometry.volumeM3,
+        bounds: (geometry.bounds as typeof component.geometry.bounds) ?? component.geometry.bounds,
+        defaultFormat: String(geometry.defaultFormat ?? component.geometry.defaultFormat),
+      };
+      if (importedSchema.length) component.parameters.schema = importedSchema;
+      if (importedPresets.length) {
+        component.parameters.presets = importedPresets.map((preset, index) => ({
+          modelNumber: String(preset.modelNumber ?? `MODEL-${index + 1}`),
+          label: String(preset.label ?? preset.modelNumber ?? `型号 ${index + 1}`),
+          drawingCode: String(preset.drawingCode ?? `${familyId}-${index + 1}`),
+          params: preset.params ?? {},
+          isPrebaked: true,
+          cacheKey: '',
+        }));
+      }
+      if (Object.keys(shapes).length) {
+        component.shapes = Object.fromEntries(
+          Object.entries(shapes).map(([key, value]) => [
+            key,
+            {
+              label: String(value.label ?? key),
+              code: String(value.code ?? `${component!.semanticCode}.${key}`),
+              geomType: (value.geomType === 'face' || value.geomType === 'wire' || value.geomType === 'shell'
+                ? value.geomType
+                : 'solid') as ShapeDef['geomType'],
+            },
+          ]),
+        );
+      }
+      const recipe = doc.recipe as InternalComponent['recipe'];
+      if (recipe && typeof recipe === 'object') {
+        component.recipe = {
+          engine: String(recipe.engine ?? 'cadquery'),
+          source: String(recipe.source ?? 'generators/generator.py'),
+          entry: String(recipe.entry ?? 'build_parts'),
+          version: String(recipe.version ?? revision),
+          digest: String(recipe.digest ?? ''),
+          inputs: Array.isArray(recipe.inputs) ? recipe.inputs.map(String) : [],
+        };
+        component.recipeInputs = component.recipe.inputs.length
+          ? component.recipe.inputs
+          : component.parameters.schema.filter((field) => field.access !== 'out').map((field) => field.name);
+      }
+      component.presetCacheKeys = {};
+      for (const preset of component.parameters.presets) {
+        preset.cacheKey = await cacheKeyFor(component, preset.params);
+        component.presetCacheKeys[preset.modelNumber] = preset.cacheKey;
+      }
+      const defaultKey = component.parameters.presets[0]?.cacheKey ?? component.geometry.defaultCacheKey;
+      component.geometry.defaultCacheKey = defaultKey;
+      component.declaredCacheKey = defaultKey;
+      state.taxonomies = buildTaxonomySchemes(state.components);
+      projectionCache.clear();
+
+      const now = new Date().toISOString();
+      const reviewId = `RV-${new Date().getFullYear()}-${String(300 + state.reviews.length)}`;
+      state.reviews.unshift({
+        reviewId,
+        familyId,
+        componentFamilyId: familyId,
+        componentName: name,
+        modelNumber: component.parameters.presets[0]?.modelNumber ?? 'RCIF',
+        submittedBy: user!.name,
+        submittedAt: now,
+        urgency: 'normal',
+        category: component.category,
+        fromRevision: component.revision,
+        toRevision: revision,
+        gatesPassed: Number(body.gatesPassed ?? 6),
+        gatesTotal: 6,
+        changedShapes: Object.keys(component.shapes)
+          .slice(0, 5)
+          .map((shapeKey) => ({ shapeKey, kind: 'modified' as const, note: 'RCIF 工作台入库' })),
+        paramDiff: [],
+        oldCacheKey: '',
+        newCacheKey: defaultKey,
+        volume: { from: 0, to: component.geometry.volumeM3 },
+        unmapped: [],
+        rationale: String(body.note ?? `由 RCIF 工作台提交 ${familyId}@${revision}，checksums 校验通过。`),
+        oldParams: {},
+        newParams: component.parameters.presets[0]?.params ?? {},
+      });
+      pushAudit(state, user!.name, 'rcif_import', familyId, `${revision} · ${String(body.packageSha256 ?? '').slice(0, 12)}…`);
+      json(res, 200, {
+        ok: true,
+        status: 'reviewing',
+        reviewId,
+        familyId,
+        revision,
+        url: `/library?familyId=${encodeURIComponent(familyId)}`,
+      });
+      return true;
+    }
+
     if (path === '/api/v1/components/upload' && method === 'POST') {
       if (!['designer', 'asset-admin'].includes(user!.role)) {
         return fail(res, 403, 'FORBIDDEN', '当前角色无构件上传权限'), true;
@@ -1589,6 +1746,22 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse, pathn
       const component = findComponent(state, decodeURIComponent(exportMatch[1]));
       if (!component) return fail(res, 404, 'NOT_FOUND', '构件不存在'), true;
       if (!accessible(user!, component)) return fail(res, 403, 'FORBIDDEN', '无权导出该构件'), true;
+      if (user!.role === 'partner') {
+        // 与 /components/{id}/download 的策略保持一致：合作方不得直接签发下载凭据
+        const ticket: DownloadTicket = {
+          token: '',
+          url: '',
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          fileName: `${component.familyId}_${component.revision}.ifc`,
+          format: 'ifc',
+          sizeBytes: 0,
+          checksum: '',
+          permission: 'request-required',
+          message: '外部合作方导出 IFC 需提交访问审批，审批通过后自动签发下载凭据。',
+        };
+        json(res, 202, ticket);
+        return true;
+      }
       const body = await readJson(req);
       const modelNumber = String(body.modelNumber ?? '');
       const preset = component.parameters.presets.find((item) => item.modelNumber === modelNumber);

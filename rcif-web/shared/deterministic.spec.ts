@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   buildCacheKeyPayload,
   deterministicJson,
   formatNumber,
   verifySpecVectors,
 } from './deterministic';
+
+const FIXTURE_PATH = fileURLToPath(new URL('./fixtures/deterministic_vectors.json', import.meta.url));
 
 describe('DeterministicJSON 规范自检', () => {
   it('浮点 %.12g 规范化', () => {
@@ -15,6 +19,20 @@ describe('DeterministicJSON 规范自检', () => {
     expect(formatNumber(-0)).toBe('0');
     expect(formatNumber(2.0000000000001)).toBe('2');
     expect(formatNumber(1 / 3)).toBe('0.333333333333');
+    // 与 Python/C 的 `%g` 指数切换阈值保持一致（toPrecision 的 -6 是错的）
+    expect(formatNumber(0.000015)).toBe('1.5e-05');
+    expect(formatNumber(1.23456789)).toBe('1.23456789');
+    expect(formatNumber(1e20)).toBe('1e+20');
+  });
+
+  it('与 Python rcifc.det_json 固定向量逐字节一致', () => {
+    const fixture = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as {
+      cases: { payload: unknown; canonical: string }[];
+    };
+    expect(fixture.cases.length).toBeGreaterThan(10);
+    for (const item of fixture.cases) {
+      expect(deterministicJson(item.payload), JSON.stringify(item.payload)).toBe(item.canonical);
+    }
   });
 
   it('键名 UTF-8 字节序递归升序且无空白', () => {

@@ -10,6 +10,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5178",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:determinism": "node scripts/check-determinism.mjs",
     "typecheck": "vue-tsc --noEmit",
     "smoke": "node scripts/smoke-api.mjs",
     "e2e": "node scripts/cdp-check.mjs",

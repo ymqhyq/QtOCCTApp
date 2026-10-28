@@ -143,7 +143,7 @@ GET    /api/v1/analytics/overview
 
 ### 认证
 
-Token 为 `demo.<userId>.<expiresAt>.<HMAC-SHA256>`，15 分钟有效；支持 Bearer 和预览/投影图的 query token。演示登录仍按 `role` 签发，生产必须替换为企业 SSO。
+Token 为 `demo.<userId>.<expiresAt>.<HMAC-SHA256>`，15 分钟有效。API 调用使用 `Authorization: Bearer`；`<img>` 预览/投影图改用 `HttpOnly; SameSite=Strict` 的 `rcif_session` Cookie 鉴权，前端不再把 token 写进 URL（服务端仍保留 query token 兼容旧安全冒烟脚本，生产应移除）。演示登录仍按 `role` 签发，生产必须替换为企业 SSO。
 
 ## 6. 测试
 

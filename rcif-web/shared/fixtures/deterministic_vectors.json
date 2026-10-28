@@ -1,0 +1,143 @@
+{
+  "spec": "RCIF v1.4.2 §5.1 DeterministicJSON (C %.12g)",
+  "generatedBy": "rcif-tools/rcifc.py det_json",
+  "cases": [
+    {
+      "payload": {
+        "a": 1
+      },
+      "canonical": "{\"a\":1}",
+      "sha256": "015abd7f5cc57a2dd94b7590f04ad8084273905ee33ec5cebeae62276a97f862"
+    },
+    {
+      "payload": {
+        "a": 1.5
+      },
+      "canonical": "{\"a\":1.5}",
+      "sha256": "3b1cb40b22933d83e9242f8ac724f114d812ddd49909917b365375c24b69a455"
+    },
+    {
+      "payload": {
+        "a": 0.001
+      },
+      "canonical": "{\"a\":0.001}",
+      "sha256": "08a056974ceb50565799db9b22ba39b93e3cc03dec6aee866816ec53ef631f0c"
+    },
+    {
+      "payload": {
+        "a": 1.23456789
+      },
+      "canonical": "{\"a\":1.23456789}",
+      "sha256": "c6432f5ab1575cc4c4d85482e42615b92f763831d38a5d6888a5b322da53ef54"
+    },
+    {
+      "payload": {
+        "a": 1.5e-06
+      },
+      "canonical": "{\"a\":1.5e-06}",
+      "sha256": "e6bfdc11c58b5a5120f60f5faf2593b7bfda6beea79b92e628a1d23902d49c5f"
+    },
+    {
+      "payload": {
+        "a": 1.5e-05
+      },
+      "canonical": "{\"a\":1.5e-05}",
+      "sha256": "417c2ae6818865c47120e961865727924fe2cb115ec45363c9ae81d84ec78dc0"
+    },
+    {
+      "payload": {
+        "a": 0.0001
+      },
+      "canonical": "{\"a\":0.0001}",
+      "sha256": "c7e0f341a63adab6860299047cc37a631a21511d47c1a39a1041fc4faae655c5"
+    },
+    {
+      "payload": {
+        "a": 1e-12
+      },
+      "canonical": "{\"a\":1e-12}",
+      "sha256": "0269e500b662fcc88dd4f1c927b2133bb10d8b19ea786b8cd9a32c7d39be79da"
+    },
+    {
+      "payload": {
+        "a": 1e-13
+      },
+      "canonical": "{\"a\":0}",
+      "sha256": "45b619e97b5d9b029af4522e9ffb02fa99ff2bf226c82ee22a7cc10269a557e8"
+    },
+    {
+      "payload": {
+        "a": -0.0
+      },
+      "canonical": "{\"a\":0}",
+      "sha256": "45b619e97b5d9b029af4522e9ffb02fa99ff2bf226c82ee22a7cc10269a557e8"
+    },
+    {
+      "payload": {
+        "a": 1.234567890123456
+      },
+      "canonical": "{\"a\":1.23456789012}",
+      "sha256": "fd74267467961b310cf296a7497c61f158269598e3598a77884afbe894758fe4"
+    },
+    {
+      "payload": {
+        "a": 1234567890123456
+      },
+      "canonical": "{\"a\":1.23456789012e+15}",
+      "sha256": "66d69dbc3aa1d73863fc8e391f6ce75eed78ae86ccb5f2c4034005f72f611ea1"
+    },
+    {
+      "payload": {
+        "a": 999999999999.5
+      },
+      "canonical": "{\"a\":1e+12}",
+      "sha256": "9094968a6020aaa0b58247fb65311d4510a4ce7c243db9241159fb4635feca0d"
+    },
+    {
+      "payload": {
+        "a": 1e+20
+      },
+      "canonical": "{\"a\":1e+20}",
+      "sha256": "1c260b65cfea9b276ff5fe265b4298a11938d2710b3f56305c51ce88d0210a2a"
+    },
+    {
+      "payload": {
+        "a": 0.3333333333333333
+      },
+      "canonical": "{\"a\":0.333333333333}",
+      "sha256": "ee5c6f95f0a892a63a9bf07bbc1b234d058bf7a2ad7da7f044baeccdf34d3070"
+    },
+    {
+      "payload": {
+        "a": 2.0000000000001
+      },
+      "canonical": "{\"a\":2}",
+      "sha256": "7e8059f495589fcd981232cc11d00b00da3802c01d688fa1cf1f6bed6e5bb33c"
+    },
+    {
+      "payload": {
+        "a": 3.14159265358979
+      },
+      "canonical": "{\"a\":3.14159265359}",
+      "sha256": "6b77aa5c5e00c668439871d4cb64ce2a592a008569f2ed11185de275cffd13d2"
+    },
+    {
+      "payload": {
+        "Layout": "梅花形",
+        "b": [
+          1,
+          1.5,
+          null,
+          true
+        ],
+        "a": {
+          "d": 2,
+          "c": 3
+        },
+        "Z": -0.0
+      },
+      "canonical": "{\"Layout\":\"梅花形\",\"Z\":0,\"a\":{\"c\":3,\"d\":2},\"b\":[1,1.5,null,true]}",
+      "sha256": "1ec9af5350860608119f844bcfaf0af7abb2452735e77fae51cfd78cd870dc87"
+    }
+  ]
+}

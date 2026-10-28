@@ -5,7 +5,7 @@
  * - 新建族采用“基于模板克隆”，保证几何、契约与权限可控。
  */
 import type { FamilyAdminView, Preset } from '../shared/types';
-import { buildCacheKeyPayload, computeCacheKey, sha256Hex } from '../shared/deterministic';
+import { cacheKeyFor, numericInputs } from './cache-key';
 import { buildMesh } from './geometry';
 import { generatorDigest, generatorEntry } from './generator';
 import type { InternalComponent } from './seed';
@@ -71,52 +71,6 @@ export function validateModelNumber(modelNumber: string): string | null {
     return 'modelNumber 需以字母或数字开头，仅含字母/数字/./_/-，长度 2–32';
   }
   return null;
-}
-
-function numericInputs(
-  params: Record<string, number | string | boolean>,
-  inputs: string[],
-): Record<string, number> {
-  const result: Record<string, number> = {};
-  for (const key of inputs) {
-    const value = params[key];
-    result[key] = typeof value === 'number' ? value : Number(value) || 0;
-  }
-  return result;
-}
-
-/** 与 API 的权威算键保持一致（族库编辑型号时也走同一契约）。 */
-export async function cacheKeyFor(
-  component: InternalComponent,
-  params: Record<string, number | string | boolean>,
-): Promise<string> {
-  const inputs = numericInputs(params, component.recipeInputs);
-  if (component.familyId === 'PierBody' && component.recipe) {
-    const spec = { CrossSlope: 2, PierHeight: 12000, Slope: 35, TopLength: 6400, TopWidth: 2400 };
-    if (Object.entries(spec).every(([key, value]) => inputs[key] === value)) {
-      return computeCacheKey(
-        buildCacheKeyPayload({
-          engine: 'build123d',
-          digest: '0c034d0fe7643a9ffcfffb1d79ec9ce2363a0e79baa0ca599cb99cd259f1eb0d',
-          inputParams: spec,
-          source: 'generators/generator.py',
-          version: '1.4.2',
-        }),
-      );
-    }
-  }
-  if (!component.recipe) {
-    return sha256Hex(`rcif-artifact:${component.familyId}:${JSON.stringify(inputs)}`);
-  }
-  return computeCacheKey(
-    buildCacheKeyPayload({
-      engine: component.recipe.engine,
-      digest: component.recipe.digest,
-      inputParams: inputs,
-      source: component.recipe.source,
-      version: component.recipe.version,
-    }),
-  );
 }
 
 function baseParams(component: InternalComponent, modelNumber: string): Record<string, number | string | boolean> {

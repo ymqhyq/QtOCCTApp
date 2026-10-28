@@ -290,8 +290,9 @@ export const api = {
     });
   },
   previewUrl(familyId: string, width = 360, height = 260) {
-    const token = getToken();
-    return `/api/v1/components/${encodeURIComponent(familyId)}/preview.svg?w=${width}&h=${height}${token ? `&token=${encodeURIComponent(token)}` : ''}`;
+    // 预览图通过 HttpOnly 会话 Cookie 鉴权，绝不把 Bearer token 写进 URL
+    // （URL 会进入历史、磁盘缓存、代理日志与 Referer）。
+    return `/api/v1/components/${encodeURIComponent(familyId)}/preview.svg?w=${width}&h=${height}`;
   },
   listFamilies() {
     return request<{ items: FamilyAdminView[]; total: number }>('/api/v1/families');
@@ -380,7 +381,6 @@ export const api = {
       view,
       hidden: options.hidden === false ? '0' : '1',
       dims: options.dimensions === false ? '0' : '1',
-      token: getToken(),
     });
     if (options.download) params.set('download', '1');
     if (options.cacheBust !== undefined) params.set('_', String(options.cacheBust));

@@ -57,7 +57,7 @@ const projection = await evaluate(`(() => {
   return img ? { w: img.naturalWidth, h: img.naturalHeight, src: img.getAttribute('src') } : null;
 })()`);
 check('详情页投影图 Tab 加载 SVG', Boolean(projection?.w > 0), projection ? `${projection.w}×${projection.h}` : 'no img');
-check('投影图 URL 使用 token 加载', Boolean(projection?.src?.includes('projection.svg') && projection.src.includes('token=')));
+check('投影图通过 HttpOnly Cookie 加载（URL 不含 token）', Boolean(projection?.src?.includes('projection.svg') && !projection.src.includes('token=')));
 await evaluate(`document.querySelector('img[alt*="二维投影图"]')?.scrollIntoView({ block: 'center' })`);
 await sleep(400);
 await shot('projection_tab');
