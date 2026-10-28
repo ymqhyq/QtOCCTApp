@@ -1,0 +1,33 @@
+{
+  "name": "@rcif/dsh-studio-plugin",
+  "version": "1.0.0",
+  "description": "铁路工程参数化构件智能构建插件 (RCIF Studio) — DeepSeek Harness host + client plugin",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./package.json": "./package.json"
+  },
+  "keywords": ["cordis", "dsh", "rcif", "cadquery", "occt", "bim"],
+  "author": "CRDC / Antigravity",
+  "license": "UNLICENSED",
+  "scripts": {
+    "test": "node test/plugin-contract.test.mjs",
+    "check": "node --check dist/index.js && node --check dist/client.js",
+    "prepack": "node --check dist/index.js && node --check dist/client.js && node test/plugin-contract.test.mjs"
+  },
+  "files": [
+    "dist/**/*.js",
+    "workbench/**/*",
+    "rcif-authoring.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./rcif-authoring.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-workspace"]
+    }
+  }
+}

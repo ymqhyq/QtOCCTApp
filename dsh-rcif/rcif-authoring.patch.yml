@@ -1,0 +1,36 @@
+# RCIF 构件创族工作台安全基线补丁 (rcif-authoring.patch.yml)
+# 对应方案第一部分 §5.4 与第三部分 1 (S5-N1)
+# 作用：禁用全部公网遥测、产品分析与外部未授权搜索，保证涉密/内网工程零数据外发
+
+- id: otel
+  name: '@deepseek-ai/dsh-otel'
+  disabled: true
+
+- id: session-telemetry-otel
+  name: '@deepseek-ai/dsh-session-telemetry-otel'
+  disabled: true
+  config:
+    mode: 'DISABLED'
+
+- id: desktop-product-telemetry
+  name: '@deepseek-ai/dsh-host-product-telemetry-otel'
+  disabled: true
+
+- id: product-analytics
+  name: '@deepseek-ai/dsh-client-product-analytics'
+  disabled: true
+  config:
+    enabled: false
+
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  disabled: true
+
+- id: web-search-deepseek
+  name: '@deepseek-ai/dsh-web-search-deepseek'
+  disabled: true
+
+- insert:
+    - id: rcif-studio-plugin
+      name: './dist/index.js'
+
