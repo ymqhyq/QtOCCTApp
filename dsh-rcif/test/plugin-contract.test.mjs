@@ -262,6 +262,8 @@ test('registers the real DSH route kinds and all browser endpoints', () => {
     '/rcif-studio/api/init-token',
     '/rcif-studio/api/library/ingest',
     '/rcif-studio/api/package',
+    '/rcif-studio/api/package/edit',
+    '/rcif-studio/api/package/patch',
     '/rcif-studio/api/package/preview.glb',
     '/rcif-studio/api/package/source',
     '/rcif-studio/api/preview.glb',
@@ -270,10 +272,12 @@ test('registers the real DSH route kinds and all browser endpoints', () => {
     '/rcif-studio/api/session-inject',
     '/rcif-studio/api/session-meta',
     '/rcif-studio/api/sessions',
+    '/rcif-studio/api/sessions/delete',
     '/rcif-studio/api/state',
     '/rcif-studio/api/tree',
     '/rcif-studio/api/upload',
     '/rcif-studio/api/workspaces',
+    '/rcif-studio/api/workspaces/delete',
   ]);
   assert.ok(routes.some((route) => route.kind === 'prefix' && route.path === '/rcif-studio/workbench'));
   assert.ok(!routes.some((route) => route.path === '/rcif-studio/api/compile-package' && route.kind !== 'exact'));
@@ -286,8 +290,10 @@ test('registers seven tools with the DSH output contract', () => {
       'rcif_compile_package',
       'rcif_ingest_ifc',
       'rcif_ingest_pdf',
+      'rcif_ingest_rfa',
       'rcif_ingest_step',
       'rcif_open_package',
+      'rcif_patch_package',
       'rcif_rebuild_generic',
       'rcif_verify_sandbox',
     ],
@@ -574,7 +580,7 @@ test('ingest converts a source file and pushes the package to the workbench', as
   assert.equal(state.packagePath, data.packagePath);
   assert.equal(state.sessionId, 'session-a');
   assert.equal(state.capabilities.agent, false);
-  assert.deepEqual(state.capabilities.ingest, ['pdf', 'step', 'ifc']);
+  assert.deepEqual(state.capabilities.ingest, ['pdf', 'step', 'ifc', 'rfa']);
 
   const other = await (await fetch(`${baseUrl}/rcif-studio/api/state?sessionId=session-b`)).json();
   assert.equal(other.packagePath, null);

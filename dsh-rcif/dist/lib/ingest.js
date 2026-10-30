@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const KINDS = ['pdf', 'step', 'ifc'];
+const KINDS = ['pdf', 'step', 'ifc', 'rfa'];
 
 function tail(text, limit = 4000) {
   const value = String(text || '');
@@ -20,12 +20,12 @@ function defaultFamilyId(kind, sourcePath) {
   const base = path.basename(sourcePath, path.extname(sourcePath));
   const cleaned = base.replace(/[^A-Za-z0-9_]/g, '_').replace(/^_+/, '');
   const prefixed = /^[A-Za-z]/.test(cleaned) ? cleaned : `Imported_${cleaned}`;
-  const fallback = { pdf: 'PdfDraft', step: 'ImportedStep', ifc: 'ImportedIFC' }[kind] || 'Imported';
+  const fallback = { pdf: 'PdfDraft', step: 'ImportedStep', ifc: 'ImportedIFC', rfa: 'ImportedRFA' }[kind] || 'Imported';
   return (prefixed || fallback).slice(0, 32);
 }
 
 function scriptFor(kind) {
-  return { pdf: 'pdf2rcif.py', step: 'step2rcif.py', ifc: 'ifc2rcif.py' }[kind];
+  return { pdf: 'pdf2rcif.py', step: 'step2rcif.py', ifc: 'ifc2rcif.py', rfa: 'rfa2rcif.py' }[kind];
 }
 
 async function ingestSource(options) {

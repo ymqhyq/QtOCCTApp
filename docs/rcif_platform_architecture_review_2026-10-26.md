@@ -292,7 +292,7 @@ Node(Ed25519) 签发审批单 → Python 验签通过（NODE_SIGNATURE_VERIFIED_
 - **七功能区工作台**：元数据 / 3D / 参数 / 脚本 / 部位 / 型号 / 入库；自然语言、行批注、3D 截图统一经 `/api/feedback` 送达 Agent；工作台 2.5s 轮询 `/api/state` 自动加载新包。
 - **Agent 工具扩充**：`rcif_ingest_ifc`、`rcif_open_package`，所有 `rcif_ingest_*` 完成后自动推送工作台。
 - **入库**：`POST /api/library/ingest` + `rcif-web /api/v1/components/import-rcif`，实测生成 `RV-2026-324`（PdfUi，49 型号，8 shapes，reviewing）。
-- **验证**：宿主契约 19/19、Python 13/13、rcif-web 39/39、headless Chrome 八功能区 0 JS 异常、真实 GLB/截图/入库全链路通过；多会话下 `sessionId → package` 隔离已实测（A 有包、B 为空）。
+- **验证**：宿主契约 19/19、Python 23/23、rcif-web 39/39、headless Chrome 八功能区 0 JS 异常、真实 GLB/截图/入库全链路通过；多会话下 `sessionId → package` 隔离已实测（A 有包、B 为空）。
 
 ## 9. 增量：固定工作目录 → 工作区 → 会话（同日实施）
 

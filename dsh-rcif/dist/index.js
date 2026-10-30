@@ -34,6 +34,10 @@ const MAX_BODY_BYTES = 256 * 1024;
 const MAX_PROCESS_OUTPUT = 2 * 1024 * 1024;
 const NONCE_TTL_MS = 5 * 60 * 1000;
 const CAP_TOKEN_TTL_SEC = 15 * 60;
+const ALLOWED_IDENTITY_FIELDS = [
+  'familyId', 'name', 'category', 'semanticCode', 'semanticProfileHint',
+  'drawingCode', 'designSpeed', 'applicableSpan', 'placement',
+];
 
 /** Canonical approval payload fields, sorted by UTF-8 byte order (must match pack_rcif_cli.py). */
 const APPROVAL_FIELDS = [
@@ -629,6 +633,7 @@ class RcifStudioPlugin {
     route('exact', `${API_PREFIX}/state`, (req, res) => this.handle(req, res, () => this.handleState(req, res)), 'workbench state');
     route('exact', `${API_PREFIX}/tree`, (req, res) => this.handle(req, res, () => this.handleTree(req, res)), 'workspace/session tree');
     route('exact', `${API_PREFIX}/workspaces`, (req, res) => this.handle(req, res, () => this.handleCreateWorkspace(req, res)), 'create workspace');
+    route('exact', `${API_PREFIX}/workspaces/delete`, (req, res) => this.handle(req, res, () => this.handleDeleteWorkspace(req, res)), 'delete workspace');
     route('exact', `${API_PREFIX}/session-meta`, (req, res) => this.handle(req, res, () => this.handleSessionMeta(req, res)), 'session metadata');
     route('exact', `${API_PREFIX}/session-files`, (req, res) => this.handle(req, res, () => this.handleSessionFiles(req, res)), 'session input files');
     route('exact', `${API_PREFIX}/generic/rebuild`, (req, res) => this.handle(req, res, () => this.handleGenericRebuild(req, res)), 'rebuild generic draft');
@@ -636,8 +641,11 @@ class RcifStudioPlugin {
     route('exact', `${API_PREFIX}/sessions`, (req, res) => this.handle(req, res, () => (
       req.method === 'POST' ? this.handleCreateSession(req, res) : this.handleSessions(req, res)
     )), 'session catalog/create');
+    route('exact', `${API_PREFIX}/sessions/delete`, (req, res) => this.handle(req, res, () => this.handleDeleteSession(req, res)), 'delete session');
     route('exact', `${API_PREFIX}/assistant`, (req, res) => this.handle(req, res, () => this.handleAssistant(req, res)), 'assistant jump target');
     route('exact', `${API_PREFIX}/package`, (req, res) => this.handle(req, res, () => this.handlePackage(req, res)), 'package metadata');
+    route('exact', `${API_PREFIX}/package/edit`, (req, res) => this.handle(req, res, () => this.handlePackageEditView(req, res)), 'package edit view');
+    route('exact', `${API_PREFIX}/package/patch`, (req, res) => this.handle(req, res, () => this.handlePackagePatch(req, res)), 'package edit');
     route('exact', `${API_PREFIX}/package/preview.glb`, (req, res) => this.handle(req, res, () => this.handlePackagePreview(req, res)), 'package glb');
     route('exact', `${API_PREFIX}/package/source`, (req, res) => this.handle(req, res, () => this.handlePackageSource(req, res)), 'package source');
     route('exact', `${API_PREFIX}/ingest`, (req, res) => this.handle(req, res, () => this.handleIngest(req, res)), 'ingest conversion');
@@ -1038,8 +1046,10 @@ class RcifStudioPlugin {
     if (!this.guard(req, res, { requireToken: false })) return;
     const records = await this.listSessions();
     const byId = new Map(records.map((record) => [record.sessionId, record]));
+    const registry = this.workspaceRegistry();
+    const archived = new Set(Array.from(registry?.archivedSessionIds || []));
     const workspaces = this.assistantWorkspaces().map((workspace) => {
-      const sessionIds = Array.from(workspace.sessionIds || []);
+      const sessionIds = Array.from(workspace.sessionIds || []).filter((id) => !archived.has(id));
       const sessions = sessionIds
         .map((sessionId) => {
           const record = byId.get(sessionId) || {};
@@ -1087,17 +1097,101 @@ class RcifStudioPlugin {
       throw new HttpError(422, `同名文件已存在: ${target}`, 'WORKSPACE_PATH_IS_FILE');
     }
     fs.mkdirSync(path.join(target, '.rcif', 'sessions'), { recursive: true });
+    const registry = this.workspaceRegistry();
     const controller = this.safeService('workspaceController');
     if (!controller || typeof controller.create !== 'function') {
       throw new HttpError(503, '宿主未提供 workspaceController，无法创建工作区', 'WORKSPACE_CONTROLLER_UNAVAILABLE');
     }
     const created = await controller.create({ path: target });
+    const recoveredSessions = [];
+    const workspaceEntity = registry && typeof registry.get === 'function'
+      ? registry.get(created?.workspace?.workspaceId || created?.workspace?.id)
+      : null;
+    if (workspaceEntity && typeof workspaceEntity.attachSession === 'function') {
+      const sessionsDir = path.join(target, '.rcif', 'sessions');
+      if (fs.existsSync(sessionsDir)) {
+        for (const entry of fs.readdirSync(sessionsDir)) {
+          if (!entry.endsWith('.json')) continue;
+          const sessionId = entry.slice(0, -'.json'.length);
+          try {
+            await workspaceEntity.attachSession(sessionId);
+            recoveredSessions.push(sessionId);
+          } catch (error) {
+            this.log('warn', `workspace session recovery skipped ${sessionId}: ${error.message}`);
+          }
+        }
+      }
+    }
     sendJson(res, 200, {
       ok: true,
       created: Boolean(created?.created),
+      recoveredSessions,
       workspace: created?.workspace
         ? { ...created.workspace, sessionIds: Array.from(created.workspace.sessionIds || []) }
         : null,
+    });
+  }
+
+  async handleDeleteSession(req, res) {
+    if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+    const body = await readJsonBody(req);
+    const sessionId = this.normalizeSessionId(body.sessionId);
+    if (!this.guard(req, res, { sessionId })) return;
+    const workspace = this.workspaceForSession(sessionId);
+    if (!workspace) throw new HttpError(404, '会话不属于助手工作区', 'SESSION_WORKSPACE_NOT_FOUND');
+    const controller = this.safeService('workspaceController');
+    if (!controller || typeof controller.archiveSession !== 'function') {
+      throw new HttpError(503, '宿主未提供 workspaceController，无法删除会话', 'WORKSPACE_CONTROLLER_UNAVAILABLE');
+    }
+    await controller.archiveSession({ sessionId, stopActivity: true });
+    this.sessionPackages.delete(sessionId);
+    sendJson(res, 200, {
+      ok: true,
+      deleted: true,
+      archived: true,
+      sessionId,
+      workspaceId: workspace.id,
+      filesPreserved: true,
+    });
+  }
+
+  async handleDeleteWorkspace(req, res) {
+    if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+    const body = await readJsonBody(req);
+    if (!this.guard(req, res, { requireToken: true })) return;
+    const workspaceId = String(body.workspaceId || '');
+    const registry = this.workspaceRegistry();
+    const workspace = registry && typeof registry.get === 'function' ? registry.get(workspaceId) : null;
+    if (!workspace) throw new HttpError(404, `工作区不存在: ${workspaceId}`, 'WORKSPACE_NOT_FOUND');
+    const target = path.resolve(String(workspace.path || ''));
+    if (!isInside(this.assistantRoot, target) || target === path.resolve(this.assistantRoot)) {
+      throw new HttpError(403, '拒绝删除助手根目录或越界工作区', 'WORKSPACE_OUTSIDE_ROOT');
+    }
+    const controller = this.safeService('workspaceController');
+    if (!controller || typeof controller.delete !== 'function') {
+      throw new HttpError(503, '宿主未提供 workspaceController，无法删除工作区', 'WORKSPACE_CONTROLLER_UNAVAILABLE');
+    }
+    const sessionIds = Array.from(workspace.sessionIds || []);
+    for (const sessionId of sessionIds) {
+      try {
+        if (typeof controller.archiveSession === 'function') {
+          await controller.archiveSession({ sessionId, stopActivity: true });
+        }
+      } catch (error) {
+        this.log('warn', `archive before workspace delete skipped ${sessionId}: ${error.message}`);
+      }
+      this.sessionPackages.delete(sessionId);
+    }
+    await controller.delete({ workspaceId });
+    const deleteFiles = body.deleteFiles === true;
+    if (deleteFiles) fs.rmSync(target, { recursive: true, force: true });
+    sendJson(res, 200, {
+      ok: true,
+      deleted: true,
+      workspaceId,
+      archivedSessionCount: sessionIds.length,
+      filesDeleted: deleteFiles,
+      workspacePath: target,
     });
   }
 
@@ -1179,7 +1273,7 @@ class RcifStudioPlugin {
     const files = [];
     if (fs.existsSync(inputsDir)) {
       for (const entry of fs.readdirSync(inputsDir, { withFileTypes: true })) {
-        if (!entry.isFile() || !/\.(pdf|step|stp|ifc)$/i.test(entry.name)) continue;
+        if (!entry.isFile() || !/\.(pdf|step|stp|ifc|rfa)$/i.test(entry.name)) continue;
         const stat = fs.statSync(path.join(inputsDir, entry.name));
         files.push({
           path: `inputs/${entry.name}`,
@@ -1208,8 +1302,8 @@ class RcifStudioPlugin {
     if (!workspace?.path) throw new HttpError(404, '会话不属于助手工作区', 'SESSION_WORKSPACE_NOT_FOUND');
     const rawName = String(url.searchParams.get('name') || '').trim();
     const name = path.basename(rawName).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
-    if (!name || name === '.' || name === '..' || !/\.(pdf|step|stp|ifc)$/i.test(name)) {
-      throw new HttpError(422, '只接受 .pdf/.step/.stp/.ifc 文件', 'INVALID_UPLOAD_NAME');
+    if (!name || name === '.' || name === '..' || !/\.(pdf|step|stp|ifc|rfa)$/i.test(name)) {
+      throw new HttpError(422, '只接受 .pdf/.step/.stp/.ifc/.rfa 文件', 'INVALID_UPLOAD_NAME');
     }
     const body = await readRawBody(req);
     if (!body.length) throw new HttpError(422, '上传文件为空', 'EMPTY_UPLOAD');
@@ -1220,7 +1314,7 @@ class RcifStudioPlugin {
     const relative = path.relative(workspace.path, target);
     const meta = this.writeSessionMeta(sessionId, {
       inputFile: relative,
-      sourceKind: /\.pdf$/i.test(name) ? 'pdf' : /\.ifc$/i.test(name) ? 'ifc' : 'step',
+      sourceKind: /\.pdf$/i.test(name) ? 'pdf' : /\.ifc$/i.test(name) ? 'ifc' : /\.rfa$/i.test(name) ? 'rfa' : 'step',
     }, workspace);
     sendJson(res, 200, {
       ok: true,
@@ -1246,8 +1340,8 @@ class RcifStudioPlugin {
       : this.sessionPackagePath(id);
     if (!sourcePackage) throw new HttpError(422, '当前会话没有可重建的构件包', 'NO_PACKAGE');
     const meta = readPackageMeta(sourcePackage);
-    if (meta?.metadata?.qa?.extractionMode !== 'generic_heuristic_draft') {
-      throw new HttpError(422, '只允许重建通用 PDF 草稿（generic_heuristic_draft）', 'NOT_GENERIC_DRAFT');
+    if (!['generic_heuristic_draft', 'rfa_partatom_heuristic'].includes(meta?.metadata?.qa?.extractionMode)) {
+      throw new HttpError(422, '只允许重建通用 PDF 草稿或 RFA 参数化构件（generic_heuristic_draft / rfa_partatom_heuristic）', 'NOT_GENERIC_DRAFT');
     }
     const nextRevision = revision ? String(revision) : this.bumpRevision(meta.metadata.revision);
     if (!/^\d+\.\d+\.\d+$/.test(nextRevision)) {
@@ -1295,13 +1389,98 @@ class RcifStudioPlugin {
         familyId: meta.metadata.familyId,
         outputPath: outPath,
         packagePath: outPath,
-        sourceKind: 'pdf',
+        sourceKind: existing.sourceKind || (meta?.metadata?.qa?.sourceFormat === 'rfa' ? 'rfa' : 'pdf'),
         revision: nextRevision,
       });
       return { ...info, packagePath: outPath, revision: nextRevision, sessionId: id };
     } finally {
       fs.rmSync(temp, { recursive: true, force: true });
     }
+  }
+
+  async patchPackage({ sessionId, packagePath, operations, revision, note, baseSha256, exec }) {
+    this.requireTools();
+    const id = this.normalizeSessionId(sessionId);
+    const workspace = this.workspaceForSession(id);
+    const base = workspace?.path || this.workspaceRoot;
+    const sourcePackage = packagePath
+      ? this.resolveInsideWorkspace(String(packagePath), { base, mustExist: true, expect: 'file' })
+      : this.sessionPackagePath(id);
+    if (!sourcePackage) throw new HttpError(422, '当前会话没有可编辑的构件包', 'NO_PACKAGE');
+    if (!Array.isArray(operations) || !operations.length) {
+      throw new HttpError(422, 'operations 不能为空', 'EMPTY_OPERATIONS');
+    }
+    const meta = readPackageMeta(sourcePackage);
+    const nextRevision = revision ? String(revision) : this.bumpRevision(meta.metadata.revision);
+    if (!/^\d+\.\d+\.\d+$/.test(nextRevision)) {
+      throw new HttpError(422, 'revision 需为 x.y.z', 'INVALID_REVISION');
+    }
+    const outPath = path.join(path.dirname(sourcePackage), `${meta.metadata.familyId}_${nextRevision}.rcif`);
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'rcif-package-edit-'));
+    try {
+      const opsFile = path.join(temp, 'operations.json');
+      fs.writeFileSync(opsFile, JSON.stringify(operations), 'utf8');
+      const args = [
+        path.join(this.requireTools(), 'package_edit.py'),
+        sourcePackage,
+        '--ops-file', opsFile,
+        '--output', outPath,
+        '--revision', nextRevision,
+        '--note', String(note || '工作台编辑').slice(0, 200),
+        '--actor', 'RCIF-DSH-Studio',
+      ];
+      if (baseSha256) args.push('--base-sha256', String(baseSha256));
+      const result = await this.runProcess(this.pythonPath, args, {
+        cwd: base,
+        timeoutMs: 180000,
+        signal: exec?.signal,
+        onSpawn: (child) => {
+          this.children.add(child);
+          child.once('close', () => this.children.delete(child));
+        },
+      });
+      if (result.code !== 0) {
+        const detail = (result.stderr || result.stdout || '').slice(0, 2000);
+        if (/PACKAGE_CHANGED/.test(detail)) {
+          throw new HttpError(409, '构件包已被其他操作修改，请重新加载', 'PACKAGE_CHANGED');
+        }
+        throw new HttpError(422, `构件包编辑失败: ${detail}`, 'PACKAGE_EDIT_FAILED');
+      }
+      const line = String(result.stdout || '').trim().split(/\r?\n/).reverse().find((row) => row.trim().startsWith('{'));
+      if (!line) throw new HttpError(500, '编辑服务未返回结果 JSON', 'EDIT_NO_RESULT');
+      const info = JSON.parse(line);
+      if (!info.ok) throw new HttpError(422, info.error || '构件包编辑失败', 'PACKAGE_EDIT_FAILED');
+      this.setCurrentPackage(outPath, id);
+      const existing = this.readSessionMeta(id);
+      this.recordSessionArtifacts(id, {
+        inputFile: existing.inputFile,
+        componentName: info.name || existing.componentName,
+        familyId: meta.metadata.familyId,
+        outputPath: outPath,
+        packagePath: outPath,
+        sourceKind: existing.sourceKind,
+        revision: nextRevision,
+      });
+      return { ...info, packagePath: outPath, sessionId: id };
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
+  }
+
+  async handlePackagePatch(req, res) {
+    if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+    const body = await readJsonBody(req, 2 * 1024 * 1024);
+    const sessionId = this.normalizeSessionId(body.sessionId);
+    if (!this.guard(req, res, { sessionId })) return;
+    const result = await this.patchPackage({
+      sessionId,
+      packagePath: body.packagePath,
+      operations: body.operations,
+      revision: body.revision,
+      note: body.note,
+      baseSha256: body.baseSha256,
+    });
+    sendJson(res, 200, { ok: true, ...result });
   }
 
   async handleGenericRebuild(req, res) {
@@ -1369,6 +1548,30 @@ class RcifStudioPlugin {
       defaultFamilyDir: this.defaultFamilyDir,
       feedback: this.feedbackHistory.filter((item) => item.sessionId === sessionId).slice(-10),
       annotationHistory: this.readAnnotationHistory(sessionId).slice(-20),
+    });
+  }
+
+  async handlePackageEditView(req, res) {
+    if (req.method !== 'GET') return sendMethodNotAllowed(res, 'GET');
+    if (!this.guard(req, res, { requireToken: false })) return;
+    const url = new URL(req.url || '/', 'http://localhost');
+    const sessionId = this.normalizeSessionId(url.searchParams.get('sessionId'));
+    const raw = url.searchParams.get('path') || this.sessionPackagePath(sessionId);
+    if (!raw) throw new HttpError(404, '工作台尚未加载任何构件包', 'NO_CURRENT_PACKAGE');
+    const abs = this.resolveInsideWorkspace(raw, { mustExist: true, expect: 'file' });
+    const meta = readPackageMeta(abs);
+    const { data } = readPackageFile(abs, 'component.json');
+    const component = JSON.parse(Buffer.from(data).toString('utf8'));
+    sendJson(res, 200, {
+      ok: true,
+      packagePath: abs,
+      baseSha256: meta.packageSha256,
+      schemaVersion: component.schemaVersion || null,
+      identity: component.identity || {},
+      description: component.description || '',
+      parameters: component.parameters || { schema: [], presets: [] },
+      allowedIdentity: Array.from(ALLOWED_IDENTITY_FIELDS),
+      revision: component.identity?.revision || null,
     });
   }
 
@@ -1524,7 +1727,7 @@ class RcifStudioPlugin {
       '【RCIF 工作台指令】',
       text,
       context,
-      '如需转换或重建，请调用 rcif_ingest_pdf / rcif_ingest_step / rcif_ingest_ifc / rcif_compile_package 工具；',
+      '如需转换或重建，请调用 rcif_ingest_pdf / rcif_ingest_step / rcif_ingest_ifc / rcif_ingest_rfa / rcif_compile_package 工具；',
       '完成后会自动推送到工作台（无需用户再手动复制路径）。',
     ].join('\n');
 
@@ -1783,7 +1986,7 @@ class RcifStudioPlugin {
     const sessionId = this.sessionIdFromExec(exec);
     const workspace = this.workspaceForSession(sessionId);
     const base = workspace?.path || this.workspaceRoot;
-    const key = kind === 'pdf' ? 'pdfPath' : kind === 'step' ? 'stepPath' : 'ifcPath';
+    const key = kind === 'pdf' ? 'pdfPath' : kind === 'step' ? 'stepPath' : kind === 'ifc' ? 'ifcPath' : 'rfaPath';
     const sourcePath = this.resolveInsideWorkspace(args[key] || args.sourcePath || '', {
       base,
       mustExist: true,
@@ -1791,10 +1994,16 @@ class RcifStudioPlugin {
     });
     const family = args.familyId ? String(args.familyId) : defaultFamilyId(kind, sourcePath);
     const revision = args.revision ? String(args.revision) : '1.0.0';
+    if (!/^\d+\.\d+\.\d+$/.test(revision)) {
+      throw new HttpError(422, 'revision 需为 x.y.z', 'INVALID_REVISION');
+    }
     const defaultOutput = workspace ? path.join(workspace.path, 'out', `${family}_${revision}.rcif`) : null;
     const outputPath = args.outputRcifPath
       ? this.resolveInsideWorkspace(String(args.outputRcifPath), { base, expect: 'file' })
       : defaultOutput;
+    if (outputPath && !/\.rcif$/i.test(outputPath)) {
+      throw new HttpError(422, '输出必须是 .rcif 文件', 'INVALID_OUTPUT_NAME');
+    }
     const result = await ingestSource({
       kind,
       sourcePath,
@@ -2215,6 +2424,22 @@ class RcifStudioPlugin {
     });
 
     register({
+      name: 'rcif_ingest_rfa',
+      description: '将 Revit 族 (.rfa) 转换为参数化 RCIF：完整解析 Partitions/* GRep B-Rep 拓扑/曲面与 PartAtom 类型/参数，生成重构的 CadQuery 参数化模型、STEP/GLB、source/grep.json 与 source/grep-candidates.obj，完成后自动推送到工作台。',
+      parameters: {
+        type: 'object',
+        properties: {
+          rfaPath: { type: 'string', description: 'RFA 文件路径（工作区内）' },
+          familyId: { type: 'string', description: '构件族 ID（可选）' },
+          revision: { type: 'string', description: '版本 x.y.z（可选，默认 1.0.0）' },
+          outputRcifPath: { type: 'string', description: '输出 .rcif 路径（可选）' },
+        },
+        required: ['rfaPath'],
+      },
+      run: async (args, exec) => this.ingestTool('rfa', args, exec),
+    });
+
+    register({
       name: 'rcif_open_package',
       description: '把一个已存在的 .rcif 构件包推送到 RCIF 工作台，供用户查看元数据、3D、参数、脚本与命名部位。',
       parameters: {
@@ -2241,6 +2466,47 @@ class RcifStudioPlugin {
           ok: true,
           summary: `已推送到工作台: ${meta.packagePath}`,
           details: JSON.stringify(meta.metadata, null, 2).slice(0, 12000),
+        };
+      },
+    });
+
+    register({
+      name: 'rcif_patch_package',
+      description: '受控编辑已有 RCIF 构件包：更新 identity、参数 schema/presets、description 或 changelog，并生成新版本。不开放 checksums/QA/geometry 派生字段。',
+      parameters: {
+        type: 'object',
+        properties: {
+          packagePath: { type: 'string', description: '要编辑的 .rcif 路径（可选，默认当前会话包）' },
+          operationsJson: { type: 'string', description: '操作数组 JSON，例如 [{"op":"identity.update","value":{"name":"新名称"}}]' },
+          revision: { type: 'string', description: '新版本 x.y.z（可选，默认 patch+1）' },
+          note: { type: 'string', description: '修改说明（可选）' },
+          baseSha256: { type: 'string', description: '当前包 SHA-256，用于并发冲突检测（可选）' },
+        },
+        required: ['operationsJson'],
+      },
+      run: async (args, exec) => {
+        let operations;
+        try {
+          operations = JSON.parse(String(args.operationsJson || '[]'));
+        } catch {
+          throw new Error('operationsJson 不是合法 JSON');
+        }
+        if (!Array.isArray(operations) || !operations.length) {
+          throw new Error('operationsJson 必须是非空数组');
+        }
+        const result = await this.patchPackage({
+          sessionId: this.sessionIdFromExec(exec),
+          packagePath: args.packagePath,
+          operations,
+          revision: args.revision,
+          note: args.note,
+          baseSha256: args.baseSha256,
+          exec,
+        });
+        return {
+          ok: true,
+          summary: `构件包已更新: ${result.packagePath} (${result.revision})`,
+          details: JSON.stringify(result, null, 2).slice(0, 12000),
         };
       },
     });

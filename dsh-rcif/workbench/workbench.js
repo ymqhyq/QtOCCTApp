@@ -57,7 +57,10 @@ const state = {
   measureObjects: [],
   measureResult: null,
   faceHighlights: [],
+  previewRequestId: 0,
   viewerPartsOpen: false,
+  packageEditMode: null,
+  packageEditData: null,
   scene: null,
   camera: null,
   renderer: null,
@@ -79,7 +82,45 @@ const state = {
   sessionInfo: null,
   assistantRoot: '',
   sessionDirty: false,
+  collapsedWorkspaces: new Set(),
 };
+
+const COLLAPSED_WORKSPACES_KEY = 'rcif:collapsed-workspaces';
+
+function loadCollapsedWorkspaces() {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_WORKSPACES_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(list) ? list.filter((id) => typeof id === 'string' && id) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCollapsedWorkspaces() {
+  try {
+    window.localStorage.setItem(
+      COLLAPSED_WORKSPACES_KEY,
+      JSON.stringify(Array.from(state.collapsedWorkspaces)),
+    );
+  } catch {
+    /* localStorage 不可用 */
+  }
+}
+
+function setWorkspaceCollapsed(workspaceId, collapsed) {
+  if (!workspaceId) return;
+  if (collapsed) state.collapsedWorkspaces.add(workspaceId);
+  else state.collapsedWorkspaces.delete(workspaceId);
+  saveCollapsedWorkspaces();
+}
+
+function expandWorkspace(workspaceId) {
+  if (!workspaceId) return;
+  if (state.collapsedWorkspaces.delete(workspaceId)) saveCollapsedWorkspaces();
+}
+
+state.collapsedWorkspaces = loadCollapsedWorkspaces();
 
 // ------------------------------------------------------------------ helpers
 
@@ -463,6 +504,7 @@ function disposeObject(object) {
 }
 
 function clearModel() {
+  state.previewRequestId += 1;
   resetMeasure();
   clearFaceHighlight();
   clearEdges();
@@ -822,10 +864,13 @@ async function loadPreviewMesh() {
   }
   setGeometryStatus('加载 preview.glb…', 'pending');
   const loader = new GLTFLoader();
-  const url = `${API}/package/preview.glb?path=${encodeURIComponent(state.packagePath)}`;
+  const requestId = state.previewRequestId + 1;
+  state.previewRequestId = requestId;
+  const url = `${API}/package/preview.glb?path=${encodeURIComponent(state.packagePath)}&v=${Date.now()}`;
   loader.load(
     url,
     (gltf) => {
+      if (requestId !== state.previewRequestId) return;
       clearModel();
       const root = gltf.scene;
       root.rotation.x = 0; // RCIF GLB 与 STEP 均为 Z-up，不再转到 Y-up
@@ -867,6 +912,7 @@ async function loadPreviewMesh() {
     },
     undefined,
     (error) => {
+      if (requestId !== state.previewRequestId) return;
       clearModel();
       setHidden('viewportEmpty', false);
       byId('viewportEmpty').querySelector('span').textContent = `preview.glb 加载失败：${error?.message || '未知错误'}`;
@@ -1102,6 +1148,8 @@ function resetViews() {
   setHidden('annotationSidebar', true);
   setHidden('annotationDialog', true);
   setHidden('annotationHistoryPanel', true);
+  setHidden('btnEditMetadata', true);
+  setHidden('btnEditParameters', true);
   setText('packageTitle', '未绑定构件');
   badge('packageRevision', '-');
   setText('chatContext', state.sessionId
@@ -1136,8 +1184,9 @@ function renderHeader() {
     : '铁路构件智能助手 · 工作台';
 }
 
-async function loadPackage(path) {
+async function loadPackage(path, options = {}) {
   if (!path || state.loading) return;
+  const activeView = options.view || document.querySelector('.wb-tab.active')?.dataset.view || 'view-metadata';
   state.loading = true;
   setFeedback(`正在加载构件包 ${path}…`, 'pending');
   try {
@@ -1164,9 +1213,11 @@ async function loadPackage(path) {
     renderParts();
     renderModels();
     renderIngest();
-    switchView('view-metadata');
+    if (activeView !== 'view-session') switchView(activeView === 'view-3d' ? 'view-3d' : 'view-metadata');
+    else switchView('view-metadata');
     await loadSource();
     await loadPreviewMesh();
+    if (activeView === 'view-3d' || options.view === 'view-3d') switchView('view-3d');
     setFeedback(`构件包已加载：${meta.metadata?.familyId || ''} ${meta.metadata?.revision || ''}`, 'ok');
   } catch (error) {
     state.lastError = error.message;
@@ -1192,6 +1243,7 @@ function renderMetadata() {
   if (!metadata) return;
   setHidden('metaEmpty', true);
   setHidden('metaContent', false);
+  setHidden('btnEditMetadata', false);
 
   setText('metaFamily', metadata.familyId);
   setText('metaName', metadata.name);
@@ -1204,6 +1256,9 @@ function renderMetadata() {
   setText('metaBounds', b ? `X ${b.x?.[0]}…${b.x?.[1]} / Y ${b.y?.[0]}…${b.y?.[1]} / Z ${b.z?.[0]}…${b.z?.[1]} mm` : '—');
   setText('metaCounts', `${metadata.parameterCount} / ${metadata.presetCount} / ${metadata.shapeCount}`);
   setText('metaSemantic', metadata.semanticCode);
+  setText('metaDesignSpeed', metadata.designSpeed || '—');
+  setText('metaApplicableSpan', Array.isArray(metadata.applicableSpan) && metadata.applicableSpan.length ? metadata.applicableSpan.join(' / ') : '—');
+  setText('metaDescription', metadata.description || '—');
   setText('metaPackageSha', metadata.packageSha256);
   setText('metaFileCount', metadata.fileCount);
   const checksums = metadata.checksums || {};
@@ -1219,6 +1274,12 @@ function renderMetadata() {
     setText(
       'metaExtraction',
       `通用体量草稿 · 置信度 ${confidence === undefined ? '—' : confidence}${missing.length ? ` · 缺失 ${missing.join('/')}` : ''}`,
+    );
+  } else if (extraction === 'rfa_partatom_heuristic' && metadata.qa?.grep?.brepDecoded) {
+    const g = metadata.qa.grep;
+    setText(
+      'metaExtraction',
+      `RFA GRep B-Rep 完整解码 + 参数化重构（${g.gElementCount || 0} GElement / ${g.brepSolidCount || 0} 实体 / ${g.faceCount || 0} 面 / ${g.edgeCount || 0} 边）`,
     );
   } else {
     setText('metaExtraction', extraction);
@@ -1258,10 +1319,12 @@ function renderParams() {
   if (!state.schema.length) {
     setHidden('paramsEmpty', false);
     setHidden('paramsContent', true);
+    setHidden('btnEditParameters', !state.packagePath);
     return;
   }
   setHidden('paramsEmpty', true);
   setHidden('paramsContent', false);
+  setHidden('btnEditParameters', false);
 
   const body = byId('paramSchemaBody');
   body.textContent = '';
@@ -1298,7 +1361,8 @@ function renderParams() {
 }
 
 function isGenericDraft() {
-  return state.metadata?.qa?.extractionMode === 'generic_heuristic_draft';
+  const mode = state.metadata?.qa?.extractionMode;
+  return mode === 'generic_heuristic_draft' || mode === 'rfa_partatom_heuristic';
 }
 
 function renderGenericRebuild() {
@@ -1337,6 +1401,100 @@ function collectGenericParams() {
     params[input.dataset.param] = raw === '' ? '' : (input.type === 'number' ? Number(raw) : raw);
   }
   return params;
+}
+
+async function openPackageEdit(mode) {
+  if (!state.packagePath) {
+    setFeedback('当前会话尚未加载构件包', 'warn');
+    return;
+  }
+  try {
+    const data = await api(`/package/edit?path=${encodeURIComponent(state.packagePath)}`);
+    state.packageEditMode = mode;
+    state.packageEditData = data;
+    const identity = data.identity || {};
+    byId('packageEditTitle').textContent = mode === 'parameters' ? '编辑参数与型号' : '编辑构件元数据';
+    setHidden('packageIdentityFields', mode !== 'identity');
+    setHidden('packageParametersFields', mode !== 'parameters');
+    byId('packageEditName').value = identity.name || '';
+    byId('packageEditFamily').value = identity.familyId || '';
+    byId('packageEditCategory').value = identity.category || '';
+    byId('packageEditSemantic').value = identity.semanticCode || '';
+    byId('packageEditDrawing').value = identity.drawingCode || '';
+    byId('packageEditSpeed').value = identity.designSpeed || '';
+    byId('packageEditSpan').value = (identity.applicableSpan || []).join('\n');
+    byId('packageEditDescription').value = data.description || '';
+    byId('packageParametersJson').value = JSON.stringify({
+      schema: data.parameters?.schema || [],
+      presets: data.parameters?.presets || [],
+    }, null, 2);
+    byId('packageEditNote').value = '';
+    setStatus('packageEditStatus', '');
+    setHidden('packageEditDialog', false);
+  } catch (error) {
+    setFeedback(`构件包编辑视图读取失败：${error.message}`, 'error');
+  }
+}
+
+function closePackageEdit() {
+  setHidden('packageEditDialog', true);
+  state.packageEditMode = null;
+  state.packageEditData = null;
+}
+
+async function savePackageEdit() {
+  if (!state.packageEditMode || !state.packagePath) return;
+  const note = (byId('packageEditNote')?.value || '').trim();
+  let operations;
+  if (state.packageEditMode === 'identity') {
+    operations = [
+      {
+        op: 'identity.update',
+        value: {
+          name: byId('packageEditName').value.trim(),
+          familyId: byId('packageEditFamily').value.trim(),
+          category: byId('packageEditCategory').value.trim(),
+          semanticCode: byId('packageEditSemantic').value.trim(),
+          drawingCode: byId('packageEditDrawing').value.trim(),
+          designSpeed: byId('packageEditSpeed').value.trim(),
+          applicableSpan: byId('packageEditSpan').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+        },
+      },
+      { op: 'description.update', value: byId('packageEditDescription').value.trim() },
+    ];
+  } else {
+    let parameters;
+    try {
+      parameters = JSON.parse(byId('packageParametersJson').value);
+    } catch (error) {
+      setStatus('packageEditStatus', `参数 JSON 不合法：${error.message}`, 'error');
+      return;
+    }
+    if (!parameters || !Array.isArray(parameters.schema) || !Array.isArray(parameters.presets)) {
+      setStatus('packageEditStatus', '参数 JSON 必须包含 schema 和 presets 数组', 'error');
+      return;
+    }
+    operations = [{ op: 'parameters.replace', value: parameters }];
+  }
+  setStatus('packageEditStatus', '正在生成新版本构件包…', 'pending');
+  try {
+    const result = await api('/package/patch', {
+      method: 'POST',
+      body: {
+        sessionId: state.sessionId,
+        packagePath: state.packagePath,
+        baseSha256: state.packageEditData?.baseSha256,
+        operations,
+        note: note || '工作台编辑',
+      },
+    });
+    await loadTree();
+    await loadPackage(result.packagePath);
+    closePackageEdit();
+    setFeedback(`构件包已更新：${result.revision}（旧包保留）`, 'ok');
+  } catch (error) {
+    setStatus('packageEditStatus', `保存失败：${error.message}`, 'error');
+  }
 }
 
 async function rebuildGenericDraft(options = {}) {
@@ -2152,7 +2310,16 @@ function renderAnnotationHistory() {
 function inferKind(filePath) {
   const ext = String(filePath || '').toLowerCase().split('.').pop();
   if (ext === 'stp') return 'step';
-  return ['pdf', 'step', 'ifc'].includes(ext) ? ext : '';
+  return ['pdf', 'step', 'ifc', 'rfa'].includes(ext) ? ext : '';
+}
+
+/** 会话/对话名称统一取源文件名（去掉扩展名）。 */
+function sourceFileStem(filePath) {
+  const raw = String(filePath || '').trim();
+  if (!raw) return '';
+  const base = raw.split(/[\\/]/).pop() || '';
+  const dot = base.lastIndexOf('.');
+  return dot > 0 ? base.slice(0, dot) : base;
 }
 
 function renderSessionPage() {
@@ -2171,18 +2338,35 @@ function renderSessionPage() {
 function updateDirectAvailability() {
   const kind = inferKind(byId('sessionSourceFile')?.value || '');
   const direct = byId('btnSessionDirect');
+  const agent = byId('btnSessionConvert');
+  const canDirect = ['step', 'ifc', 'rfa'].includes(kind);
   const isPdf = kind === 'pdf';
   if (direct) {
-    direct.disabled = isPdf;
+    direct.disabled = !canDirect;
+    direct.classList.toggle('primary-btn', canDirect);
+    direct.classList.toggle('action-btn-small', !canDirect);
+    direct.textContent = canDirect ? '直接转换（推荐）' : '直接转换';
     direct.title = isPdf
       ? 'PDF 只能由智能助手生成规则推断草稿，不支持直接转换'
+      : (canDirect ? '直接调用本地转换器，推荐用于 STEP/IFC/RFA' : '');
+  }
+  if (agent) {
+    agent.classList.toggle('primary-btn', !canDirect);
+    agent.classList.toggle('action-btn-small', canDirect);
+    agent.textContent = canDirect ? '交给智能助手' : (isPdf ? '让智能助手转换（推荐）' : '让智能助手转换');
+    agent.title = canDirect
+      ? '需要助手分析、改脚本或处理复杂转换时使用'
       : '';
   }
   const hint = byId('sourceHint');
   if (hint) {
     hint.innerHTML = isPdf
       ? 'PDF：仅支持“让智能助手转换”，由助手生成规则推断草稿（非 OCR、非图纸几何识别），必须复核型号与尺寸。'
-      : '可从会话文件夹的 <code>inputs/</code> 下拉选择；选择外部文件时会先复制到 <code>inputs/</code>。文件类型由后缀自动识别。';
+      : kind === 'rfa'
+        ? 'RFA：推荐直接转换；完整解析 Revit Partitions/* GRep B-Rep 几何与 PartAtom 参数，重构参数化 CadQuery 模型并打包 source/grep.json 与 grep-candidates.obj。'
+        : canDirect
+          ? '推荐直接转换：STEP/IFC/RFA 由本地转换器直接生成 RCIF；需要助手分析或改脚本时再交给智能助手。'
+          : '可从会话文件夹的 <code>inputs/</code> 下拉选择；选择外部文件时会先复制到 <code>inputs/</code>。文件类型由后缀自动识别。';
   }
 }
 
@@ -2263,6 +2447,8 @@ async function saveSessionMeta() {
         sessionId: state.sessionId,
         inputFile: values.inputFile,
         componentName: values.componentName,
+        // 对话名称统一使用源文件名；为空时不覆盖现有名称。
+        title: sourceFileStem(values.inputFile) || undefined,
         familyId: values.familyId,
         outputPath: values.outputPath,
         sourceKind: values.sourceKind,
@@ -2335,7 +2521,7 @@ async function startSessionConvert(mode) {
     return;
   }
   if (!values.sourceKind) {
-    setStatus('sessionStatusText', '源文件后缀必须是 .step/.stp/.ifc/.pdf', 'warn');
+    setStatus('sessionStatusText', '源文件后缀必须是 .step/.stp/.ifc/.pdf/.rfa', 'warn');
     return;
   }
   if (mode === 'direct' && values.sourceKind === 'pdf') {
@@ -2355,7 +2541,7 @@ async function startSessionConvert(mode) {
   setHidden('sessionLog', true);
 
   if (mode === 'agent') {
-    const tool = { step: 'rcif_ingest_step', ifc: 'rcif_ingest_ifc', pdf: 'rcif_ingest_pdf' }[values.sourceKind];
+    const tool = { step: 'rcif_ingest_step', ifc: 'rcif_ingest_ifc', pdf: 'rcif_ingest_pdf', rfa: 'rcif_ingest_rfa' }[values.sourceKind];
     const text = [
       `请使用 ${tool} 工具把源文件转换为 RCIF 构件。`,
       `会话文件夹：${state.workspace.path}`,
@@ -2405,9 +2591,21 @@ async function startSessionConvert(mode) {
       return;
     }
     setStatus('sessionStatusText', `✅ 转换完成：${result.packagePath}`, 'ok');
+    // 转换后端可能回写会话元数据；这里把对话名称固定为源文件名。
+    const sourceStem = sourceFileStem(values.inputFile);
+    if (sourceStem) {
+      try {
+        await api('/session-meta', {
+          method: 'PUT',
+          body: { sessionId: state.sessionId, title: sourceStem },
+        });
+      } catch {
+        /* 标题同步失败不影响转换结果 */
+      }
+    }
     await loadTree();
     await loadSessionMeta();
-    await loadPackage(result.packagePath);
+    await loadPackage(result.packagePath, values.sourceKind === 'rfa' ? { view: 'view-3d' } : {});
   } catch (error) {
     setStatus('sessionStatusText', `❌ ${error.message}`, 'error');
   }
@@ -2459,6 +2657,54 @@ async function loadTree() {
   }
 }
 
+async function deleteSession(session, workspace) {
+  const title = session.title || shortSessionId(session.sessionId);
+  if (!window.confirm(`删除会话“${title}”？\n\n会话将从工作台移除并归档；DSH 会话日志和已生成的构件包文件保留。`)) return;
+  try {
+    await api('/sessions/delete', {
+      method: 'POST',
+      body: { sessionId: session.sessionId },
+    });
+    const wasCurrent = state.sessionId === session.sessionId;
+    await loadTree();
+    if (wasCurrent) {
+      const nextWorkspace = state.tree.find((item) => item.workspaceId === workspace.workspaceId) || state.tree[0];
+      const nextSession = nextWorkspace?.sessions?.[0];
+      if (nextSession) await selectSession(nextSession, nextWorkspace);
+      else selectWorkspace(null);
+    }
+    setFeedback(`会话已删除：${title}（DSH 日志保留）`, 'ok');
+  } catch (error) {
+    setFeedback(`删除会话失败：${error.message}`, 'error');
+  }
+}
+
+async function deleteWorkspace(workspace) {
+  const title = workspace.title || workspace.path;
+  const sessionCount = workspace.sessions?.length || 0;
+  if (!window.confirm(
+    `删除工作区“${title}”？\n\n将归档其 ${sessionCount} 个会话，并删除目录：\n${workspace.path}\n\n目录内的 RCIF、源文件和输出会被永久删除，此操作不可恢复。`,
+  )) return;
+  try {
+    await api('/workspaces/delete', {
+      method: 'POST',
+      body: { workspaceId: workspace.workspaceId, deleteFiles: true },
+    });
+    if (workspace.workspaceId) {
+      state.collapsedWorkspaces.delete(workspace.workspaceId);
+      saveCollapsedWorkspaces();
+    }
+    await loadTree();
+    const nextWorkspace = state.tree[0];
+    const nextSession = nextWorkspace?.sessions?.[0];
+    if (nextSession) await selectSession(nextSession, nextWorkspace);
+    else selectWorkspace(null);
+    setFeedback(`工作区已删除：${title}`, 'ok');
+  } catch (error) {
+    setFeedback(`删除工作区失败：${error.message}`, 'error');
+  }
+}
+
 function renderTree() {
   const root = byId('treeRoot');
   if (!root) return;
@@ -2471,20 +2717,43 @@ function renderTree() {
     return;
   }
   for (const workspace of state.tree) {
+    const collapsed = state.collapsedWorkspaces.has(workspace.workspaceId);
     const box = document.createElement('div');
-    box.className = 'tree-workspace';
+    box.className = `tree-workspace${collapsed ? ' collapsed' : ''}`;
 
     const head = document.createElement('div');
     head.className = 'tree-workspace-head';
     head.title = workspace.path;
-    const icon = document.createElement('span');
-    icon.textContent = '▸';
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'tree-toggle';
+    toggle.textContent = collapsed ? '▸' : '▾';
+    toggle.title = collapsed
+      ? `展开工作区“${workspace.title || workspace.path}”`
+      : `收起工作区“${workspace.title || workspace.path}”`;
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.setAttribute('aria-label', `${collapsed ? '展开' : '收起'}工作区 ${workspace.title || workspace.path}`);
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setWorkspaceCollapsed(workspace.workspaceId, !collapsed);
+      renderTree();
+    });
     const title = document.createElement('span');
     title.textContent = workspace.title || workspace.path;
     const pathHint = document.createElement('span');
     pathHint.className = 'tree-path';
     pathHint.textContent = `${workspace.sessions?.length || 0} 个会话`;
-    head.append(icon, title, pathHint);
+    const workspaceDelete = document.createElement('button');
+    workspaceDelete.type = 'button';
+    workspaceDelete.className = 'tree-delete';
+    workspaceDelete.textContent = '×';
+    workspaceDelete.title = '删除工作区及其目录';
+    workspaceDelete.addEventListener('click', (event) => {
+      event.stopPropagation();
+      deleteWorkspace(workspace);
+    });
+    head.append(toggle, title, pathHint, workspaceDelete);
     head.addEventListener('click', () => {
       selectWorkspace(workspace);
     });
@@ -2503,8 +2772,9 @@ function renderTree() {
       item.title = session.sessionId;
       const name = document.createElement('span');
       const shortId = shortSessionId(session.sessionId);
-      name.textContent = session.title && session.title !== session.sessionId
-        ? session.title
+      const displayTitle = String(session.meta?.title || '').trim() || session.title;
+      name.textContent = displayTitle && displayTitle !== session.sessionId
+        ? displayTitle
         : `会话 ${shortId}`;
       if (session.hasPackage) {
         const badgeNode = document.createElement('span');
@@ -2517,7 +2787,16 @@ function renderTree() {
       idText.textContent = session.meta?.componentName
         ? `${session.meta.componentName} · ${shortId}`
         : `未设置构件名称 · ${shortId}`;
-      item.append(name, idText);
+      const sessionDelete = document.createElement('button');
+      sessionDelete.type = 'button';
+      sessionDelete.className = 'tree-delete tree-session-delete';
+      sessionDelete.textContent = '×';
+      sessionDelete.title = '删除会话';
+      sessionDelete.addEventListener('click', (event) => {
+        event.stopPropagation();
+        deleteSession(session, workspace);
+      });
+      item.append(name, idText, sessionDelete);
       item.addEventListener('click', (event) => {
         event.stopPropagation();
         selectSession(session, workspace);
@@ -2531,6 +2810,7 @@ function renderTree() {
 
 function selectWorkspace(workspace) {
   state.workspace = workspace || null;
+  expandWorkspace(workspace?.workspaceId);
   const hasCurrent = (workspace?.sessions || []).some((item) => item.sessionId === state.sessionId);
   if (!hasCurrent) {
     state.sessionId = null;
@@ -2582,6 +2862,7 @@ async function selectSession(session, workspace, options = {}) {
   state.autoBound = true;
   state.sessionId = session.sessionId;
   state.workspace = workspace || session.workspace || state.workspace;
+  expandWorkspace(state.workspace?.workspaceId);
   state.sessionInfo = session.meta || null;
   state.packagePath = null;
   state.meta = null;
@@ -2631,6 +2912,7 @@ async function createWorkspace() {
     );
     if (workspace) {
       state.workspace = workspace;
+      expandWorkspace(workspace.workspaceId);
       renderTree();
       await createSession(workspace);
     }
@@ -2833,6 +3115,14 @@ function bindEvents() {
     });
   }
 
+  byId('btnEditMetadata')?.addEventListener('click', () => openPackageEdit('identity'));
+  byId('btnEditParameters')?.addEventListener('click', () => openPackageEdit('parameters'));
+  byId('btnClosePackageEdit')?.addEventListener('click', closePackageEdit);
+  byId('btnCancelPackageEdit')?.addEventListener('click', closePackageEdit);
+  byId('btnSavePackageEdit')?.addEventListener('click', savePackageEdit);
+  byId('packageEditDialog')?.addEventListener('click', (event) => {
+    if (event.target === byId('packageEditDialog')) closePackageEdit();
+  });
   byId('btnReloadPackage')?.addEventListener('click', () => state.packagePath && loadPackage(state.packagePath));
   byId('btnRefreshSource')?.addEventListener('click', loadSource);
   byId('btnGenericRebuild')?.addEventListener('click', () => rebuildGenericDraft({ params: collectGenericParams() }));

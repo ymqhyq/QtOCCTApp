@@ -219,7 +219,7 @@ Copy-Item "$src\workbench" $dst -Recurse -Force
 | 验证 | 结果 |
 | :--- | :--- |
 | 宿主契约测试 | 19/19 PASS（路由/工具/鉴权/包解析/ingest/反馈/入库/工作区会话/上传/PDF 限制/发送） |
-| Python 契约测试 | 13/13 OK（跨语言向量、可复现归档、Ed25519、IFC 转换、FACETED_BREP STEP 回退、通用 PDF 草稿/重建、GATE-01 安全拒绝） |
+| Python 契约测试 | 23/23 OK（跨语言向量、可复现归档、Ed25519、IFC 转换、FACETED_BREP STEP 回退、通用 PDF 草稿/重建、GATE-01 安全拒绝、RFA/GRep 解析） |
 | rcif-web vitest | 39/39 PASS |
 | STEP 转换 | `梁.step` → `BoxGirderTest_1.0.0.rcif` 成功 |
 | IFC 转换 | `bridge.ifc` → 27 个命名部位、体积 3309.443 m³、bounds 95.75m |

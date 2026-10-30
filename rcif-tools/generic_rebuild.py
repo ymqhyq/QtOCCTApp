@@ -181,8 +181,8 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             raise ValueError("不是有效 .rcif：缺少 component.json")
         with open(component_path, encoding="utf-8") as handle:
             component = json.load(handle)
-        if component.get("qa", {}).get("extractionMode") != "generic_heuristic_draft":
-            raise ValueError("只允许重建 generic_heuristic_draft 通用草稿")
+        if component.get("qa", {}).get("extractionMode") not in ("generic_heuristic_draft", "rfa_partatom_heuristic"):
+            raise ValueError("只允许重建 generic_heuristic_draft 通用草稿或 rfa_partatom_heuristic 构件包")
         generator_path = os.path.join(work, "generators", "generator.py")
         if source_text:
             os.makedirs(os.path.dirname(generator_path), exist_ok=True)
@@ -229,7 +229,8 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             bounds["x"] = [min(bounds["x"][0], bb.xmin), max(bounds["x"][1], bb.xmax)]
             bounds["y"] = [min(bounds["y"][0], bb.ymin), max(bounds["y"][1], bb.ymax)]
             bounds["z"] = [min(bounds["z"][0], bb.zmin), max(bounds["z"][1], bb.zmax)]
-            volume = round(shape.Volume() / 1e9, 3)
+            raw_vol = shape.Volume() / 1e9
+            volume = round(raw_vol, 6) if raw_vol < 0.01 else round(raw_vol, 3)
             total_volume += volume
             previous = (component.get("shapes") or {}).get(key) or {}
             shape_meta[key] = {
@@ -241,7 +242,7 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
                 "node": previous.get("node") or key,
                 "volumeM3": volume,
             }
-            verts, tris = shape.tessellate(5.0, 0.35)
+            verts, tris = shape.tessellate(1.0, 0.08)
             glb_items.append({
                 "name": key,
                 "verts": [(v.x, v.y, v.z) for v in verts],
@@ -261,7 +262,8 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             raise RuntimeError("没有可导出的部件")
         write_glb_parts(glb_items, os.path.join(work, "display", "preview.glb"))
 
-        next_params["NetVolume"] = round(total_volume, 3)
+        vol_rounded = round(total_volume, 6) if total_volume < 0.01 else round(total_volume, 3)
+        next_params["NetVolume"] = vol_rounded
 
         next_revision = revision or component.get("identity", {}).get("revision") or "0.1.0"
         component.setdefault("identity", {})["revision"] = next_revision
@@ -275,7 +277,7 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             "defaultFile": "geometry/default.step",
             "display": "display/preview.glb",
             "bounds": bounds,
-            "volumeM3": round(total_volume, 3),
+            "volumeM3": vol_rounded,
             "defaultCacheKey": cache_key,
         })
         component["shapes"] = shape_meta
@@ -283,14 +285,16 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
         for item in component["parameters"].get("schema", []):
             if item.get("name") in next_params and item.get("access") != "out":
                 item["default"] = next_params[item["name"]]
+        existing_presets = component["parameters"].get("presets") or [{}]
         preset = {
-            **(component["parameters"].get("presets") or [{}])[0],
+            **existing_presets[0],
             "params": next_params,
             "isPrebaked": True,
-            "cacheKey": component["geometry"]["defaultCacheKey"],
+            "cacheKey": cache_key,
         }
-        component["parameters"]["presets"] = [preset]
-        component["parameters"]["presets"][0]["cacheKey"] = cache_key
+        component["parameters"]["presets"] = [preset] + [
+            {**item, "isPrebaked": False} for item in existing_presets[1:]
+        ]
         component.setdefault("recipe", {}).update({"digest": digest, "source": "generators/generator.py", "entry": "build_parts"})
         qa = component.setdefault("qa", {})
         qa.pop("packageSha256", None)
@@ -301,14 +305,14 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             "sourceChanged": bool(source_text),
             "note": note,
             "revision": next_revision,
-            "volumeM3": round(total_volume, 3),
+            "volumeM3": vol_rounded,
         }])[-20:]
         component.setdefault("changelog", []).append({
             "version": next_revision,
             "date": datetime.now(timezone.utc).date().isoformat(),
             "author": "RCIF-DSH-Studio",
             "type": "rebuild",
-            "changes": [f"通用草稿重建：{note}", f"体积 {round(total_volume, 3)} m³"],
+            "changes": [f"参数化重建：{note}", f"体积 {vol_rounded} m³"],
         })
         out_path = os.path.abspath(out_path or package_path)
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -317,7 +321,7 @@ def rebuild(package_path: str, out_path: str | None = None, params: dict | None 
             "packagePath": pkg,
             "packageSha256": pkg_sha,
             "revision": next_revision,
-            "volumeM3": round(total_volume, 3),
+            "volumeM3": vol_rounded,
             "bounds": bounds,
             "shapeCount": len(parts),
             "params": next_params,

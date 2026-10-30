@@ -753,6 +753,34 @@ body, html {
   font-size: 12px;
 }
 .tree-workspace-head:hover { background: var(--bg-hover); }
+.tree-workspace-head .tree-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: -2px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+.tree-workspace-head .tree-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.tree-workspace-head .tree-toggle:focus-visible {
+  outline: 1px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+.tree-workspace.collapsed .tree-sessions { display: none; }
+.tree-workspace.collapsed .tree-workspace-head { color: var(--text-secondary); }
 .tree-workspace-head .tree-path {
   margin-left: auto;
   color: var(--text-muted);
@@ -1385,3 +1413,29 @@ button:disabled, .primary-btn:disabled, .action-btn-small:disabled {
 .tree-head { align-items: center; flex-wrap: wrap; }
 .tree-head-actions { display: flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
 .tree-head-actions .tool-btn { white-space: nowrap; }
+
+.package-edit-card { width: min(760px, calc(100vw - 40px)); max-height: 88vh; overflow: auto; }
+.package-edit-card .session-form { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 6px 0 10px; }
+.package-edit-card textarea { min-height: 76px; }
+#packageParametersJson { min-height: 300px; font-family: var(--font-mono); font-size: 11px; }
+.package-edit-card > .field-label { display: block; }
+.package-edit-card > .wide-input { width: 100%; }
+
+.tree-delete {
+  margin-left: auto;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 18px;
+}
+.tree-delete:hover { background: rgba(248,81,73,.16); color: #f85149; }
+.tree-session { position: relative; padding-right: 24px; }
+.tree-session-delete { position: absolute; top: 4px; right: 4px; opacity: 0; }
+.tree-session:hover .tree-session-delete, .tree-session.active .tree-session-delete { opacity: 1; }

@@ -95,7 +95,7 @@
                     <input id="sessionSourceFile" type="text" list="sessionSourceOptions" placeholder="inputs/model.step" autocomplete="off" />
                     <datalist id="sessionSourceOptions"></datalist>
                     <button class="action-btn-small" id="btnPickFile" type="button">选择本地文件</button>
-                    <input id="sessionFilePicker" type="file" accept=".pdf,.step,.stp,.ifc" hidden />
+                    <input id="sessionFilePicker" type="file" accept=".pdf,.step,.stp,.ifc,.rfa" hidden />
                   </div>
                 </label>
                 <p class="form-hint" id="sourceHint">可从会话文件夹的 <code>inputs/</code> 下拉选择；选择外部文件时会先复制到 <code>inputs/</code>。文件类型由后缀自动识别。</p>
@@ -114,8 +114,8 @@
               </div>
               <div class="row-actions">
                 <button class="action-btn-small" id="btnSaveSession">保存会话信息</button>
-                <button class="primary-btn" id="btnSessionConvert">让智能助手转换</button>
                 <button class="action-btn-small" id="btnSessionDirect">直接转换</button>
+                <button class="primary-btn" id="btnSessionConvert">让智能助手转换</button>
                 <span id="sessionStatusText" class="feedback-text"></span>
               </div>
               <pre id="sessionLog" class="json-block" hidden></pre>
@@ -126,7 +126,10 @@
           <section id="view-metadata" class="subview">
             <div class="panel-head">
               <div><h2>元数据</h2><p class="panel-sub">RCIF 构件包内容概要：身份、几何、能力、文件与校验</p></div>
-              <button class="action-btn-small" id="btnReloadPackage">重新加载构件包</button>
+              <div class="panel-actions">
+                <button class="action-btn-small" id="btnEditMetadata" type="button" hidden>编辑元数据</button>
+                <button class="action-btn-small" id="btnReloadPackage">重新加载构件包</button>
+              </div>
             </div>
             <div id="metaEmpty" class="empty-state">
               <div class="empty-icon">◇</div>
@@ -145,6 +148,9 @@
                 <div><dt>包围盒</dt><dd id="metaBounds">-</dd></div>
                 <div><dt>参数 / 型号 / 部位</dt><dd id="metaCounts">-</dd></div>
                 <div><dt>语义编码</dt><dd id="metaSemantic">-</dd></div>
+                <div><dt>设计速度</dt><dd id="metaDesignSpeed">-</dd></div>
+                <div><dt>适用跨度</dt><dd id="metaApplicableSpan">-</dd></div>
+                <div><dt>描述</dt><dd id="metaDescription">-</dd></div>
                 <div><dt>构件包 SHA-256</dt><dd id="metaPackageSha" class="mono">-</dd></div>
                 <div><dt>包内文件数</dt><dd id="metaFileCount">-</dd></div>
                 <div><dt>checksums</dt><dd id="metaChecksum">-</dd></div>
@@ -278,7 +284,10 @@
           <section id="view-params" class="subview">
             <div class="panel-head">
               <div><h2>构件参数</h2><p class="panel-sub">参数 Schema 与型号预设；修改意见可在下方对话框发给智能助手</p></div>
-              <div class="preset-selector"><label>查看预设:</label><select id="paramPresetSelect"></select></div>
+              <div class="panel-actions">
+                <button class="action-btn-small" id="btnEditParameters" type="button" hidden>编辑参数/型号</button>
+                <div class="preset-selector"><label>查看预设:</label><select id="paramPresetSelect"></select></div>
+              </div>
             </div>
             <div class="panel-scroll">
               <div id="paramsEmpty" class="empty-state"><h3>当前会话尚未加载构件参数</h3></div>
@@ -436,6 +445,35 @@
             </div>
           </div>
         </footer>
+        <div id="packageEditDialog" class="annotation-dialog" hidden>
+          <div class="annotation-dialog-card package-edit-card">
+            <div class="annotation-dialog-head">
+              <strong id="packageEditTitle">编辑构件包</strong>
+              <button class="action-btn-small" id="btnClosePackageEdit" type="button">×</button>
+            </div>
+            <div id="packageIdentityFields" class="session-form">
+              <label>构件名称<input id="packageEditName" type="text" /></label>
+              <label>族 ID<input id="packageEditFamily" type="text" /></label>
+              <label>类别<input id="packageEditCategory" type="text" /></label>
+              <label>语义编码<input id="packageEditSemantic" type="text" /></label>
+              <label>图号<input id="packageEditDrawing" type="text" /></label>
+              <label>设计速度<input id="packageEditSpeed" type="text" /></label>
+              <label class="wide">适用跨度（每行一个）<textarea id="packageEditSpan" class="wide-textarea"></textarea></label>
+              <label class="wide">描述<textarea id="packageEditDescription" class="wide-textarea"></textarea></label>
+            </div>
+            <div id="packageParametersFields" hidden>
+              <p class="form-hint">编辑参数 schema 与型号预设。保存后会重新执行生成器、导出 STEP/GLB 并生成新版本。</p>
+              <textarea id="packageParametersJson" class="wide-textarea" spellcheck="false"></textarea>
+            </div>
+            <label class="field-label" for="packageEditNote">修改说明</label>
+            <input id="packageEditNote" class="wide-input" type="text" placeholder="例如：按审核意见修正适用跨度" />
+            <div class="row-actions">
+              <button class="primary-btn" id="btnSavePackageEdit" type="button">保存并生成新版本</button>
+              <button class="action-btn-small" id="btnCancelPackageEdit" type="button">取消</button>
+              <span id="packageEditStatus" class="feedback-text"></span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

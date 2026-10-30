@@ -141,12 +141,13 @@ def session_meta_file(workspace_path: str, session_id: str) -> str:
 
 
 def find_session_workspace(session_id: str):
-    for entry in os.scandir(ASSISTANT_ROOT):
-        if not entry.is_dir():
-            continue
-        candidate = session_meta_file(entry.path, session_id)
-        if os.path.isfile(candidate):
-            return entry.path, candidate
+    with os.scandir(ASSISTANT_ROOT) as entries:
+        for entry in entries:
+            if not entry.is_dir():
+                continue
+            candidate = session_meta_file(entry.path, session_id)
+            if os.path.isfile(candidate):
+                return entry.path, candidate
     return None, None
 
 
@@ -177,6 +178,19 @@ def write_session_meta(session_id: str, patch: dict):
     for key in ("inputFile", "componentName", "outputPath", "packagePath", "sourceKind", "revision"):
         if key in patch and isinstance(patch[key], str):
             data[key] = patch[key][:1000]
+    title = patch.get("title")
+    if isinstance(title, str) and title.strip():
+        data["title"] = title.strip()[:60]
+    else:
+        # 对话名称默认取源文件名（去扩展名），与工作台展示约定一致。
+        input_file = patch.get("inputFile")
+        stem = ""
+        if isinstance(input_file, str) and input_file.strip():
+            stem = os.path.splitext(os.path.basename(input_file.replace("\\", "/")))[0].strip()
+        if stem:
+            data["title"] = stem[:60]
+        elif isinstance(patch.get("componentName"), str) and patch["componentName"].strip():
+            data["title"] = patch["componentName"].strip()[:60]
     os.makedirs(os.path.dirname(candidate), exist_ok=True)
     temp = f"{candidate}.tmp"
     with open(temp, "w", encoding="utf-8") as handle:
@@ -188,38 +202,39 @@ def write_session_meta(session_id: str, patch: dict):
 @app.get("/rcif-studio/api/tree")
 async def tree():
     workspaces = []
-    for entry in os.scandir(ASSISTANT_ROOT):
-        if not entry.is_dir():
-            continue
-        sessions = []
-        sessions_dir = os.path.join(entry.path, ".rcif", "sessions")
-        if os.path.isdir(sessions_dir):
-            for name in os.listdir(sessions_dir):
-                if not name.endswith(".json"):
-                    continue
-                session_id = name[:-5]
-                try:
-                    with open(os.path.join(sessions_dir, name), encoding="utf-8") as handle:
-                        meta = json.load(handle)
-                except (OSError, ValueError):
-                    meta = {}
-                sessions.append({
-                    "sessionId": session_id,
-                    "title": meta.get("componentName") or session_id,
-                    "updatedAt": meta.get("updatedAt"),
-                    "running": False,
-                    "agentAvailable": False,
-                    "hasPackage": bool(meta.get("packagePath")),
-                    "meta": {"workspacePath": entry.path, **meta},
-                })
-        sessions.sort(key=lambda item: item.get("updatedAt") or "", reverse=True)
-        workspaces.append({
-            "workspaceId": entry.name,
-            "title": entry.name,
-            "path": entry.path,
-            "updatedAt": sessions[0]["updatedAt"] if sessions else None,
-            "sessions": sessions,
-        })
+    with os.scandir(ASSISTANT_ROOT) as entries:
+        for entry in entries:
+            if not entry.is_dir():
+                continue
+            sessions = []
+            sessions_dir = os.path.join(entry.path, ".rcif", "sessions")
+            if os.path.isdir(sessions_dir):
+                for name in os.listdir(sessions_dir):
+                    if not name.endswith(".json"):
+                        continue
+                    session_id = name[:-5]
+                    try:
+                        with open(os.path.join(sessions_dir, name), encoding="utf-8") as handle:
+                            meta = json.load(handle)
+                    except (OSError, ValueError):
+                        meta = {}
+                    sessions.append({
+                        "sessionId": session_id,
+                        "title": meta.get("componentName") or meta.get("title") or session_id,
+                        "updatedAt": meta.get("updatedAt"),
+                        "running": False,
+                        "agentAvailable": False,
+                        "hasPackage": bool(meta.get("packagePath")),
+                        "meta": {"workspacePath": entry.path, **meta},
+                    })
+            sessions.sort(key=lambda item: item.get("updatedAt") or "", reverse=True)
+            workspaces.append({
+                "workspaceId": entry.name,
+                "title": entry.name,
+                "path": entry.path,
+                "updatedAt": sessions[0]["updatedAt"] if sessions else None,
+                "sessions": sessions,
+            })
     workspaces.sort(key=lambda item: item.get("updatedAt") or "", reverse=True)
     return {"ok": True, "root": ASSISTANT_ROOT, "workspaces": workspaces, "defaultSessionId": "session-default"}
 
@@ -242,6 +257,98 @@ async def create_session(request: Request):
     raise HTTPException(status_code=501, detail="调试后端不能创建 DSH 会话；请使用 DSH 工作台")
 
 
+SAFE_SESSION_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+SAFE_WORKSPACE_ID = re.compile(r"^[^<>:\"/\\|?*\x00-\x1f]{1,120}$")
+
+
+def archive_session(session_id: str) -> dict:
+    """把会话从工作台列表移出：元数据归档，DSH 日志与构件包文件保留。"""
+    workspace_path, candidate = find_session_workspace(session_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="会话不属于助手工作区")
+    archive_dir = os.path.join(workspace_path, ".rcif", "archive", "sessions")
+    os.makedirs(archive_dir, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = os.path.join(archive_dir, f"{session_id}.{stamp}.json")
+    suffix = 1
+    while os.path.exists(dest):
+        suffix += 1
+        dest = os.path.join(archive_dir, f"{session_id}.{stamp}-{suffix}.json")
+    shutil.move(candidate, dest)
+    return {
+        "sessionId": session_id,
+        "workspaceId": os.path.basename(workspace_path),
+        "workspacePath": workspace_path,
+        "archivePath": dest,
+    }
+
+
+@app.post("/rcif-studio/api/sessions/delete")
+async def delete_session(request: Request):
+    body = await request.json()
+    session_id = str(body.get("sessionId") or "").strip()
+    if not SAFE_SESSION_ID.match(session_id):
+        raise HTTPException(status_code=422, detail="sessionId 非法")
+    archived = archive_session(session_id)
+    return {
+        "ok": True,
+        "deleted": True,
+        "archived": True,
+        "filesPreserved": True,
+        **archived,
+    }
+
+
+@app.post("/rcif-studio/api/workspaces/delete")
+async def delete_workspace(request: Request):
+    global CURRENT_PACKAGE
+    body = await request.json()
+    workspace_id = str(body.get("workspaceId") or "").strip()
+    if not SAFE_WORKSPACE_ID.match(workspace_id) or workspace_id in (".", ".."):
+        raise HTTPException(status_code=422, detail="workspaceId 非法")
+    root = os.path.realpath(ASSISTANT_ROOT)
+    target = os.path.realpath(os.path.join(root, workspace_id))
+    if os.path.dirname(target) != root:
+        raise HTTPException(status_code=403, detail="工作区路径越界")
+    if not os.path.isdir(target):
+        raise HTTPException(status_code=404, detail=f"工作区不存在: {workspace_id}")
+    session_ids = []
+    sessions_dir = os.path.join(target, ".rcif", "sessions")
+    if os.path.isdir(sessions_dir):
+        session_ids = sorted(name[:-5] for name in os.listdir(sessions_dir) if name.endswith(".json"))
+    delete_files = body.get("deleteFiles") is True
+    if delete_files:
+        # 与工作台确认框一致：目录整体删除，不可恢复。
+        shutil.rmtree(target)
+        workspace_path = target
+    else:
+        # 不删文件时整目录归档到平台根目录下（不在助手根目录内，避免再次出现在工作台树）。
+        archive_root = os.path.join(ROOT_DIR, ".rcif-archive", "workspaces")
+        os.makedirs(archive_root, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        workspace_path = os.path.join(archive_root, f"{workspace_id}.{stamp}")
+        suffix = 1
+        while os.path.exists(workspace_path):
+            suffix += 1
+            workspace_path = os.path.join(archive_root, f"{workspace_id}.{stamp}-{suffix}")
+        shutil.move(target, workspace_path)
+    if CURRENT_PACKAGE:
+        try:
+            inside_current = os.path.commonpath([target, os.path.realpath(CURRENT_PACKAGE)]) == target
+        except ValueError:
+            inside_current = False
+        if inside_current:
+            CURRENT_PACKAGE = None
+    return {
+        "ok": True,
+        "deleted": True,
+        "workspaceId": workspace_id,
+        "archivedSessionCount": len(session_ids),
+        "filesDeleted": delete_files,
+        "workspacePath": workspace_path,
+    }
+
+
 @app.get("/rcif-studio/api/session-files")
 async def session_files(sessionId: str):
     session_info = read_session_meta(sessionId)
@@ -251,7 +358,7 @@ async def session_files(sessionId: str):
     files = []
     if os.path.isdir(inputs_dir):
         for name in os.listdir(inputs_dir):
-            if not re.search(r"\.(pdf|step|stp|ifc)$", name, re.IGNORECASE):
+            if not re.search(r"\.(pdf|step|stp|ifc|rfa)$", name, re.IGNORECASE):
                 continue
             target = os.path.join(inputs_dir, name)
             if not os.path.isfile(target):
@@ -291,8 +398,8 @@ async def upload(request: Request, sessionId: str, name: str):
     if not session_info:
         raise HTTPException(status_code=404, detail="会话不属于助手工作区")
     safe_name = os.path.basename(name)
-    if not re.search(r"\.(pdf|step|stp|ifc)$", safe_name, re.IGNORECASE):
-        raise HTTPException(status_code=422, detail="只接受 .pdf/.step/.stp/.ifc 文件")
+    if not re.search(r"\.(pdf|step|stp|ifc|rfa)$", safe_name, re.IGNORECASE):
+        raise HTTPException(status_code=422, detail="只接受 .pdf/.step/.stp/.ifc/.rfa 文件")
     payload = await request.body()
     if not payload:
         raise HTTPException(status_code=422, detail="上传文件为空")
@@ -302,7 +409,8 @@ async def upload(request: Request, sessionId: str, name: str):
     with open(target, "wb") as handle:
         handle.write(payload)
     relative = os.path.relpath(target, session_info["workspacePath"])
-    kind = "pdf" if safe_name.lower().endswith(".pdf") else "ifc" if safe_name.lower().endswith(".ifc") else "step"
+    lower_name = safe_name.lower()
+    kind = "pdf" if lower_name.endswith(".pdf") else "ifc" if lower_name.endswith(".ifc") else "rfa" if lower_name.endswith(".rfa") else "step"
     meta = write_session_meta(sessionId, {"inputFile": relative, "sourceKind": kind})
     return {"ok": True, "path": relative, "bytes": len(payload), "sessionInfo": meta}
 
@@ -330,7 +438,7 @@ async def state(sessionId: str | None = None):
         "capabilities": {
             "agent": False,
             "compile": True,
-            "ingest": ["pdf", "step", "ifc"],
+            "ingest": ["pdf", "step", "ifc", "rfa"],
             "library": True,
             "approval": True,
             "sessionBinding": False,
@@ -445,6 +553,19 @@ async def package_source(path: str | None = None):
     return source
 
 
+@app.get("/rcif-studio/api/package/grep")
+async def package_grep(path: str | None = None):
+    target = path or CURRENT_PACKAGE
+    if not target:
+        return JSONResponse(status_code=404, content={"ok": False, "error": "尚未加载构件包"})
+    try:
+        pkg = resolve_package(target)
+        data = await run_in_threadpool(package_api.read_package_file, pkg, "source/grep.json")
+        return JSONResponse(status_code=200, content={"ok": True, "packagePath": pkg, "grep": json.loads(data.decode("utf-8"))})
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse(status_code=404, content={"ok": False, "error": f"构件包不含 source/grep.json: {exc}"})
+
+
 @app.post("/rcif-studio/api/ingest")
 async def ingest(request: Request):
     global CURRENT_PACKAGE
@@ -454,8 +575,8 @@ async def ingest(request: Request):
         return JSONResponse(status_code=400, content={"ok": False, "error": "Malformed JSON body"})
 
     kind = str(body.get("kind", "")).lower()
-    if kind not in ("pdf", "step", "ifc"):
-        return JSONResponse(status_code=422, content={"ok": False, "error": "kind 必须是 pdf/step/ifc"})
+    if kind not in ("pdf", "step", "ifc", "rfa"):
+        return JSONResponse(status_code=422, content={"ok": False, "error": "kind 必须是 pdf/step/ifc/rfa"})
     if kind == "pdf":
         return JSONResponse(
             status_code=403,
@@ -465,8 +586,16 @@ async def ingest(request: Request):
                 "error": "PDF 不支持直接转换：PDF 只能由智能助手生成规则推断草稿，请改用“让智能助手转换”",
             },
         )
+    session_id = str(body.get("sessionId") or "session-default")
+    session_segment = re.sub(r"[^A-Za-z0-9._-]", "_", session_id)[:80]
+    session_info = read_session_meta(session_id)
+    raw_source = str(body.get("sourcePath", ""))
+    if session_info and not os.path.isabs(raw_source):
+        candidate_in_ws = os.path.join(session_info["workspacePath"], raw_source)
+        if os.path.isfile(candidate_in_ws):
+            raw_source = candidate_in_ws
     try:
-        source_path = resolve_in_root(str(body.get("sourcePath", "")))
+        source_path = resolve_in_root(raw_source)
     except ValueError as exc:
         return JSONResponse(status_code=403, content={"ok": False, "error": str(exc)})
     if not os.path.isfile(source_path):
@@ -479,36 +608,35 @@ async def ingest(request: Request):
     if len(revision.split(".")) != 3:
         return JSONResponse(status_code=422, content={"ok": False, "error": "revision 需为 x.y.z"})
 
-    session_id = str(body.get("sessionId") or "session-default")
-    session_segment = re.sub(r"[^A-Za-z0-9._-]", "_", session_id)[:80]
-    session_info = read_session_meta(session_id)
     output_base = (session_info or {}).get("workspacePath") or os.path.join(ROOT_DIR, "rcif-tools", "out", "sessions", session_segment)
-    output = body.get("outputPath") or os.path.join(output_base, "out", f"{family_id}_{revision}.rcif")
+    raw_output = body.get("outputPath")
+    if raw_output and session_info and not os.path.isabs(str(raw_output)):
+        raw_output = os.path.join(session_info["workspacePath"], str(raw_output))
+    output = raw_output or os.path.join(output_base, "out", f"{family_id}_{revision}.rcif")
     try:
         output = resolve_in_root(str(output))
     except ValueError as exc:
         return JSONResponse(status_code=403, content={"ok": False, "error": str(exc)})
     os.makedirs(os.path.dirname(output), exist_ok=True)
+    component_name = str(body.get("componentName") or "").strip() or None
 
     def convert() -> str:
+        cmd = [sys.executable]
         if kind == "step":
-            import step2rcif
-
-            pkg, _ = step2rcif.convert_step_to_rcif(
-                input_step_path=source_path,
-                output_dir=output,
-                family_id=family_id,
-                revision=revision,
-            )
+            cmd += [os.path.join(HERE, "step2rcif.py"), source_path, output, "--family-id", family_id, "--revision", revision]
         elif kind == "ifc":
-            import ifc2rcif
-
-            pkg, _ = ifc2rcif.convert_ifc_to_rcif(source_path, output, family_id, revision)
+            cmd += [os.path.join(HERE, "ifc2rcif.py"), source_path, output, "--family-id", family_id, "--revision", revision]
+        elif kind == "rfa":
+            cmd += [os.path.join(HERE, "rfa2rcif.py"), source_path, output, "--family-id", family_id, "--revision", revision]
+            if component_name:
+                cmd += ["--name", component_name]
         else:
-            import pdf2rcif
+            cmd += [os.path.join(HERE, "pdf2rcif.py"), source_path, output, "--family-id", family_id, "--revision", revision]
 
-            pkg, _ = pdf2rcif.convert_pdf_to_rcif(source_path, output, family_id, revision)
-        return pkg
+        proc = subprocess.run(cmd, cwd=ROOT_DIR, capture_output=True, text=True, encoding="utf-8")
+        if proc.returncode != 0:
+            raise RuntimeError(f"转换子进程异常退出 ({proc.returncode}):\n{proc.stderr or proc.stdout}")
+        return output
 
     try:
         pkg = await run_in_threadpool(convert)
@@ -516,12 +644,15 @@ async def ingest(request: Request):
         return {"ok": False, "error": f"转换失败: {exc}", "log": str(exc)}
 
     CURRENT_PACKAGE = os.path.realpath(pkg)
+    display_name = component_name or family_id
+    source_stem = os.path.splitext(os.path.basename(source_path))[0]
     if session_info:
         try:
             workspace_path = session_info["workspacePath"]
             write_session_meta(session_id, {
                 "inputFile": os.path.relpath(source_path, workspace_path),
-                "componentName": family_id,
+                "componentName": display_name,
+                "title": source_stem,
                 "outputPath": os.path.relpath(CURRENT_PACKAGE, workspace_path),
                 "packagePath": CURRENT_PACKAGE,
                 "sourceKind": kind,

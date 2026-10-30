@@ -115,7 +115,7 @@
 
 ```text
 宿主契约：19/19 PASS
-Python 契约：13/13 OK
+Python 契约：23/23 OK
 rcif-web vitest：39/39 PASS（前次验证）
 新增安全测试：恶意 import os 生成器被 GATE-01 拒绝
 新增哈希测试：包 SHA 与 metadata.packageSha256 一致
