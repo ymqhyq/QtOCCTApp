@@ -191,10 +191,10 @@ identity、sourceMode、schema、presets、shapes、cacheKey；首次导入会�
 
 ```powershell
 # 1) DSH 原生（推荐：Agent 反馈 + 签名包 + 入库）
-启动DSH助手.bat
+启动助手.bat
 # 打开 http://127.0.0.1:3090/rcif-studio/workbench/
 
-# 2) 无 DSH 的调试后端（转换/查看/入库清单，无 Agent 反馈）
+# 2) 旧调试后端（仅离线：转换/查看；正式功能以 3090 为准）
 启动工作台.bat
 # 打开 http://127.0.0.1:3088/
 
@@ -203,13 +203,13 @@ start-rcif.bat
 # 打开 http://127.0.0.1:5178/
 ```
 
-同步插件到 profile（若不使用插件管理器）：
+同步插件到 profile：
 
 ```powershell
-$src = 'D:\QtOCCTApp\dsh-rcif'
-$dst = "$env:USERPROFILE\.dsh\profiles\rcif-studio\node_modules\@rcif\dsh-studio-plugin"
-Copy-Item "$src\dist" $dst -Recurse -Force
-Copy-Item "$src\workbench" $dst -Recurse -Force
+# 打包 + 备份 + 安装 + 哈希校验
+.\scripts\sync_rcif_plugin.ps1
+# 只校验当前 profile 副本是否与仓库一致
+.\scripts\sync_rcif_plugin.ps1 -Check
 ```
 
 ---

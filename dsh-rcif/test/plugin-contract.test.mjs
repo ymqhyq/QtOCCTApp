@@ -250,9 +250,12 @@ function jsonPost(url, body, token) {
 test('registers the real DSH route kinds and all browser endpoints', () => {
   const exact = routes.filter((route) => route.kind === 'exact').map((route) => route.path).sort();
   assert.deepEqual(exact, [
+    '/rcif-studio',
+    '/rcif-studio/',
     '/rcif-studio/api/annotation-history',
     '/rcif-studio/api/approve-control-grid',
     '/rcif-studio/api/assistant',
+    '/rcif-studio/api/assistant/launch',
     '/rcif-studio/api/command',
     '/rcif-studio/api/compile-package',
     '/rcif-studio/api/feedback',
@@ -263,6 +266,7 @@ test('registers the real DSH route kinds and all browser endpoints', () => {
     '/rcif-studio/api/library/ingest',
     '/rcif-studio/api/package',
     '/rcif-studio/api/package/edit',
+    '/rcif-studio/api/package/grep',
     '/rcif-studio/api/package/patch',
     '/rcif-studio/api/package/preview.glb',
     '/rcif-studio/api/package/source',
@@ -283,8 +287,29 @@ test('registers the real DSH route kinds and all browser endpoints', () => {
   assert.ok(!routes.some((route) => route.path === '/rcif-studio/api/compile-package' && route.kind !== 'exact'));
 });
 
-test('registers seven tools with the DSH output contract', () => {
-  assert.deepEqual(
+test('hosted assistant launch and studio root match the 3088 client contract', async () => {
+  const launch = await jsonPost('/rcif-studio/api/assistant/launch', {});
+  assert.equal(launch.status, 200);
+  const body = await launch.json();
+  assert.equal(body.running, true);
+  assert.equal(body.launched, false);
+
+  const redirect = await fetch(`${baseUrl}/rcif-studio`, { redirect: 'manual' });
+  assert.equal(redirect.status, 302);
+  assert.equal(redirect.headers.get('location'), '/rcif-studio/workbench/');
+});
+
+test('package grep evidence endpoint answers like the 3088 backend', async () => {
+  const response = await fetch(`${baseUrl}/rcif-studio/api/package/grep?path=sample.rcif`);
+  assert.ok([200, 404].includes(response.status));
+  if (response.status === 200) {
+    const body = await response.json();
+    assert.equal(body.ok, true);
+    assert.ok(body.grep);
+  }
+});
+
+test('registers seven tools with the DSH output contract', () => {  assert.deepEqual(
     ctx.tools.registered.map((tool) => tool.name).sort(),
     [
       'rcif_compile_package',

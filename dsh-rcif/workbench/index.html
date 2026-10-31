@@ -47,6 +47,11 @@
       </aside>
 
       <div class="wb-main">
+        <div id="approvalBanner" class="approval-banner" hidden>
+          <span class="approval-banner-dot" aria-hidden="true"></span>
+          <span id="approvalBannerText">智能助手正在等待审批</span>
+          <button class="action-btn-small" id="btnApprovalJump" type="button">前往审批</button>
+        </div>
         <nav class="wb-tabs" aria-label="功能区">
           <button class="wb-tab active" data-view="view-session">当前会话</button>
           <button class="wb-tab" data-view="view-metadata">元数据</button>

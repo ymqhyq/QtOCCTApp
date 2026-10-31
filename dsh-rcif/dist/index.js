@@ -291,6 +291,8 @@ class RcifStudioPlugin {
     this.defaultSessionId = String(this.config.defaultSessionId || 'session-default');
     /** sessionId -> { packagePath, updatedAt, title? } */
     this.sessionPackages = new Map();
+    /** sessionId -> 正在等待用户审批的请求（供工作台提示） */
+    this.pendingApprovals = new Map();
     this.feedbackHistory = [];
     this.libraryUrl = String(
       this.config.libraryUrl || process.env.RCIF_LIBRARY_URL || 'http://127.0.0.1:5178',
@@ -313,6 +315,7 @@ class RcifStudioPlugin {
 
     this.registerRoutes();
     this.registerTools();
+    this.registerApprovalObserver();
 
     this.cleanupTimer = setInterval(() => this.pruneNonces(), 60000);
     if (typeof this.cleanupTimer.unref === 'function') this.cleanupTimer.unref();
@@ -333,6 +336,7 @@ class RcifStudioPlugin {
     }
     this.children.clear();
     this.usedNonces.clear();
+    this.pendingApprovals.clear();
   }
 
   // ---------------------------------------------------------------- runtime
@@ -627,6 +631,8 @@ class RcifStudioPlugin {
     };
 
     route('prefix', WORKBENCH_PREFIX, (req, res) => this.handle(req, res, () => this.serveWorkbench(req, res)), 'static workbench');
+    route('exact', '/rcif-studio', (req, res) => this.handle(req, res, () => this.handleStudioRoot(req, res)), 'studio root redirect');
+    route('exact', '/rcif-studio/', (req, res) => this.handle(req, res, () => this.handleStudioRoot(req, res)), 'studio root redirect');
     route('exact', `${API_PREFIX}/health`, (req, res) => this.handle(req, res, () => this.handleHealth(req, res)), 'health');
     route('exact', `${API_PREFIX}/init-token`, (req, res) => this.handle(req, res, () => this.handleInitToken(req, res)), 'handshake');
     route('exact', `${API_PREFIX}/preview.glb`, (req, res) => this.handle(req, res, () => this.handlePreviewGlb(req, res)), 'preview mesh');
@@ -643,11 +649,13 @@ class RcifStudioPlugin {
     )), 'session catalog/create');
     route('exact', `${API_PREFIX}/sessions/delete`, (req, res) => this.handle(req, res, () => this.handleDeleteSession(req, res)), 'delete session');
     route('exact', `${API_PREFIX}/assistant`, (req, res) => this.handle(req, res, () => this.handleAssistant(req, res)), 'assistant jump target');
+    route('exact', `${API_PREFIX}/assistant/launch`, (req, res) => this.handle(req, res, () => this.handleAssistantLaunch(req, res)), 'assistant launch (hosted)');
     route('exact', `${API_PREFIX}/package`, (req, res) => this.handle(req, res, () => this.handlePackage(req, res)), 'package metadata');
     route('exact', `${API_PREFIX}/package/edit`, (req, res) => this.handle(req, res, () => this.handlePackageEditView(req, res)), 'package edit view');
     route('exact', `${API_PREFIX}/package/patch`, (req, res) => this.handle(req, res, () => this.handlePackagePatch(req, res)), 'package edit');
     route('exact', `${API_PREFIX}/package/preview.glb`, (req, res) => this.handle(req, res, () => this.handlePackagePreview(req, res)), 'package glb');
     route('exact', `${API_PREFIX}/package/source`, (req, res) => this.handle(req, res, () => this.handlePackageSource(req, res)), 'package source');
+    route('exact', `${API_PREFIX}/package/grep`, (req, res) => this.handle(req, res, () => this.handlePackageGrep(req, res)), 'package grep evidence');
     route('exact', `${API_PREFIX}/ingest`, (req, res) => this.handle(req, res, () => this.handleIngest(req, res)), 'ingest conversion');
     route('exact', `${API_PREFIX}/command`, (req, res) => this.handle(req, res, () => this.handleCommand(req, res)), 'agent command');
     route('exact', `${API_PREFIX}/feedback`, (req, res) => this.handle(req, res, () => this.handleFeedback(req, res)), 'agent feedback');
@@ -883,6 +891,25 @@ class RcifStudioPlugin {
       sessionId: this.defaultSessionId,
       deepLinkSupported: false,
     });
+  }
+
+  async handleAssistantLaunch(req, res) {
+    if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+    if (!this.guard(req, res, { requireToken: false })) return;
+    sendJson(res, 200, {
+      ok: true,
+      running: true,
+      launched: false,
+      url: this.serverOrigin() || '',
+      message: '当前工作台即运行在 DSH 宿主内，无需额外启动助手。',
+    });
+  }
+
+  async handleStudioRoot(req, res) {
+    if (!['GET', 'HEAD'].includes(req.method)) return sendMethodNotAllowed(res, 'GET, HEAD');
+    res.statusCode = 302;
+    res.setHeader('Location', `${WORKBENCH_PREFIX}/`);
+    res.end();
   }
 
   workspaceRegistry() {
@@ -1544,6 +1571,8 @@ class RcifStudioPlugin {
         ? { workspaceId: workspace.id, title: workspace.title || path.basename(workspace.path), path: workspace.path }
         : null,
       sessionInfo,
+      pendingApproval: this.pendingApprovals.get(sessionId) || null,
+      pendingApprovals: Array.from(this.pendingApprovals.values()).slice(0, 5),
       libraryUrl: this.libraryUrl,
       defaultFamilyDir: this.defaultFamilyDir,
       feedback: this.feedbackHistory.filter((item) => item.sessionId === sessionId).slice(-10),
@@ -1628,6 +1657,24 @@ class RcifStudioPlugin {
       throw new HttpError(422, `构建脚本读取失败: ${error.message}`, 'SOURCE_INVALID');
     }
     sendJson(res, 200, { ...source, packagePath: abs, sessionId });
+  }
+
+  async handlePackageGrep(req, res) {
+    if (req.method !== 'GET') return sendMethodNotAllowed(res, 'GET');
+    if (!this.guard(req, res, { requireToken: false })) return;
+    const url = new URL(req.url || '/', 'http://localhost');
+    const sessionId = this.normalizeSessionId(url.searchParams.get('sessionId'));
+    const raw = url.searchParams.get('path') || this.sessionPackagePath(sessionId);
+    if (!raw) throw new HttpError(404, '工作台尚未加载任何构件包', 'NO_CURRENT_PACKAGE');
+    const abs = this.resolveInsideWorkspace(raw, { mustExist: true, expect: 'file' });
+    let grep;
+    try {
+      const { data } = readPackageFile(abs, 'source/grep.json');
+      grep = JSON.parse(Buffer.from(data).toString('utf8'));
+    } catch (error) {
+      throw new HttpError(404, `构件包不含 source/grep.json: ${error.message}`, 'GREP_NOT_FOUND');
+    }
+    sendJson(res, 200, { ok: true, packagePath: abs, sessionId, grep });
   }
 
   async handleIngest(req, res) {
@@ -2631,6 +2678,48 @@ class RcifStudioPlugin {
         };
       },
     });
+  }
+
+  /**
+   * 观察 approval/request 瀑布：先于审批 UI 收到请求，记录待审批状态并
+   * 把决定委托给后续 answerer；请求结束后清除，供工作台轮询提示。
+   */
+  registerApprovalObserver() {
+    try {
+      if (!this.ctx || typeof this.ctx.on !== 'function') return;
+      this.approvalDispose = this.ctx.effect(() => {
+        const dispose = this.ctx.on(
+          'approval/request',
+          (request, next) => this.observeApproval(request, next),
+          { prepend: true, global: true },
+        );
+        return () => {
+          if (typeof dispose === 'function') dispose();
+        };
+      }, 'rcif: approval observer');
+    } catch (error) {
+      this.log('warn', `approval observer unavailable: ${error.message}`);
+    }
+  }
+
+  async observeApproval(request, next) {
+    const session = request?.agent?.session;
+    const sessionId = session?.id || session?.sessionId;
+    if (sessionId) {
+      this.pendingApprovals.set(sessionId, {
+        sessionId,
+        toolName: request?.toolName ? String(request.toolName) : '',
+        callId: request?.callId ? String(request.callId) : '',
+        reason: request?.reason ? String(request.reason).slice(0, 500) : '',
+        startedAt: new Date().toISOString(),
+      });
+    }
+    try {
+      if (typeof next !== 'function') return 'unavailable';
+      return await next();
+    } finally {
+      if (sessionId) this.pendingApprovals.delete(sessionId);
+    }
   }
 
   pruneNonces() {

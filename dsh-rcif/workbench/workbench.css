@@ -814,6 +814,38 @@ body, html {
 .tree-empty { padding: 14px 8px; color: var(--text-muted); font-size: 11px; line-height: 1.7; }
 
 .wb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.approval-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(180, 83, 9, .16);
+  border-bottom: 1px solid rgba(245, 158, 11, .45);
+  color: #fbbf24;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.approval-banner[hidden] { display: none; }
+.approval-banner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 0 0 rgba(245, 158, 11, .6);
+  animation: approval-pulse 1.6s ease-out infinite;
+}
+@keyframes approval-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, .55); }
+  70% { box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+}
+.approval-banner #approvalBannerText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .wb-tabs {
   display: flex;
   gap: 2px;

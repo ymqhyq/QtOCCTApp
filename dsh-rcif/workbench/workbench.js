@@ -83,6 +83,7 @@ const state = {
   assistantRoot: '',
   sessionDirty: false,
   collapsedWorkspaces: new Set(),
+  pendingApproval: null,
 };
 
 const COLLAPSED_WORKSPACES_KEY = 'rcif:collapsed-workspaces';
@@ -2810,6 +2811,7 @@ function renderTree() {
 
 function selectWorkspace(workspace) {
   state.workspace = workspace || null;
+  renderApprovalBanner(null);
   expandWorkspace(workspace?.workspaceId);
   const hasCurrent = (workspace?.sessions || []).some((item) => item.sessionId === state.sessionId);
   if (!hasCurrent) {
@@ -2860,6 +2862,7 @@ async function selectSession(session, workspace, options = {}) {
   if (!session?.sessionId) return;
   const { notify = true } = options;
   state.autoBound = true;
+  renderApprovalBanner(null);
   state.sessionId = session.sessionId;
   state.workspace = workspace || session.workspace || state.workspace;
   expandWorkspace(state.workspace?.workspaceId);
@@ -3026,6 +3029,42 @@ async function connectSession(rawSessionId) {
   }
 }
 
+function renderApprovalBanner(info) {
+  const banner = byId('approvalBanner');
+  if (!banner) return;
+  state.pendingApproval = info || null;
+  if (!info) {
+    banner.hidden = true;
+    return;
+  }
+  const detail = [info.toolName, info.reason].filter(Boolean).join(' · ');
+  const text = byId('approvalBannerText');
+  if (text) {
+    text.textContent = detail
+      ? `智能助手正在等待审批：${detail}`
+      : '智能助手正在等待审批';
+  }
+  banner.hidden = false;
+}
+
+function jumpToApproval() {
+  const sessionId = state.pendingApproval?.sessionId || state.sessionId;
+  if (!sessionId) return;
+  notifyAssistantSession(sessionId);
+  // 工作台嵌在 DSH 右侧栏时，切换会话即可看到审批；独立标签页则另开助手页
+  if (window.self !== window.top) {
+    try {
+      window.parent.postMessage({ type: 'rcif:focus-approval', sessionId }, window.location.origin);
+    } catch {
+      /* 跨源时忽略 */
+    }
+    return;
+  }
+  const base = state.assistantUrl
+    || (window.location.port === '3090' ? `${window.location.origin}/` : 'http://127.0.0.1:3090/');
+  window.open(base, '_blank', 'noopener');
+}
+
 async function refreshState() {
   if (!state.sessionId) {
     renderSessionPage();
@@ -3050,6 +3089,9 @@ async function refreshState() {
       };
     }
     if (data.sessionInfo) state.sessionInfo = data.sessionInfo;
+    const pending = data.pendingApproval
+      || (Array.isArray(data.pendingApprovals) ? data.pendingApprovals[0] : null);
+    renderApprovalBanner(pending);
     if (!state.sessionDirty) populateSessionForm();
     renderSessionPage();
     if (data.packagePath && data.packagePath !== state.packagePath) {
@@ -3101,6 +3143,7 @@ function bindEvents() {
   byId('btnSessionConvert')?.addEventListener('click', () => startSessionConvert('agent'));
   byId('btnSessionDirect')?.addEventListener('click', () => startSessionConvert('direct'));
   byId('btnOpenAssistant')?.addEventListener('click', openAssistant);
+  byId('btnApprovalJump')?.addEventListener('click', jumpToApproval);
   byId('btnCopySession')?.addEventListener('click', copySessionId);
 
   for (const id of ['sessionSourceFile', 'sessionComponentName', 'sessionFamilyId', 'sessionRevision', 'sessionOutputPath']) {
