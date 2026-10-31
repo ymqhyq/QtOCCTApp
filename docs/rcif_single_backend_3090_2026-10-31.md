@@ -48,4 +48,8 @@ GET  /rcif-studio
 GET  /rcif-studio/
 GET  /rcif-studio/api/package/grep
 POST /rcif-studio/api/assistant/launch
+POST /rcif-studio/api/preview        # 按型号参数重建预览 GLB（不生成新包）
 ```
+
+`/api/preview` 调用 `rcif-tools/preview_preset.py`，在子进程中按预设参数执行生成器并直接返回 GLB；
+工作台切换型号时会自动请求它并替换 3D 模型，同一型号按 `包路径 + 型号` 缓存，避免重复计算。

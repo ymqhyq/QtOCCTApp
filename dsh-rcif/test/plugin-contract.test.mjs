@@ -179,6 +179,18 @@ const fakeRunner = async (_python, args, options) => {
     fs.copyFileSync(path.join(WORKSPACE, 'sample.rcif'), out);
     return { code: 0, stdout: `[OK] 生成成功: ${out}\n`, stderr: '', timedOut: false };
   }
+  if (script === 'preview_preset.py') {
+    const outIndex = args.indexOf('--out');
+    const out = args[outIndex + 1];
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, Buffer.from('glTF-preview-stub'));
+    return {
+      code: 0,
+      stdout: JSON.stringify({ ok: true, shapeCount: 2, volumeM3: 1.25 }),
+      stderr: '',
+      timedOut: false,
+    };
+  }
   return { code: 0, stdout: '{}', stderr: '', timedOut: false };
 };
 
@@ -270,6 +282,7 @@ test('registers the real DSH route kinds and all browser endpoints', () => {
     '/rcif-studio/api/package/patch',
     '/rcif-studio/api/package/preview.glb',
     '/rcif-studio/api/package/source',
+    '/rcif-studio/api/preview',
     '/rcif-studio/api/preview.glb',
     '/rcif-studio/api/run-sandbox',
     '/rcif-studio/api/session-files',
@@ -559,6 +572,26 @@ test('package inspection exposes RCIF metadata, preview and source', async () =>
   assert.equal(response.status, 403);
 });
 
+test('preset preview rebuilds a GLB through preview_preset.py', async () => {
+  const { capToken } = await initToken('session-test');
+  const response = await fetch(`${baseUrl}/rcif-studio/api/preview`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-rcif-cap-token': capToken },
+    body: JSON.stringify({
+      sessionId: 'session-test',
+      packagePath: path.join(WORKSPACE, 'sample.rcif'),
+      params: { Height: 5000 },
+    }),
+  });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'model/gltf-binary');
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert.equal(bytes.toString('utf8'), 'glTF-preview-stub');
+  const call = processCalls.find((item) => item.script === 'preview_preset.py');
+  assert.ok(call);
+  assert.ok(call.args.includes('--params'));
+});
+
 test('PDF direct conversion is rejected; assistant tool remains the only PDF path', async () => {
   const { capToken } = await initToken('session-a');
   const response = await jsonPost(
@@ -676,6 +709,7 @@ test('feedback and commands are delivered through sessionController when present
       text: '垫石下移',
       annotations: [{ file: 'generators/generator.py', lines: [40, 43], comment: '垫石下移 50mm' }],
       screenshotDataUrl: png,
+      screenshotMeta: [{ id: 's1test', problem: '此处缺倒角' }],
     },
     capToken,
   );
@@ -683,9 +717,23 @@ test('feedback and commands are delivered through sessionController when present
   data = await response.json();
   assert.equal(data.delivered, true);
   assert.equal(data.annotationCount, 1);
+  assert.ok(data.screenshotPath.includes('shot-s1test'));
   assert.equal(sessionPrompts.length, 2);
   assert.match(sessionPrompts[1].request.content[0].text, /垫石下移 50mm/);
+  assert.match(sessionPrompts[1].request.content[0].text, /此处缺倒角/);
   assert.ok(sessionPrompts[1].request.content[0].text.includes(data.screenshotPath));
+
+  response = await jsonPost(
+    '/rcif-studio/api/feedback',
+    { sessionId: 'session-a', kind: 'message', text: '任务', prompt: '## 自定义提示词\n任务正文' },
+    capToken,
+  );
+  assert.equal(response.status, 200);
+  data = await response.json();
+  assert.equal(data.delivered, true);
+  const customPrompt = sessionPrompts[sessionPrompts.length - 1].request.content[0].text;
+  assert.match(customPrompt, /自定义提示词/);
+  assert.ok(!customPrompt.includes('【RCIF 工作台反馈'));
 });
 
 test('workspace/session tree, creation and session metadata round-trip', async () => {

@@ -636,6 +636,7 @@ class RcifStudioPlugin {
     route('exact', `${API_PREFIX}/health`, (req, res) => this.handle(req, res, () => this.handleHealth(req, res)), 'health');
     route('exact', `${API_PREFIX}/init-token`, (req, res) => this.handle(req, res, () => this.handleInitToken(req, res)), 'handshake');
     route('exact', `${API_PREFIX}/preview.glb`, (req, res) => this.handle(req, res, () => this.handlePreviewGlb(req, res)), 'preview mesh');
+    route('exact', `${API_PREFIX}/preview`, (req, res) => this.handle(req, res, () => this.handlePresetPreview(req, res)), 'preset preview glb');
     route('exact', `${API_PREFIX}/state`, (req, res) => this.handle(req, res, () => this.handleState(req, res)), 'workbench state');
     route('exact', `${API_PREFIX}/tree`, (req, res) => this.handle(req, res, () => this.handleTree(req, res)), 'workspace/session tree');
     route('exact', `${API_PREFIX}/workspaces`, (req, res) => this.handle(req, res, () => this.handleCreateWorkspace(req, res)), 'create workspace');
@@ -1833,6 +1834,7 @@ class RcifStudioPlugin {
       throw new HttpError(422, `不支持的反馈类型: ${kind}`, 'INVALID_FEEDBACK_KIND');
     }
     const text = String(body.text || '').trim().slice(0, 4000);
+    const customPrompt = String(body.prompt || '').trim().slice(0, 20000);
     const annotations = (Array.isArray(body.annotations) ? body.annotations : [])
       .slice(0, 10)
       .map((annotation) => ({
@@ -1841,7 +1843,7 @@ class RcifStudioPlugin {
         comment: String(annotation?.comment || '').slice(0, 500).replace(/[<>&]/g, ''),
       }))
       .filter((annotation) => annotation.comment);
-    if (!text && !annotations.length && !body.screenshotDataUrl) {
+    if (!text && !annotations.length && !body.screenshotDataUrl && !customPrompt) {
       throw new HttpError(422, '反馈内容为空', 'EMPTY_FEEDBACK');
     }
 
@@ -1850,24 +1852,31 @@ class RcifStudioPlugin {
       : [body.screenshotDataUrl])
       .filter(Boolean)
       .slice(0, 5);
+    const screenshotMetas = Array.isArray(body.screenshotMeta) ? body.screenshotMeta : [];
     const screenshotPaths = screenshotDataUrls
-      .map((dataUrl) => this.saveScreenshot(dataUrl))
+      .map((dataUrl, index) => this.saveScreenshot(dataUrl, screenshotMetas[index]))
       .filter(Boolean);
     const screenshotPath = screenshotPaths[0] || null;
     const packagePath = body.packagePath
       ? this.resolveInsideWorkspace(String(body.packagePath), { mustExist: true, expect: 'file' })
       : this.sessionPackagePath(sessionId);
 
-    const promptText = [
-      `【RCIF 工作台反馈 · ${kind}】`,
-      packagePath ? `当前构件包：${packagePath}` : '当前工作台尚未加载构件包',
-      text ? `用户意见：${text}` : '',
-      annotations.length ? `代码批注：\n<user_code_annotation_data>\n${JSON.stringify(annotations, null, 2)}\n</user_code_annotation_data>` : '',
-      screenshotPaths.length
-        ? `3D 截图（${screenshotPaths.length} 张，可用 read_image 查看）：\n${screenshotPaths.map((item, index) => `${index + 1}. ${item}`).join('\n')}`
-        : '',
-      '请据此修改参数或 generators/generator.py，重新生成 .rcif；完成后工作台会自动刷新。',
-    ].filter(Boolean).join('\n');
+    const screenshotNote = screenshotPaths.length
+      ? `3D 截图（${screenshotPaths.length} 张，可用 read_image 查看）：\n${screenshotPaths.map((item, index) => {
+        const problem = String(screenshotMetas[index]?.problem || '').trim();
+        return `${index + 1}. 截图 ${index + 1}${problem ? `（${problem}）` : ''} — ${item}`;
+      }).join('\n')}`
+      : '';
+    const promptText = customPrompt
+      ? [customPrompt, screenshotNote].filter(Boolean).join('\n\n')
+      : [
+        `【RCIF 工作台反馈 · ${kind}】`,
+        packagePath ? `当前构件包：${packagePath}` : '当前工作台尚未加载构件包',
+        text ? `用户意见：${text}` : '',
+        annotations.length ? `代码批注：\n<user_code_annotation_data>\n${JSON.stringify(annotations, null, 2)}\n</user_code_annotation_data>` : '',
+        screenshotNote,
+        '请据此修改参数或 generators/generator.py，重新生成 .rcif；完成后工作台会自动刷新。',
+      ].filter(Boolean).join('\n');
 
     const delivery = await this.deliverPrompt(sessionId, promptText);
     const record = {
@@ -1978,7 +1987,7 @@ class RcifStudioPlugin {
     }
   }
 
-  saveScreenshot(dataUrl) {
+  saveScreenshot(dataUrl, meta) {
     if (!dataUrl) return null;
     const match = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=\s]+)$/.exec(String(dataUrl));
     if (!match) throw new HttpError(422, '截图必须是 PNG/JPEG data URL', 'INVALID_SCREENSHOT');
@@ -1988,7 +1997,11 @@ class RcifStudioPlugin {
     }
     const dir = path.join(this.workspaceRoot, 'rcif-tools', 'out', 'feedback');
     fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `shot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${match[1] === 'jpeg' ? 'jpg' : 'png'}`);
+    const safeId = String(meta?.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+    const name = safeId
+      ? `shot-${safeId}`
+      : `shot-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const file = path.join(dir, `${name}.${match[1] === 'jpeg' ? 'jpg' : 'png'}`);
     fs.writeFileSync(file, data);
     return file;
   }
@@ -2135,6 +2148,60 @@ class RcifStudioPlugin {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.end(data);
+  }
+
+  async handlePresetPreview(req, res) {
+    if (req.method !== 'POST') return sendMethodNotAllowed(res, 'POST');
+    const body = await readJsonBody(req);
+    const sessionId = this.normalizeSessionId(body.sessionId);
+    if (!this.guard(req, res, { sessionId })) return;
+    const raw = body.packagePath || this.sessionPackagePath(sessionId);
+    if (!raw) throw new HttpError(404, '工作台尚未加载构件包', 'NO_CURRENT_PACKAGE');
+    const abs = this.resolveInsideWorkspace(String(raw), { mustExist: true, expect: 'file' });
+    const params = body.params && typeof body.params === 'object' && !Array.isArray(body.params)
+      ? body.params
+      : {};
+    const serialized = JSON.stringify(params);
+    if (serialized.length > 64 * 1024) {
+      throw new HttpError(413, '型号参数过大', 'PREVIEW_PARAMS_TOO_LARGE');
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rcif-preview-'));
+    const out = path.join(dir, 'preview.glb');
+    try {
+      const result = await this.runProcess(
+        this.pythonPath,
+        [path.join(this.toolsDir, 'preview_preset.py'), abs, '--params', serialized, '--out', out],
+        {
+          cwd: this.toolsDir,
+          timeoutMs: 120000,
+          onSpawn: (child) => {
+            this.children.add(child);
+            child.once('close', () => this.children.delete(child));
+          },
+        },
+      );
+      const stdout = String(result.stdout || '').trim();
+      let info = null;
+      try {
+        info = JSON.parse(stdout.split(/\r?\n/).pop() || 'null');
+      } catch {
+        info = null;
+      }
+      if (result.code !== 0 || !fs.existsSync(out)) {
+        const reason = info?.error || String(result.stderr || stdout || '型号预览重建失败').trim();
+        throw new HttpError(422, reason.slice(0, 4000), 'PREVIEW_REBUILD_FAILED');
+      }
+      const data = await fs.promises.readFile(out);
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'model/gltf-binary');
+      res.setHeader('Content-Length', String(data.length));
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-RCIF-Preview-Meta', Buffer.from(JSON.stringify(info || {}), 'utf8').toString('base64'));
+      res.end(data);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
 
   async handleRunSandbox(req, res) {

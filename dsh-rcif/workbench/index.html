@@ -24,7 +24,6 @@
         <span id="packageRevision" class="badge">-</span>
       </div>
       <div class="header-status">
-        <button class="tool-btn" id="btnToggleTree" type="button" title="收起/展开左侧工作区与会话">☰</button>
         <button class="tool-btn" id="btnFullscreen" type="button" title="工作台全屏">全屏</button>
         <button class="primary-btn" id="btnOpenAssistant" type="button">打开智能助手</button>
         <span id="sessionStatus" class="status-pill disconnected">未连接</span>
@@ -36,12 +35,12 @@
         <div class="tree-head">
           <div class="tree-title">
             <strong>工作区与会话</strong>
-            <span id="assistantRootLabel" class="tree-root">-</span>
           </div>
           <div class="tree-head-actions">
-            <button class="tool-btn" id="btnNewWorkspace" type="button">＋ 工作区</button>
-            <button class="tool-btn" id="btnNewSession" type="button">新会话</button>
+            <button class="tool-btn tree-icon-btn" id="btnToggleTree" type="button" title="收起/展开工作区与会话" aria-label="收起/展开工作区与会话">☰</button>
+            <button class="tool-btn tree-icon-btn" id="btnNewWorkspace" type="button" title="新建工作区" aria-label="新建工作区">＋</button>
           </div>
+          <span id="assistantRootLabel" class="tree-root">-</span>
         </div>
         <div id="treeRoot" class="tree-scroll"></div>
       </aside>
@@ -437,16 +436,72 @@
             <div class="chat-context" id="chatContext">尚未绑定会话</div>
           </div>
           <div class="chat-row">
-            <textarea id="feedbackInput" placeholder="描述修改意见，例如：台身加宽 200mm、垫石下移 50mm、把前墙收坡改为 1:4……"></textarea>
+            <textarea id="feedbackInput" placeholder="输入本次任务，例如：台身加宽 200mm、垫石下移 50mm……"></textarea>
             <div class="chat-actions">
               <button class="primary-btn" id="btnSendFeedback">发送给助手</button>
+              <button class="action-btn-small" id="btnPrompt" type="button" title="编辑并复制任务提示词">提示词</button>
             </div>
           </div>
           <div class="chat-foot"><span id="feedbackStatus" class="feedback-text"></span></div>
+          <div id="promptEditorModal" class="prompt-modal" hidden>
+            <div class="prompt-modal-card prompt-editor-card">
+              <div class="prompt-modal-head">
+                <span>提示词编辑</span>
+                <div class="prompt-head-actions">
+                  <button class="action-btn-small" id="btnRegeneratePrompt" type="button">按当前上下文重新生成</button>
+                  <button class="action-btn-small" id="btnClosePromptEditor" type="button">关闭</button>
+                </div>
+              </div>
+              <div id="promptNav" class="prompt-nav"></div>
+              <div class="prompt-toolbar">
+                <button class="md-btn" data-md="bold" type="button" title="粗体">B</button>
+                <button class="md-btn" data-md="italic" type="button" title="斜体"><em>I</em></button>
+                <button class="md-btn" data-md="h2" type="button" title="二级标题">H2</button>
+                <button class="md-btn" data-md="ul" type="button" title="无序列表">• 列表</button>
+                <button class="md-btn" data-md="code" type="button" title="代码块">```</button>
+                <button class="md-btn" data-md="inline" type="button" title="行内代码">`x`</button>
+                <select id="promptTemplateSelect" title="插入需求模板">
+                  <option value="">插入需求模板…</option>
+                  <option value="param">参数调整</option>
+                  <option value="geometry">几何/构造修改</option>
+                  <option value="fix">修复问题</option>
+                  <option value="add">新增部位</option>
+                  <option value="review">检查/验收</option>
+                </select>
+                <select id="promptConstraintSelect" title="插入约束与验收">
+                  <option value="">插入约束…</option>
+                  <option value="interface">保持 build_parts 接口</option>
+                  <option value="parametric">尺寸参数化</option>
+                  <option value="rebuild">重建 .rcif 与 preview.glb</option>
+                  <option value="verify">运行 verify_sandbox</option>
+                  <option value="acceptance">包围盒/体积验收</option>
+                  <option value="summary">输出改动摘要</option>
+                </select>
+                <button class="md-btn" id="btnTogglePromptPreview" type="button">预览</button>
+              </div>
+              <div class="prompt-editor-body">
+                <textarea id="promptEditorText" spellcheck="false"></textarea>
+                <div id="promptPreviewPane" class="prompt-preview" hidden></div>
+              </div>
+              <div class="prompt-modal-actions">
+                <span id="promptEditorStatus" class="feedback-text"></span>
+                <button class="primary-btn" id="btnCopyPromptFromEditor" type="button">复制提示词</button>
+              </div>
+            </div>
+          </div>
           <div id="screenshotModal" class="image-modal" hidden>
-            <div class="image-modal-card">
+            <div class="image-modal-card screenshot-modal-card">
               <img id="screenshotModalImg" alt="3D 截图大图" />
-              <button class="action-btn-small" id="btnCloseScreenshotModal">关闭</button>
+              <canvas id="screenshotMarkCanvas" hidden></canvas>
+              <input id="screenshotInlineInput" class="screenshot-inline-input" maxlength="80" placeholder="输入问题描述" hidden />
+              <div class="screenshot-modal-actions">
+                <button class="action-btn-small" id="btnCopyScreenshot" type="button">复制</button>
+                <button class="action-btn-small" id="btnDownloadScreenshot" type="button">下载</button>
+                <button class="action-btn-small" id="btnMarkScreenshot" type="button">标记</button>
+                <button class="action-btn-small" id="btnSaveScreenshotMark" type="button" hidden>保存标记</button>
+                <button class="action-btn-small" id="btnCancelScreenshotMark" type="button" hidden>取消标记</button>
+                <button class="action-btn-small" id="btnCloseScreenshotModal" type="button">关闭</button>
+              </div>
             </div>
           </div>
         </footer>

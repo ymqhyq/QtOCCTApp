@@ -40,7 +40,7 @@ _SANDBOX_ACTIVE = False
 _SAFE_IMPORTS = {
     "__future__", "cadquery", "cq", "math", "typing", "collections",
     "dataclasses", "enum", "glb_writer", "build123d", "numpy", "np", "json",
-    "ocp_vscode",
+    "ocp_vscode", "OCP",
 }
 _SAFE_BUILTIN_NAMES = {
     "abs", "all", "any", "bool", "dict", "enumerate", "float", "int",
