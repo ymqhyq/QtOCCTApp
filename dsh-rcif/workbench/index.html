@@ -24,6 +24,7 @@
         <span id="packageRevision" class="badge">-</span>
       </div>
       <div class="header-status">
+        <button class="tool-btn" id="btnToggleTree" type="button" title="收起/展开工作区与会话">☰</button>
         <button class="tool-btn" id="btnFullscreen" type="button" title="工作台全屏">全屏</button>
         <button class="primary-btn" id="btnOpenAssistant" type="button">打开智能助手</button>
         <span id="sessionStatus" class="status-pill disconnected">未连接</span>
@@ -37,7 +38,6 @@
             <strong>工作区与会话</strong>
           </div>
           <div class="tree-head-actions">
-            <button class="tool-btn tree-icon-btn" id="btnToggleTree" type="button" title="收起/展开工作区与会话" aria-label="收起/展开工作区与会话">☰</button>
             <button class="tool-btn tree-icon-btn" id="btnNewWorkspace" type="button" title="新建工作区" aria-label="新建工作区">＋</button>
           </div>
           <span id="assistantRootLabel" class="tree-root">-</span>
@@ -265,11 +265,12 @@
                     <div class="measure-distance"><span id="measureDistance">0</span> <small>mm</small></div>
                     <div class="measure-row"><span>水平投影</span><span><b id="measureHorizontal">0</b> mm</span></div>
                     <div class="measure-row"><span>高差 ΔZ</span><span><b id="measureDeltaZ">0</b> mm</span></div>
+                    <div class="measure-row"><span>捕捉</span><span id="measureSnapType">-</span></div>
                   </div>
                   <div class="viewport-empty" id="viewportEmpty"><span>当前会话尚未加载 preview.glb</span></div>
+                  <div class="viewport-tip">左键旋转 · 滚轮缩放 · 右键平移 · 点击部位联动命名部位与代码</div>
                 </div>
                 <div class="viewport-footer">
-                  <span class="tip-text">左键旋转 · 滚轮缩放 · 右键平移 · 点击部位联动命名部位与代码</span>
                   <span id="geometryStatus" class="badge">待加载</span>
                 </div>
               </div>

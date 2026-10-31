@@ -64,6 +64,8 @@ const state = {
   measurePoints: [],
   measureObjects: [],
   measureResult: null,
+  measureHover: null,
+  measureRubber: null,
   faceHighlights: [],
   previewRequestId: 0,
   viewerPartsOpen: false,
@@ -470,6 +472,12 @@ function init3D() {
     setText('hudPoint', `P(${Math.round(hit.point.x)}, ${Math.round(hit.point.y)}, ${Math.round(hit.point.z)})`);
   });
 
+  canvas.addEventListener('pointermove', (event) => {
+    if (!state.measureMode) return;
+    updateMeasureHover(event);
+  });
+  canvas.addEventListener('pointerleave', () => hideMeasureHover());
+
   window.addEventListener('resize', onWindowResize);
 window.addEventListener('beforeunload', stashSessionAssets);
   setCameraView('iso');
@@ -723,32 +731,76 @@ function setClipRatio(value) {
   applyClipping();
 }
 
+function resetMeasureHintText() {
+  const hint = byId('measureHint');
+  if (hint) hint.textContent = '点击模型拾取 A 点（自动捕捉顶点/边中点/面中心），再次点击拾取 B 点；连续点击可测 2-3、3-4…，按 Esc 退出';
+}
+
 function clearMeasure() {
   state.measurePoints = [];
   state.measureResult = null;
   for (const object of state.measureObjects) {
     object.parent?.remove(object);
     object.geometry?.dispose();
+    object.material?.map?.dispose?.();
     object.material?.dispose();
   }
   state.measureObjects = [];
+  hideMeasureHover();
   setHidden('measureResult', true);
   setHidden('measureHint', Boolean(!state.measureMode));
+  setText('measureSnapType', '-');
+  resetMeasureHintText();
   const holder = byId('measureResult');
   if (holder) holder.hidden = true;
 }
 
-function snapPoint(hit) {
+function snapPoint(hit, event) {
   const mesh = hit.object;
   const position = mesh?.geometry?.attributes?.position;
   const face = hit.face;
-  if (!position || !face) return hit.point.clone();
-  const candidates = [face.a, face.b, face.c]
-    .filter((index) => Number.isInteger(index))
-    .map((index) => new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld));
-  if (!candidates.length) return hit.point.clone();
-  candidates.sort((a, b) => a.distanceToSquared(hit.point) - b.distanceToSquared(hit.point));
-  return candidates[0];
+  const fallback = { point: hit.point.clone(), type: '自由点' };
+  const indices = [face?.a, face?.b, face?.c].filter((index) => Number.isInteger(index));
+  if (!position || indices.length < 3) return fallback;
+
+  const world = indices.map((index) => (
+    new THREE.Vector3().fromBufferAttribute(position, index).applyMatrix4(mesh.matrixWorld)
+  ));
+  const candidates = world.map((point) => ({ point, type: '顶点', priority: 0 }));
+  for (let i = 0; i < 3; i += 1) {
+    const a = world[i];
+    const b = world[(i + 1) % 3];
+    candidates.push({
+      point: a.clone().add(b).multiplyScalar(0.5),
+      type: '边中点',
+      priority: 1,
+    });
+  }
+  candidates.push({
+    point: world[0].clone().add(world[1]).add(world[2]).multiplyScalar(1 / 3),
+    type: '面中心',
+    priority: 2,
+  });
+
+  if (!event || !state.camera || !state.renderer) return fallback;
+  const rect = state.renderer.domElement.getBoundingClientRect();
+  let best = null;
+  for (const candidate of candidates) {
+    const projected = candidate.point.clone().project(state.camera);
+    if (projected.z < -1 || projected.z > 1) continue;
+    const x = rect.left + (projected.x * 0.5 + 0.5) * rect.width;
+    const y = rect.top + (-projected.y * 0.5 + 0.5) * rect.height;
+    const distance = Math.hypot(event.clientX - x, event.clientY - y);
+    if (distance > 12) continue;
+    if (
+      !best
+      || distance < best.distance - 0.5
+      || (Math.abs(distance - best.distance) <= 0.5 && candidate.priority < best.priority)
+    ) {
+      best = { ...candidate, distance };
+    }
+  }
+  return best ? { point: best.point, type: best.type } : fallback;
 }
 
 function addMeasureMarker(point, color = 0x38bdf8) {
@@ -763,17 +815,139 @@ function addMeasureMarker(point, color = 0x38bdf8) {
   state.measureObjects.push(marker);
 }
 
+function measurePointerPoint(event) {
+  const hits = raycastAt(event);
+  if (hits.length) return snapPoint(hits[0], event);
+  const last = state.measurePoints[state.measurePoints.length - 1];
+  const canvas = byId('cadCanvas');
+  if (!last || !canvas || !state.camera) return null;
+  const rect = canvas.getBoundingClientRect();
+  const pointer = new THREE.Vector2(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1,
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(pointer, state.camera);
+  const normal = state.camera.getWorldDirection(new THREE.Vector3()).negate();
+  const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, last);
+  const point = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(plane, point) ? { point, type: '自由点' } : null;
+}
+
+function ensureMeasureHover() {
+  if (!state.measureHover && state.scene) {
+    const radius = Math.max((state.modelRadius || 1000) * 0.006, 12);
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(radius, 12, 12),
+      new THREE.MeshBasicMaterial({ color: 0x22d3ee, depthTest: false, transparent: true, opacity: 0.95 }),
+    );
+    marker.renderOrder = 11;
+    marker.visible = false;
+    state.scene.add(marker);
+    state.measureHover = marker;
+  }
+  if (!state.measureRubber && state.scene) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    const line = new THREE.Line(
+      geometry,
+      new THREE.LineBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.65, depthTest: false }),
+    );
+    line.frustumCulled = false;
+    line.visible = false;
+    state.scene.add(line);
+    state.measureRubber = line;
+  }
+}
+
+function hideMeasureHover() {
+  if (state.measureHover) state.measureHover.visible = false;
+  if (state.measureRubber) state.measureRubber.visible = false;
+}
+
+function updateMeasureHover(event) {
+  if (!state.measureMode || !state.scene) return;
+  ensureMeasureHover();
+  const info = measurePointerPoint(event);
+  if (!info) {
+    hideMeasureHover();
+    return;
+  }
+  const hover = state.measureHover;
+  if (hover) {
+    hover.position.copy(info.point);
+    hover.material.color.setHex(info.type === '自由点' ? 0x94a3b8 : 0x22d3ee);
+    hover.visible = true;
+  }
+  const rubber = state.measureRubber;
+  const last = state.measurePoints[state.measurePoints.length - 1];
+  if (rubber && last) {
+    const positions = rubber.geometry.attributes.position;
+    positions.setXYZ(0, last.x, last.y, last.z);
+    positions.setXYZ(1, info.point.x, info.point.y, info.point.z);
+    positions.needsUpdate = true;
+    rubber.geometry.computeBoundingSphere();
+    rubber.visible = true;
+  } else if (rubber) {
+    rubber.visible = false;
+  }
+}
+
+function addMeasureLabel(midpoint, distance, segment) {
+  if (!state.scene) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = 'rgba(13, 20, 32, .86)';
+  ctx.strokeStyle = 'rgba(56, 189, 248, .8)';
+  ctx.lineWidth = 2;
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(4, 4, 248, 56, 12);
+    ctx.fill();
+    ctx.stroke();
+  } else {
+    ctx.fillRect(4, 4, 248, 56);
+    ctx.strokeRect(4, 4, 248, 56);
+  }
+  ctx.fillStyle = '#dff6ff';
+  ctx.font = 'bold 26px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${segment}-${segment + 1}  ${Math.round(distance).toLocaleString()} mm`, 128, 34);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture,
+    depthTest: false,
+    transparent: true,
+  }));
+  const labelWidth = Math.max((state.modelRadius || 1000) * 0.35, 400);
+  sprite.scale.set(labelWidth, labelWidth * 0.25, 1);
+  const offset = Math.max((state.modelRadius || 1000) * 0.02, 20);
+  sprite.position.copy(midpoint).add(new THREE.Vector3(0, 0, offset));
+  sprite.renderOrder = 12;
+  state.scene.add(sprite);
+  state.measureObjects.push(sprite);
+}
+
 function handleMeasureClick(event) {
   const hits = raycastAt(event);
   if (!hits.length) return;
-  const point = snapPoint(hits[0]);
+  const snapped = snapPoint(hits[0], event);
+  const point = snapped.point;
+  setText('measureSnapType', snapped.type);
   if (!state.measurePoints.length) {
     state.measurePoints = [point];
     addMeasureMarker(point);
     setHidden('measureHint', false);
+    resetMeasureHintText();
     return;
   }
-  const first = state.measurePoints[0];
+  // 连续测距：每两次点击形成一段，下一段从上一段的终点开始（1-2、2-3、3-4…）
+  const first = state.measurePoints[state.measurePoints.length - 1];
   const second = point;
   state.measurePoints.push(second);
   addMeasureMarker(second, 0xf59e0b);
@@ -792,7 +966,13 @@ function handleMeasureClick(event) {
   setText('measureHorizontal', state.measureResult.horizontal.toFixed(1));
   setText('measureDeltaZ', state.measureResult.deltaZ.toFixed(1));
   setHidden('measureResult', false);
-  setHidden('measureHint', true);
+  const segment = state.measurePoints.length - 1;
+  addMeasureLabel(first.clone().add(second).multiplyScalar(0.5), distance, segment);
+  const hint = byId('measureHint');
+  if (hint) {
+    hint.textContent = `已测 ${segment} 段；继续点击拾取第 ${state.measurePoints.length + 1} 个点（${segment}-${segment + 1}）`;
+    hint.hidden = false;
+  }
 }
 
 function toggleMeasure() {
@@ -805,6 +985,7 @@ function toggleMeasure() {
     setHidden('measureHint', false);
   } else {
     setHidden('measureHint', true);
+    hideMeasureHover();
   }
 }
 
@@ -844,6 +1025,9 @@ function setGeometryStatus(text, kind = 'pending') {
   if (!node) return;
   node.textContent = text;
   node.dataset.kind = kind;
+  node.hidden = !text;
+  const footer = node.closest('.viewport-footer');
+  if (footer) footer.hidden = !text;
 }
 
 function partMetadata(name) {
@@ -887,7 +1071,7 @@ function applyPreviewGltf(gltf, requestId, label) {
     count += 1;
   });
   setHidden('viewportEmpty', true);
-  setGeometryStatus(`${label} · ${count} 个部位`, 'ok');
+  setGeometryStatus(label ? `${label} · ${count} 个部位` : '', 'ok');
   buildEdges();
   renderViewerParts();
   applyRenderMode(state.renderMode);
@@ -922,7 +1106,7 @@ async function loadPreviewMesh() {
   state.previewPreset = null;
   loader.load(
     url,
-    (gltf) => applyPreviewGltf(gltf, requestId, '真实 GLB'),
+    (gltf) => applyPreviewGltf(gltf, requestId, ''),
     undefined,
     (error) => {
       if (requestId !== state.previewRequestId) return;
@@ -1642,7 +1826,7 @@ function updatePresetPreviewNotice() {
       setGeometryStatus(`3D 为默认型号 ${first.modelNumber} 预览；切换型号会自动重构`, 'warn');
     }
   } else {
-    setGeometryStatus(`真实 GLB · ${Object.keys(state.meshParts).length} 个部位`, 'ok');
+    setGeometryStatus('', 'ok');
   }
 }
 
@@ -2780,7 +2964,10 @@ function applyTreeCollapse() {
   const button = byId('btnToggleTree');
   if (button) {
     button.textContent = state.treeCollapsed ? '⟩' : '☰';
-    button.title = state.treeCollapsed ? '展开工作区与会话' : '收起工作区与会话';
+    const label = state.treeCollapsed ? '展开工作区与会话' : '收起工作区与会话';
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-expanded', state.treeCollapsed ? 'false' : 'true');
   }
   writeUiFlag('rcif:tree-collapsed', state.treeCollapsed);
   requestAnimationFrame(positionAnnotationButton);
@@ -4384,8 +4571,15 @@ function bindEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       closeViewMenus();
-      if (!byId('screenshotModal')?.hidden) closeScreenshotModal();
-      else setHidden('screenshotModal', true);
+      if (!byId('screenshotModal')?.hidden) {
+        closeScreenshotModal();
+        return;
+      }
+      if (state.measureMode) {
+        toggleMeasure();
+        return;
+      }
+      setHidden('screenshotModal', true);
     }
   });
   byId('btnScreenshot')?.addEventListener('click', () => captureScreenshot());
